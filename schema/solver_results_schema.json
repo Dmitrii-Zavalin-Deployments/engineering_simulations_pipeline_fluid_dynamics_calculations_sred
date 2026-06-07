@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Final Solver Output Schema",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "manifest"
+  ],
+  "properties": {
+    "manifest": {
+      "type": "object",
+      "required": [
+        "output_directory",
+        "saved_snapshots"
+      ],
+      "properties": {
+        "output_directory": {
+          "type": "string"
+        },
+        "saved_snapshots": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
