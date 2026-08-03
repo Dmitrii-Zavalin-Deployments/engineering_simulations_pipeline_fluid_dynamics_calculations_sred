@@ -11,7 +11,7 @@ def orchestrate_step2(state: SolverState) -> SolverState:
     Orchestrates the construction of the Stencil Matrix.
     """
     if DEBUG:
-        print(f"DEBUG [Step 2.0]: Orchestration Started")
+        print("DEBUG [Step 2.0]: Orchestration Started")
 
     # The registry is now encapsulated within the assembler, 
     # ensuring a clean lifecycle for every simulation run.
@@ -20,6 +20,6 @@ def orchestrate_step2(state: SolverState) -> SolverState:
     state.ready_for_time_loop = True
     
     if DEBUG:
-        print(f"DEBUG [Step 2.0]: Orchestration Finalized.")
+        print("DEBUG [Step 2.0]: Orchestration Finalized.")
     
     return state

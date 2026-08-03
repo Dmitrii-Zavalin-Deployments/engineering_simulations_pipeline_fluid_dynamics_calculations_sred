@@ -97,9 +97,8 @@ def test_laplacian_topology_crash_logger(caplog):
     block = make_step3_output_dummy()
     object.__setattr__(block, '_center', None) # Break the stencil
     
-    with caplog.at_level(logging.CRITICAL):
-        with pytest.raises(AttributeError):
-            compute_local_laplacian(block, FI.P)
+    with caplog.at_level(logging.CRITICAL), pytest.raises(AttributeError):
+        compute_local_laplacian(block, FI.P)
             
     assert "TOPOLOGY CRASH" in caplog.text
 
@@ -108,9 +107,8 @@ def test_laplacian_geometry_crash_logger(caplog):
     block = make_step3_output_dummy()
     object.__setattr__(block, '_dz', 0.0)
     
-    with caplog.at_level(logging.CRITICAL):
-        with pytest.raises(ZeroDivisionError):
-            compute_local_laplacian(block, FI.P)
+    with caplog.at_level(logging.CRITICAL), pytest.raises(ZeroDivisionError):
+        compute_local_laplacian(block, FI.P)
             
     assert "GEOMETRY CRASH" in caplog.text
 
@@ -131,8 +129,7 @@ def test_laplacian_vector_failure_logger(caplog):
     block = make_step3_output_dummy()
     object.__setattr__(block, '_center', None) # Force AttributeError
     
-    with caplog.at_level(logging.ERROR):
-        with pytest.raises(AttributeError):
-            compute_local_laplacian_v_n(block)
+    with caplog.at_level(logging.ERROR), pytest.raises(AttributeError):
+        compute_local_laplacian_v_n(block)
             
     assert "OPS [Failure]" in caplog.text

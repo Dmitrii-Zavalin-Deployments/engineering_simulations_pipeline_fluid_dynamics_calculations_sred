@@ -35,7 +35,7 @@ def test_no_lazy_defaults_in_src():
                     violations.append(f"{file_path}:\n{result.stdout}")
 
     assert not violations, (
-        f"🚨 DETERMINISTIC BREACH: Lazy defaults detected via .get()!\n"
-        f"Direct access is mandated to ensure explicit error reporting.\n"
+        "🚨 DETERMINISTIC BREACH: Lazy defaults detected via .get()!\n"
+        "Direct access is mandated to ensure explicit error reporting.\n"
         + "".join(violations)
     )

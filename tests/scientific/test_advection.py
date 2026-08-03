@@ -95,9 +95,8 @@ def test_advection_topology_crash_logger(caplog):
     """Verify Rule 7: Missing neighbors trigger CRITICAL logs."""
     block = make_step3_output_dummy()
     object.__setattr__(block, '_i_plus', None)
-    with caplog.at_level(logging.CRITICAL):
-        with pytest.raises(AttributeError):
-            compute_local_advection(block, FI.P)
+    with caplog.at_level(logging.CRITICAL), pytest.raises(AttributeError):
+        compute_local_advection(block, FI.P)
     assert "TOPOLOGY CRASH" in caplog.text
 
 def test_advection_vector_failure_logger(caplog):
@@ -112,8 +111,7 @@ def test_advection_vector_failure_logger(caplog):
     # 2. Force a failure inside the block
     object.__setattr__(block, '_center', None) 
     
-    with caplog.at_level(logging.ERROR):
-        with pytest.raises(AttributeError):
-            compute_local_advection_vector(block)
+    with caplog.at_level(logging.ERROR), pytest.raises(AttributeError):
+        compute_local_advection_vector(block)
             
     assert "OPS [Failure]" in caplog.text

@@ -15,8 +15,21 @@ class StencilBlock(ValidatedContainer):
     """
 
     __slots__ = [
-        '_center', '_i_minus', '_i_plus', '_j_minus', '_j_plus', '_k_minus', '_k_plus',
-        '_dx', '_dy', '_dz', '_dt', '_rho', '_mu', '_f_vals', '_id'
+        '_center',
+        '_dt',
+        '_dx',
+        '_dy',
+        '_dz',
+        '_f_vals',
+        '_i_minus',
+        '_i_plus',
+        '_id',
+        '_j_minus',
+        '_j_plus',
+        '_k_minus',
+        '_k_plus',
+        '_mu',
+        '_rho'
     ]
 
     def __init__(self, center: Cell, i_minus: Cell, i_plus: Cell, 

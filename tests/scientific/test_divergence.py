@@ -76,9 +76,8 @@ def test_divergence_topology_crash_logger(caplog):
     block = make_step3_output_dummy()
     object.__setattr__(block, '_i_minus', None) # Break the stencil
     
-    with caplog.at_level(logging.CRITICAL):
-        with pytest.raises(AttributeError):
-            compute_local_divergence_v_star(block)
+    with caplog.at_level(logging.CRITICAL), pytest.raises(AttributeError):
+        compute_local_divergence_v_star(block)
             
     assert "TOPOLOGY CRASH" in caplog.text
 
@@ -87,9 +86,8 @@ def test_divergence_geometry_crash_logger(caplog):
     block = setup_divergent_stencil(lambda i,j,k: i, lambda i,j,k: j, lambda i,j,k: k)
     object.__setattr__(block, '_dx', 0.0) # Break the physics
     
-    with caplog.at_level(logging.CRITICAL):
-        with pytest.raises(ZeroDivisionError):
-            compute_local_divergence_v_star(block)
+    with caplog.at_level(logging.CRITICAL), pytest.raises(ZeroDivisionError):
+        compute_local_divergence_v_star(block)
             
     assert "GEOMETRY CRASH" in caplog.text
 

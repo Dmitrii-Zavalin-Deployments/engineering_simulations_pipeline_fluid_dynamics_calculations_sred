@@ -74,5 +74,5 @@ def save_snapshot(state) -> None:
         logger.info(f"ARCHIVIST [Success]: Snapshot {state.iteration} saved to {filename}")
 
     except Exception as e:
-        logger.error(f"ARCHIVIST [Critical Failure]: Could not write {filename} | Error: {str(e)}")
+        logger.error(f"ARCHIVIST [Critical Failure]: Could not write {filename} | Error: {e!s}")
         raise

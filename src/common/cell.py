@@ -14,7 +14,7 @@ class Cell(ValidatedContainer):
     The Cell acts as a pointer-view into the shared Foundation buffer.
     """
     # Optimized slots: primitive integers only to satisfy memory constraints
-    __slots__ = ['index', 'fields_buffer', 'is_ghost', 'nx_buf', 'ny_buf']
+    __slots__ = ['fields_buffer', 'index', 'is_ghost', 'nx_buf', 'ny_buf']
 
     def __init__(self, index: int, fields_buffer: np.ndarray, nx_buf: int, ny_buf: int, is_ghost: bool = False):
         # Explicit initialization to bypass __dict__ creation

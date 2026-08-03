@@ -10,7 +10,7 @@ from src.common.base_container import ValidatedContainer
 
 @dataclass
 class PhysicalConstraintsInput(ValidatedContainer):
-    __slots__ = ['_min_velocity', '_max_velocity', '_min_pressure', '_max_pressure']
+    __slots__ = ['_max_pressure', '_max_velocity', '_min_pressure', '_min_velocity']
     
     def __init__(self):
         for slot in self.__slots__: setattr(self, slot, None)
@@ -37,7 +37,7 @@ class PhysicalConstraintsInput(ValidatedContainer):
 
 @dataclass
 class DomainConfigInput(ValidatedContainer):
-    __slots__ = ['_type', '_reference_velocity']
+    __slots__ = ['_reference_velocity', '_type']
     
     def __init__(self):
         self._type = None
@@ -61,7 +61,7 @@ class DomainConfigInput(ValidatedContainer):
 
 @dataclass
 class GridInput(ValidatedContainer):
-    __slots__ = ['_x_min', '_x_max', '_y_min', '_y_max', '_z_min', '_z_max', '_nx', '_ny', '_nz']
+    __slots__ = ['_nx', '_ny', '_nz', '_x_max', '_x_min', '_y_max', '_y_min', '_z_max', '_z_min']
     
     def __init__(self):
         for slot in self.__slots__: setattr(self, slot, None)
@@ -132,7 +132,7 @@ class FluidInput(ValidatedContainer):
 
 @dataclass
 class InitialConditionsInput(ValidatedContainer):
-    __slots__ = ['_velocity', '_pressure']
+    __slots__ = ['_pressure', '_velocity']
     
     def __init__(self):
         self._velocity = None
@@ -151,7 +151,7 @@ class InitialConditionsInput(ValidatedContainer):
 
 @dataclass
 class SimParamsInput(ValidatedContainer):
-    __slots__ = ['_time_step', '_total_time', '_output_interval']
+    __slots__ = ['_output_interval', '_time_step', '_total_time']
     
     def __init__(self):
         self._time_step = None
@@ -254,9 +254,15 @@ class ExternalForcesInput(ValidatedContainer):
 @dataclass
 class SolverInput(ValidatedContainer):
     __slots__ = [
-        'domain_configuration', 'grid', 'fluid_properties', 'initial_conditions', 
-        'simulation_parameters', 'external_forces', 'mask', 'boundary_conditions',
-        'physical_constraints'
+        'boundary_conditions',
+        'domain_configuration',
+        'external_forces',
+        'fluid_properties',
+        'grid',
+        'initial_conditions',
+        'mask',
+        'physical_constraints',
+        'simulation_parameters'
     ]
     
     def __init__(self):

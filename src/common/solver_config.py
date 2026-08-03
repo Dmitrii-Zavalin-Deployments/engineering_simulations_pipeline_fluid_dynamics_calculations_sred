@@ -11,9 +11,13 @@ class SolverConfig(ValidatedContainer):
     Static numerical configuration. No dynamic state allowed.
     """
     __slots__ = [
-        '_dt_min_limit', '_ppe_tolerance', '_ppe_atol', 
-        '_ppe_max_iter', '_ppe_omega', '_divergence_threshold',
-        '_ppe_max_retries'
+        '_divergence_threshold',
+        '_dt_min_limit',
+        '_ppe_atol',
+        '_ppe_max_iter',
+        '_ppe_max_retries',
+        '_ppe_omega',
+        '_ppe_tolerance'
     ]
 
     def __init__(self, **kwargs):

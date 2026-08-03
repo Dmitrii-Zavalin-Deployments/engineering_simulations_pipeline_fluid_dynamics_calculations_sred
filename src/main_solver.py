@@ -141,7 +141,7 @@ def run_solver(input_path: str) -> str:
 
         except Exception as e:
             # Catch-all for Terminal errors (ValueError, FloatingPointError, etc.)
-            logger.error(f"❌ CRITICAL TERMINATION [{type(e).__name__}]: {str(e)}")
+            logger.error(f"❌ CRITICAL TERMINATION [{type(e).__name__}]: {e!s}")
             raise
 
     return archive_simulation_artifacts(state)
@@ -155,7 +155,7 @@ def main():
         print(f"Pipeline complete. Artifacts archived at: {zip_path}")
         sys.exit(0)
     except Exception as e:
-        print(f"FATAL PIPELINE ERROR: {str(e)}", file=sys.stderr)
+        print(f"FATAL PIPELINE ERROR: {e!s}", file=sys.stderr)
         traceback.print_exc()
         sys.exit(1)
 

@@ -12,7 +12,7 @@ class ElasticManager:
     Manages the 'safety ladder' of time-steps and enforces physical audits
     before trial data is committed to the foundation.
     """
-    __slots__ = ['config', 'logger', '_state', '_dt', 'dt_floor', '_iteration', '_runs', '_dt_range']
+    __slots__ = ['_dt', '_dt_range', '_iteration', '_runs', '_state', 'config', 'dt_floor', 'logger']
 
     def __init__(self, config, state: SolverState):
         self.config = config

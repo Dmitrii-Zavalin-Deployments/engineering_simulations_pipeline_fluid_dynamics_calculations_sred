@@ -19,7 +19,7 @@ class CellRegistry:
     """
     # Rule 0: Mandatory __slots__ to eliminate __dict__ overhead 
     # and minimize memory footprint.
-    __slots__ = ['nx', 'ny', 'nz', 'nx_dim', 'ny_dim', 'nz_dim', '_cache']
+    __slots__ = ['_cache', 'nx', 'nx_dim', 'ny', 'ny_dim', 'nz', 'nz_dim']
 
     def __init__(self, nx: int, ny: int, nz: int):
         self.nx = nx
@@ -82,9 +82,9 @@ def assemble_stencil_matrix(state: SolverState) -> list:
     local_stencil_list = []
     
     # Core loop: Iterate through logical core domain [0, N-1]
-    for k in range(0, nz):
-        for j in range(0, ny):
-            for i in range(0, nx):
+    for k in range(nz):
+        for j in range(ny):
+            for i in range(nx):
                 block = StencilBlock(
                     center=registry.get_or_create(i, j, k, state),
                     i_minus=registry.get_or_create(i - 1, j, k, state),

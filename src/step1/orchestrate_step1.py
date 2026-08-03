@@ -32,7 +32,7 @@ def orchestrate_step1(context: SimulationContext) -> SolverState:
     Assembles the SolverState via strict container initialization and attribute assignment.
     """
     if DEBUG:
-        print(f"DEBUG [Step 1]: Starting State Assembly...")
+        print("DEBUG [Step 1]: Starting State Assembly...")
 
     input_data = context.input_data
     state = SolverState()
@@ -99,7 +99,7 @@ def orchestrate_step1(context: SimulationContext) -> SolverState:
         state.boundary_conditions.add_condition(bc)
 
     if DEBUG:
-        print(f"DEBUG [Step 1]: State assembly complete.")
+        print("DEBUG [Step 1]: State assembly complete.")
         print(f"  > Foundation: {n_cells} cells allocated (Buffered) with {FI.num_fields()} fields.")
 
     return state

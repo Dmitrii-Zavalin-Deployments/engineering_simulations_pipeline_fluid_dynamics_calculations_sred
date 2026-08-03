@@ -44,7 +44,7 @@ def generate_3d_masks(mask_data: list[int], grid: GridInput) -> tuple[np.ndarray
     is_boundary = (mask_3d == -1)
     
     if DEBUG:
-        print(f"DEBUG [Step 1.2]: Topology Verification (Mask Generated)")
+        print("DEBUG [Step 1.2]: Topology Verification (Mask Generated)")
         print(f"  > Grid Dimensions: {nx}x{ny}x{nz}")
         print(f"  > Fluid Volume: {np.sum(is_fluid)} cells")
         

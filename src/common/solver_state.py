@@ -78,7 +78,7 @@ def verify_foundation_integrity(state):
 # =========================================================
 
 class PhysicalConstraintsManager(ValidatedContainer):
-    __slots__ = ['_min_velocity', '_max_velocity', '_min_pressure', '_max_pressure']
+    __slots__ = ['_max_pressure', '_max_velocity', '_min_pressure', '_min_velocity']
     
     def __init__(self):
         self._min_velocity = self._max_velocity = None
@@ -113,7 +113,7 @@ class PhysicalConstraintsManager(ValidatedContainer):
     def max_pressure(self, v: float): self._set_safe("max_pressure", v, (float, int))
 
 class DomainManager(ValidatedContainer):
-    __slots__ = ['_type', '_reference_velocity']
+    __slots__ = ['_reference_velocity', '_type']
     
     def __init__(self):
         self._type = None
@@ -136,7 +136,7 @@ class DomainManager(ValidatedContainer):
         self._set_safe("reference_velocity", value, np.ndarray)
 
 class GridManager(ValidatedContainer):
-    __slots__ = ['_x_min', '_x_max', '_y_min', '_y_max', '_z_min', '_z_max', '_nx', '_ny', '_nz']
+    __slots__ = ['_nx', '_ny', '_nz', '_x_max', '_x_min', '_y_max', '_y_min', '_z_max', '_z_min']
     
     def __init__(self):
         self._x_min = self._x_max = self._y_min = self._y_max = self._z_min = self._z_max = None
@@ -221,7 +221,7 @@ class FluidPropertiesManager(ValidatedContainer):
         self._set_safe("viscosity", value, float)
 
 class InitialConditionManager(ValidatedContainer):
-    __slots__ = ["_velocity", "_pressure"]
+    __slots__ = ["_pressure", "_velocity"]
 
     def to_dict(self):
         return {"velocity": self.velocity.tolist(), "pressure": self.pressure}
@@ -243,7 +243,7 @@ class InitialConditionManager(ValidatedContainer):
     def pressure(self, value: float): self._set_safe("pressure", value, (float, int))
 
 class SimulationParameterManager(ValidatedContainer):
-    __slots__ = ['_time_step', '_total_time', '_output_interval']
+    __slots__ = ['_output_interval', '_time_step', '_total_time']
     
     def __init__(self):
         self._time_step = self._total_time = self._output_interval = None
@@ -375,7 +375,7 @@ class FieldManager(ValidatedContainer):
         self._data = np.empty((n_cells, FI.num_fields()), dtype=dtype); self._data[:] = 0.0
 
 class ManifestManager(ValidatedContainer):
-    __slots__ = ['_saved_snapshots', '_output_directory']
+    __slots__ = ['_output_directory', '_saved_snapshots']
     
     def __init__(self):
         self._saved_snapshots = []
@@ -397,12 +397,22 @@ class ManifestManager(ValidatedContainer):
 
 class SolverState(ValidatedContainer):
     __slots__ = [
-        '_domain_configuration', '_grid', '_fluid_properties', '_initial_conditions', 
-        '_boundary_conditions', '_external_forces', '_simulation_parameters', 
+        '_boundary_conditions',
+        '_cache_buffer',
+        '_domain_configuration',
+        '_external_forces',
+        '_fields',
+        '_fluid_properties',
+        '_grid',
+        '_initial_conditions',
+        '_iteration',
+        '_manifest',
+        '_mask',
         '_physical_constraints',
-        '_mask', '_fields', '_stencil_matrix', 
-        '_iteration', '_time', '_ready_for_time_loop', '_manifest',
-        '_cache_buffer'
+        '_ready_for_time_loop',
+        '_simulation_parameters',
+        '_stencil_matrix',
+        '_time'
     ]
 
     def __init__(self):
@@ -534,7 +544,7 @@ class SolverState(ValidatedContainer):
         v_fields = fields[:, v_indices]
         
         if not np.isfinite(v_fields).all():
-            logger.error(f"AUDIT [Explosion]: NaN/Inf detected in velocity fields.")
+            logger.error("AUDIT [Explosion]: NaN/Inf detected in velocity fields.")
             raise ArithmeticError("NUMERICAL EXPLOSION: NaN/Inf detected.")
 
         # --- [New]: Min/Max Velocity Enforcement ---
@@ -546,7 +556,7 @@ class SolverState(ValidatedContainer):
                 f"AUDIT [Limit]: Velocity range [{v_min_observed:.4e}, {v_max_observed:.4e}] "
                 f"exceeds physical bounds [{pc.min_velocity:.4e}, {pc.max_velocity:.4e}]."
             )
-            raise ArithmeticError(f"STABILITY TRIGGER: Velocity Corridor Violation.")
+            raise ArithmeticError("STABILITY TRIGGER: Velocity Corridor Violation.")
 
         # 2. Real Physical Pressure Reconstruction
         
@@ -594,7 +604,7 @@ class SolverState(ValidatedContainer):
                 f"AUDIT [Explosion]: Real pressure [{p_min:.2e}, {p_max:.2e}] "
                 f"out of bounds [{pc.min_pressure:.2e}, {pc.max_pressure:.2e}]."
             )
-            raise ArithmeticError(f"STABILITY TRIGGER: Pressure Corridor Violation.")
+            raise ArithmeticError("STABILITY TRIGGER: Pressure Corridor Violation.")
 
         logger.debug(
             f"AUDIT [Success]: V_range: [{v_min_observed:.2e}, {v_max_observed:.2e}], "

@@ -9,7 +9,7 @@ from src.common.base_container import ValidatedContainer
 
 # --- Setup Dummy Classes for Testing ---
 class MockContainer(ValidatedContainer):
-    __slots__ = ['_velocity', '_density']
+    __slots__ = ['_density', '_velocity']
     def __init__(self):
         self._velocity = None
         self._density = 1.0
