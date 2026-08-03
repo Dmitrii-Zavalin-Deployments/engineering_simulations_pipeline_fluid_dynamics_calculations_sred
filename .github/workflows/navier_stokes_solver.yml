@@ -239,14 +239,17 @@ jobs:
           done &
           SAMPLER_PID=$!
           
-          INPUT_FILE="data/testing-input-output/fluid_simulation_input.json"
+          INPUT_FILE="data/testing-input-output/navier_stokes_solver_input.json"
           if [ ! -f "$INPUT_FILE" ]; then
             echo "❌ CRITICAL ERROR: Input file context missing at $INPUT_FILE."
             exit 1
           fi
           
-          # Run core solver under verbose monitoring
-          /usr/bin/time -v xvfb-run --auto-servernum python3 src/main_solver.py "$INPUT_FILE" 2> /tmp/memory_profile.log
+          # Run core execution module under verbose tool monitoring to record Peak Resident Set Size (RSS)
+          /usr/bin/time -v xvfb-run --auto-servernum python src/main_solver.py \
+            --input_output_folder "${GITHUB_WORKSPACE}/data/testing-input-output/" \
+            --input_file_name "navier_stokes_solver_input.json" \
+            --output_file_name "navier_stokes_output.zip" 2> /tmp/memory_profile.log
           
           # Unwind profile monitoring immediately post-execution 
           kill $SAMPLER_PID
