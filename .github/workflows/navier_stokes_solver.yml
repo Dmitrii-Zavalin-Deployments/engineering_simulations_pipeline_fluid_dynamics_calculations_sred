@@ -207,15 +207,6 @@ jobs:
           # libgl1 replaces the deprecated libgl1-mesa-glx on Ubuntu 24.04+
           sudo apt-get install -y libgl1 xvfb libglu1-mesa
 
-      - name: 📥 Synchronize Input (Dropbox)
-        run: |
-          # Ensure execution permissions for the ingestion script
-          chmod +x src/download_from_dropbox.sh
-          ./src/download_from_dropbox.sh
-          
-          echo "--- testing-input-output folder content: ---"
-          ls -R data/testing-input-output/
-
       - name: 🌊 Execute Navier–Stokes Solver (with Live Profiling)
         run: |
           # Initialize background performance tracker to capture accurate trends
