@@ -16,7 +16,7 @@ def test_run_solver_with_output_path(tmp_path):
          patch("src.main._configure_numerical_runtime"), \
          patch("src.main.orchestrate_step1") as mock_step1, \
          patch("src.main.orchestrate_step2") as mock_step2, \
-         patch("src.main.ElasticManager") as mock_elastic, \
+         patch("src.main.ElasticManager"), \
          patch("src.main.archive_simulation_artifacts") as mock_archive:
         
         mock_context = MagicMock()
