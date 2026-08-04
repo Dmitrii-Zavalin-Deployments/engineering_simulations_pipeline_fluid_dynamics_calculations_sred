@@ -6,7 +6,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from src.main import main, run_solver
-from tests.helpers.solver_input_schema_dummy import create_validated_input, get_explicit_solver_config
+from tests.helpers.solver_input_schema_dummy import (
+    create_validated_input,
+    get_explicit_solver_config,
+)
 
 
 def test_run_solver_with_output_path(tmp_path):
