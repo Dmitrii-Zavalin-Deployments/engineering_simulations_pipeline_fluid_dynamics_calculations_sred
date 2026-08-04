@@ -12,10 +12,6 @@ jobs:
   verification_tests:
     name: "📋 Verification Tests"
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        # Crucial for Conda: Ensures Conda environment variables and C++ links are active
-        shell: bash -el {0}
     env:
       PYTHONPATH: ${{ github.workspace }}
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -41,16 +37,15 @@ jobs:
           # Ensure Git Notes are rewritten and preserved
           git config --global notes.rewriteRef "refs/notes/*"
 
-      - name: 🐍 Set up Conda Environment
-        uses: conda-incubator/setup-miniconda@v3
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v5
         with:
-          auto-update-conda: true
           python-version: "3.11"
-          channels: conda-forge,defaults
-          channel-priority: strict
+          cache: 'pip'
 
-      - name: 📦 Provision Environment Layers (Conda + Pip)
+      - name: 📦 Provision Environment Layers (Pip)
         run: |
+          python -m pip install --upgrade pip
           chmod +x requirements.sh
           ./requirements.sh
 
@@ -168,10 +163,6 @@ jobs:
     name: "🔬 Validation Tests & Physics Execution"
     needs: verification_tests
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        # Crucial for Conda: Ensures Conda environment variables and C++ links are active
-        shell: bash -el {0}
     env:
       PYTHONPATH: ${{ github.workspace }}
       APP_KEY: ${{ secrets.APP_KEY }}
@@ -197,16 +188,15 @@ jobs:
           # Ensure Git Notes are rewritten and preserved
           git config --global notes.rewriteRef "refs/notes/*"
 
-      - name: 🐍 Set up Conda Environment
-        uses: conda-incubator/setup-miniconda@v3
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v5
         with:
-          auto-update-conda: true
           python-version: "3.11"
-          channels: conda-forge,defaults
-          channel-priority: strict
+          cache: 'pip'
 
-      - name: 📦 Provision Environment Layers (Conda + Pip)
+      - name: 📦 Provision Environment Layers (Pip)
         run: |
+          python -m pip install --upgrade pip
           chmod +x requirements.sh
           ./requirements.sh
 
