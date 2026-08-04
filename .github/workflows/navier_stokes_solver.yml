@@ -236,7 +236,7 @@ jobs:
           fi
           
           # Run core execution module under verbose tool monitoring to record Peak Resident Set Size (RSS)
-          /usr/bin/time -v xvfb-run --auto-servernum python src/main_solver.py \
+          /usr/bin/time -v xvfb-run --auto-servernum python src/main.py \
             --input_output_folder "${GITHUB_WORKSPACE}/data/testing-input-output/" \
             --input_file_name "navier_stokes_solver_input.json" \
             --output_file_name "navier_stokes_output.zip" 2> /tmp/memory_profile.log

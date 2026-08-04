@@ -1,5 +1,6 @@
-# src/main_solver.py
+# src/main.py
 
+import argparse
 import json
 import logging
 import sys
@@ -25,17 +26,19 @@ logger = logging.getLogger("Solver.Main")
 logger.propagate = True
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+
 def _configure_numerical_runtime(context: SimulationContext):
     """Rule 5: Deterministic Initialization via NumPy error trapping."""
     np.seterr(all="raise", under="ignore")
     logger.info("Numerical runtime configured: Trapping arithmetic anomalies.")
 
-def _load_simulation_context(input_path: str) -> SimulationContext:
+
+def _load_simulation_context(input_path: str | Path) -> SimulationContext:
     """Assembles physical input and numerical config into a unified context."""
     full_input_path = Path(input_path)
     if not full_input_path.is_absolute():
         full_input_path = BASE_DIR / input_path
-        
+
     config_path = BASE_DIR / "config.json"
 
     if not full_input_path.exists():
@@ -50,7 +53,8 @@ def _load_simulation_context(input_path: str) -> SimulationContext:
 
     return SimulationContext.create(input_data, config_data)
 
-def run_solver(input_path: str) -> str:
+
+def run_solver(input_path: str | Path, output_path: str | Path | None = None) -> str:
     """Main Orchestrator with State-Anchored Elastic Stability."""
     context = _load_simulation_context(input_path)
     _configure_numerical_runtime(context)
@@ -93,23 +97,23 @@ def run_solver(input_path: str) -> str:
             # PREDICTOR PASS
             for block in state.stencil_matrix:
                 orchestrate_step3(
-                    block, 
-                    context, 
-                    state.grid, 
-                    state.boundary_conditions, 
-                    is_first_pass=True
+                    block,
+                    context,
+                    state.grid,
+                    state.boundary_conditions,
+                    is_first_pass=True,
                 )
-            
+
             # PPE ITERATION
             for _ in range(context.config.ppe_max_iter):
                 max_delta = 0.0
                 for block in state.stencil_matrix:
                     _, delta = orchestrate_step3(
-                        block, 
-                        context, 
-                        state.grid, 
-                        state.boundary_conditions, 
-                        is_first_pass=False
+                        block,
+                        context,
+                        state.grid,
+                        state.boundary_conditions,
+                        is_first_pass=False,
                     )
                     max_delta = max(max_delta, delta)
 
@@ -127,37 +131,90 @@ def run_solver(input_path: str) -> str:
 
         except ArithmeticError as e:
             # RULE 9: ANTI-FRANKENSTEIN ROLLBACK
-            # Wipes the memory pollution (e.g., 144.93) before the next dt retry
-            logger.error(f"Audit Failure: {e}") 
-            
-            # This already handles the ghosts because it restores the WHOLE array
-            state.rollback_to_stable_state() 
-            
+            logger.error(f"Audit Failure: {e}")
+
+            # Wipes memory pollution and restores stable state
+            state.rollback_to_stable_state()
+
             # REQUIRED FOR PYTEST
-            logger.warning(f"STABILITY TRIGGER: Physical anomaly at iteration {state.iteration}. Reducing dt...")
-            
+            logger.warning(
+                f"STABILITY TRIGGER: Physical anomaly at iteration {state.iteration}. Reducing dt..."
+            )
+
             # Reduce dt and loop back to try again with clean memory
             elasticity.stabilization(is_needed=True)
 
         except Exception as e:
-            # Catch-all for Terminal errors (ValueError, FloatingPointError, etc.)
+            # Catch-all for Terminal errors
             logger.error(f"❌ CRITICAL TERMINATION [{type(e).__name__}]: {e!s}")
             raise
 
-    return archive_simulation_artifacts(state)
+    try:
+        if output_path is not None:
+            return archive_simulation_artifacts(state, output_path=str(output_path))
+        return archive_simulation_artifacts(state)
+    except TypeError:
+        return archive_simulation_artifacts(state)
+
 
 def main():
-    if len(sys.argv) < 2:
-        print("Usage: python src/main_solver.py <input_json_path>")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(
+        description="Navier–Stokes Solver Execution Engine"
+    )
+    parser.add_argument(
+        "positional_input",
+        nargs="?",
+        default=None,
+        help="Path to input JSON configuration file (positional argument)",
+    )
+    parser.add_argument(
+        "--input_output_folder",
+        type=str,
+        default=None,
+        help="Directory folder containing input/output artifacts",
+    )
+    parser.add_argument(
+        "--input_file_name",
+        type=str,
+        default=None,
+        help="File name of the input JSON configuration",
+    )
+    parser.add_argument(
+        "--output_file_name",
+        type=str,
+        default=None,
+        help="File name for the output archive zip",
+    )
+
+    args = parser.parse_args()
+
+    # Resolve Input Path
+    if args.input_output_folder and args.input_file_name:
+        input_path = Path(args.input_output_folder) / args.input_file_name
+    elif args.positional_input:
+        input_path = Path(args.positional_input)
+    else:
+        parser.error(
+            "Must provide either positional <input_json_path> OR both --input_output_folder and --input_file_name"
+        )
+
+    # Resolve Output Path
+    if args.input_output_folder and args.output_file_name:
+        output_path = Path(args.input_output_folder) / args.output_file_name
+    elif args.output_file_name:
+        output_path = Path(args.output_file_name)
+    else:
+        output_path = None
+
     try:
-        zip_path = run_solver(sys.argv[1])
+        zip_path = run_solver(input_path=input_path, output_path=output_path)
         print(f"Pipeline complete. Artifacts archived at: {zip_path}")
         sys.exit(0)
     except Exception as e:
         print(f"FATAL PIPELINE ERROR: {e!s}", file=sys.stderr)
         traceback.print_exc()
         sys.exit(1)
+
 
 if __name__ == "__main__":  # pragma: no cover
     main()
