@@ -1,10 +1,10 @@
 # tests/main/test_main_full_coverage.py
 import sys
-from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 import pytest
 
-from src.main import run_solver, main
+from src.main import main, run_solver
 
 
 def test_run_solver_with_output_path(tmp_path):
