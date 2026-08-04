@@ -9,7 +9,6 @@ from pathlib import Path
 import h5py
 import numpy as np
 import pytest
-
 from src.main_solver import BASE_DIR, run_solver
 
 

@@ -4,7 +4,6 @@ import sys
 from unittest.mock import patch
 
 import pytest
-
 from src.main_solver import main
 
 

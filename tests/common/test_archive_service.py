@@ -6,9 +6,9 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+from src.main_solver import BASE_DIR
 
 from src.common.archive_service import archive_simulation_artifacts
-from src.main_solver import BASE_DIR
 
 
 class TestArchiveServiceIntegrity:

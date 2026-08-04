@@ -4,8 +4,8 @@ from unittest.mock import MagicMock, patch
 
 import jsonschema
 import pytest
-
 from src.main_solver import run_solver
+
 from tests.helpers.solver_input_schema_dummy import create_validated_input
 from tests.helpers.solver_step4_output_dummy import make_step4_output_dummy
 
