@@ -160,7 +160,7 @@ jobs:
           fi
 
   validation_tests:
-    name: "🔬 Validation Tests & Physics Execution"
+    name: "🔬 Validation Tests"
     needs: verification_tests
     runs-on: ubuntu-latest
     env:

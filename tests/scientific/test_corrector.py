@@ -24,7 +24,7 @@ def setup_integration_block(block, dt=1.0, rho=1.0):
     }
     for attr, val in params.items():
         object.__setattr__(block, attr, val)
-    
+        
     # Reset the shared buffer for this block's neighborhood to prevent drift
     cells = [block.center, block.i_plus, block.i_minus, 
              block.j_plus, block.j_minus, block.k_plus, block.k_minus]
@@ -32,6 +32,7 @@ def setup_integration_block(block, dt=1.0, rho=1.0):
         cell.fields_buffer[cell.index, :] = 0.0
         
     return block
+
 
 # --- PHYSICS PROJECTION TESTS ---
 
@@ -47,12 +48,13 @@ def test_corrector_zero_gradient_preservation():
     for cell in [block.center, block.i_plus, block.i_minus, 
                  block.j_plus, block.j_minus, block.k_plus, block.k_minus]:
         cell.set_field(FI.P_NEXT, 10.0)
-    
+        
     apply_local_velocity_correction(block)
     
     assert block.center.get_field(FI.VX_STAR) == 1.0
     assert block.center.get_field(FI.VY_STAR) == 0.5
     assert block.center.get_field(FI.VZ_STAR) == 0.2
+
 
 def test_corrector_analytical_correction():
     """
@@ -74,6 +76,7 @@ def test_corrector_analytical_correction():
     obtained = block.center.get_field(FI.VX_STAR)
     assert obtained == pytest.approx(0.9, abs=1e-15)
 
+
 def test_corrector_3d_vector_alignment():
     """Scenario 3: Checks simultaneous correction of all 3 components."""
     block = setup_integration_block(make_step3_output_dummy(), dt=1.0, rho=1.0)
@@ -93,6 +96,7 @@ def test_corrector_3d_vector_alignment():
     assert block.center.get_field(FI.VY_STAR) == -1.0
     assert block.center.get_field(FI.VZ_STAR) == -1.0
 
+
 # --- FORENSIC LOGGING & AUDIT TESTS ---
 
 def test_corrector_success_audit_log(caplog):
@@ -104,6 +108,7 @@ def test_corrector_success_audit_log(caplog):
         
     assert "CORRECT [Success]" in caplog.text
     assert f"Block {block.id}" in caplog.text
+
 
 def test_corrector_array_leak_detection_log(caplog):
     """
@@ -121,6 +126,7 @@ def test_corrector_array_leak_detection_log(caplog):
         
     assert "CORRECT [Success]" in caplog.text
 
+
 def test_corrector_instability_crash_log(caplog):
     """Verifies ERROR log and ArithmeticError on non-finite velocity (Rule 7)."""
     block = setup_integration_block(make_step3_output_dummy())
@@ -128,9 +134,8 @@ def test_corrector_instability_crash_log(caplog):
     # Inject NaN into the intermediate velocity
     block.center.set_field(FI.VX_STAR, np.nan)
     
-    with caplog.at_level(logging.ERROR):
-        with pytest.raises(ArithmeticError, match="Instability detected"):
-            apply_local_velocity_correction(block)
+    with caplog.at_level(logging.ERROR), pytest.raises(ArithmeticError, match="Instability detected"):
+        apply_local_velocity_correction(block)
             
     assert "CORRECTOR CRITICAL" in caplog.text
     assert "Non-finite velocity" in caplog.text

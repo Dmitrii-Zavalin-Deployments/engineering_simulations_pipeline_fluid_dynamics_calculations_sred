@@ -115,13 +115,15 @@ class TestHeavyElasticityLifecycle:
                 assert len(h5_files) > 0, "INTEGRITY FAIL: No .h5 files found inside the result ZIP."
 
                 # Audit the final frame for finite physics
-                with archive.open(h5_files[-1]) as f:
-                    with h5py.File(BytesIO(f.read()), "r") as h5_audit:
-                        assert "vx" in h5_audit, "SCHEMA FAIL: 'vx' dataset missing from HDF5."
-                        vx_data = h5_audit["vx"][:]
-                        assert np.all(np.isfinite(vx_data)), "PHYSICS FAIL: Non-finite values detected in final velocity field."
-                        
-        print(f"\n✅ Scenario 1 Passed: Plumbing and Physics are nominal. Artifact: {zip_path.name}")
+                with (
+                    archive.open(h5_files[-1]) as f,
+                    h5py.File(BytesIO(f.read()), "r") as h5_audit,
+                ):
+                    assert "vx" in h5_audit, "SCHEMA FAIL: 'vx' dataset missing from HDF5."
+                    vx_data = h5_audit["vx"][:]
+                    assert np.all(np.isfinite(vx_data)), "PHYSICS FAIL: Non-finite values detected in final velocity field."
+                    
+            print(f"\n✅ Scenario 1 Passed: Plumbing and Physics are nominal. Artifact: {zip_path.name}")
 
     def test_scenario_2_elasticity_terminal_failure(self, caplog, base_config, base_input):
         """

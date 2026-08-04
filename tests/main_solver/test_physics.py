@@ -21,13 +21,15 @@ def test_run_solver_floating_point_critical_trap(caplog):
         real_state.iteration = 42
         real_state.ready_for_time_loop = True 
 
-        with patch("src.main_solver.orchestrate_step1", return_value=real_state), \
-             patch("src.main_solver.orchestrate_step2", return_value=real_state), \
-             patch("src.main_solver.orchestrate_step3", side_effect=FloatingPointError("NaN detected")):
-            
-            with pytest.raises(RuntimeError, match="CRITICAL INSTABILITY"):
-                run_solver("dummy.json")
-            assert "Audit Failure: NaN detected" in caplog.text
+        with (
+            patch("src.main_solver.orchestrate_step1", return_value=real_state),
+            patch("src.main_solver.orchestrate_step2", return_value=real_state),
+            patch("src.main_solver.orchestrate_step3", side_effect=FloatingPointError("NaN detected")),
+            pytest.raises(RuntimeError, match="CRITICAL INSTABILITY"),
+        ):
+            run_solver("dummy.json")
+        assert "Audit Failure: NaN detected" in caplog.text
+
 
 def test_run_solver_telemetry_logging(caplog):
     real_state = make_step4_output_dummy(nx=2, ny=2, nz=2)
@@ -43,15 +45,17 @@ def test_run_solver_telemetry_logging(caplog):
             state_in.ready_for_time_loop = False
             return state_in
 
-        with patch("src.main_solver.orchestrate_step1", return_value=real_state), \
-             patch("src.main_solver.orchestrate_step2", return_value=real_state), \
-             patch("src.main_solver.orchestrate_step3", return_value=(None, 0.001)), \
-             patch("src.main_solver.orchestrate_step4", side_effect=exit_immediately), \
-             patch("src.main_solver.archive_simulation_artifacts", return_value="zip"):
-            
-            with caplog.at_level(logging.DEBUG):
-                run_solver("dummy.json")
-            assert any("AUDIT [Start]: Iteration 10" in record.message for record in caplog.records)
+        with (
+            patch("src.main_solver.orchestrate_step1", return_value=real_state),
+            patch("src.main_solver.orchestrate_step2", return_value=real_state),
+            patch("src.main_solver.orchestrate_step3", return_value=(None, 0.001)),
+            patch("src.main_solver.orchestrate_step4", side_effect=exit_immediately),
+            patch("src.main_solver.archive_simulation_artifacts", return_value="zip"),
+            caplog.at_level(logging.DEBUG),
+        ):
+            run_solver("dummy.json")
+        assert any("AUDIT [Start]: Iteration 10" in record.message for record in caplog.records)
+
 
 def test_run_solver_elastic_success_signal():
     """
@@ -83,15 +87,15 @@ def test_run_solver_elastic_success_signal():
         return state_in
 
     # 3. Patch the ElasticManager and Orchestrators
-    # Note: Added 'as mock_elastic_cls' to fix the NameError
-    with patch("src.main_solver._load_simulation_context") as mock_load, \
-         patch("src.main_solver.ElasticManager") as mock_elastic_cls, \
-         patch("src.main_solver.orchestrate_step1", return_value=real_state), \
-         patch("src.main_solver.orchestrate_step2", return_value=real_state), \
-         patch("src.main_solver.orchestrate_step3", return_value=(None, 1e-7)), \
-         patch("src.main_solver.orchestrate_step4", side_effect=exit_immediately), \
-         patch("src.main_solver.archive_simulation_artifacts"):
-        
+    with (
+        patch("src.main_solver._load_simulation_context") as mock_load,
+        patch("src.main_solver.ElasticManager") as mock_elastic_cls,
+        patch("src.main_solver.orchestrate_step1", return_value=real_state),
+        patch("src.main_solver.orchestrate_step2", return_value=real_state),
+        patch("src.main_solver.orchestrate_step3", return_value=(None, 1e-7)),
+        patch("src.main_solver.orchestrate_step4", side_effect=exit_immediately),
+        patch("src.main_solver.archive_simulation_artifacts"),
+    ):
         # Hydrate the context
         mock_context = MagicMock()
         mock_context.input_data = real_input
@@ -109,6 +113,7 @@ def test_run_solver_elastic_success_signal():
         # 4. VERIFY: The success signal must be sent to the elasticity engine
         # This confirms that because max_delta < ppe_tolerance, stabilization is False
         mock_elastic_instance.stabilization.assert_called_with(is_needed=False)
+
 
 def test_run_solver_terminal_error_coverage(caplog):
     """
@@ -131,14 +136,15 @@ def test_run_solver_terminal_error_coverage(caplog):
     mock_context.config.ppe_tolerance = 1e-6
 
     # 4. Patch orchestrators to trigger the "Terminal" catch block
-    with patch("src.main_solver._load_simulation_context", return_value=mock_context), \
-         patch("src.main_solver.orchestrate_step1", return_value=real_state), \
-         patch("src.main_solver.orchestrate_step2", return_value=real_state), \
-         patch("src.main_solver.orchestrate_step3", side_effect=ValueError("Illegal Stencil State")):
-        
+    with (
+        patch("src.main_solver._load_simulation_context", return_value=mock_context),
+        patch("src.main_solver.orchestrate_step1", return_value=real_state),
+        patch("src.main_solver.orchestrate_step2", return_value=real_state),
+        patch("src.main_solver.orchestrate_step3", side_effect=ValueError("Illegal Stencil State")),
+        pytest.raises(ValueError, match="Illegal Stencil State"),
+    ):
         # 5. Verify that the ValueError is re-raised after being logged
-        with pytest.raises(ValueError, match="Illegal Stencil State"):
-            run_solver("dummy.json")
+        run_solver("dummy.json")
 
     # 6. Forensic Audit of the Log Output
     # This matches the new pragmatic log format: ❌ CRITICAL TERMINATION [ValueError]: ...

@@ -19,6 +19,7 @@ from tests.helpers.solver_step3_output_dummy import make_step3_output_dummy
 # Rule 7: Granular Traceability
 logger = logging.getLogger(__name__)
 
+
 def setup_analytical_stencil(velocity_vec, scalar_func):
     """
     Rule 9 Bridge: Uses the real Step 3 Dummy (Production Cells/Buffer).
@@ -55,6 +56,7 @@ def setup_analytical_stencil(velocity_vec, scalar_func):
             
     return block
 
+
 # --- PHYSICS VALIDATION SCENARIOS ---
 
 def test_advection_zero_velocity(caplog):
@@ -64,12 +66,14 @@ def test_advection_zero_velocity(caplog):
         result = compute_local_advection(block, FI.P)
     assert result == 0.0
 
+
 def test_advection_linear_fidelity(caplog):
     """Scenario 2: Uniform Velocity & Linear Gradient. v=(1,1,1), grad=(1,1,1) -> 3.0."""
     block = setup_analytical_stencil((1.0, 1.0, 1.0), lambda i, j, k: i + j + k)
     with caplog.at_level(logging.DEBUG):
         result = compute_local_advection(block, FI.P)
     assert math.isclose(result, 3.0, rel_tol=1e-12)
+
 
 def test_advection_vector_component_isolation(caplog):
     """Scenario 3: Vector Test. u=2, grad(VX)=1 -> Result=(2,0,0)."""
@@ -81,15 +85,16 @@ def test_advection_vector_component_isolation(caplog):
     assert adv_vec[2] == 0.0
     assert "OPS [Success]" in caplog.text
 
+
 # --- LOGGING & EDGE CASE GATE (RULE 7 & 8) ---
 
 def test_advection_numerical_instability_logger(caplog):
     """Verify Rule 7: Non-finite values trigger ERROR logs."""
     block = setup_analytical_stencil((np.inf, 0.0, 0.0), lambda i, j, k: i)
-    with caplog.at_level(logging.ERROR):
-        with pytest.raises(ArithmeticError, match="Advection term exploded"):
-            compute_local_advection(block, FI.P)
+    with caplog.at_level(logging.ERROR), pytest.raises(ArithmeticError, match="Advection term exploded"):
+        compute_local_advection(block, FI.P)
     assert "MATH FAILURE" in caplog.text
+
 
 def test_advection_topology_crash_logger(caplog):
     """Verify Rule 7: Missing neighbors trigger CRITICAL logs."""
@@ -98,6 +103,7 @@ def test_advection_topology_crash_logger(caplog):
     with caplog.at_level(logging.CRITICAL), pytest.raises(AttributeError):
         compute_local_advection(block, FI.P)
     assert "TOPOLOGY CRASH" in caplog.text
+
 
 def test_advection_vector_failure_logger(caplog):
     """
