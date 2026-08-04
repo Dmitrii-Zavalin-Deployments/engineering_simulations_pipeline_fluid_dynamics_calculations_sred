@@ -144,8 +144,7 @@ def run_solver(input_path: str | Path, output_path: str | Path | None = None) ->
             # Reduce dt and loop back to try again with clean memory
             elasticity.stabilization(is_needed=True)
 
-        except Exception as e:
-            # Catch-all for Terminal errors
+        except (RuntimeError, TypeError, AttributeError) as e:
             logger.error(f"❌ CRITICAL TERMINATION [{type(e).__name__}]: {e!s}")
             raise
 
@@ -194,11 +193,12 @@ def main():
     elif args.positional_input:
         input_path = Path(args.positional_input)
     else:
-        parser.error(
-            "Must provide either positional <input_json_path> OR both --input_output_folder and --input_file_name"
+        logger.error(
+            "FATAL PIPELINE ERROR: Must provide either positional <input_json_path> OR both --input_output_folder and --input_file_name",
+            file=sys.stderr,
         )
+        sys.exit(1)
 
-    # Resolve Output Path
     if args.input_output_folder and args.output_file_name:
         output_path = Path(args.input_output_folder) / args.output_file_name
     elif args.output_file_name:
@@ -218,7 +218,9 @@ def main():
         ArithmeticError,
         OSError,
         json.JSONDecodeError,
-        Exception,
+        RuntimeError,
+        TypeError,
+        AttributeError,
     ) as e:
         print(f"FATAL PIPELINE ERROR: {e!s}", file=sys.stderr)
         traceback.print_exc()
