@@ -4,7 +4,7 @@ import sys
 from unittest.mock import patch
 
 import pytest
-from src.main_solver import main
+from src.main import main
 
 
 def test_main_entry_point_missing_args():
@@ -18,7 +18,7 @@ def test_main_entry_point_success():
     """Validates Line 168-170: Execution through the __main__ gateway."""
     # We mock run_solver to avoid running the whole physics engine
     with (
-        patch("src.main_solver.run_solver", return_value="test_artifacts.zip"),
+        patch("src.main.run_solver", return_value="test_artifacts.zip"),
         patch.object(sys, 'argv', ['src/main_solver.py', 'dummy.json']),
         pytest.raises(SystemExit) as e,
     ):
@@ -29,7 +29,7 @@ def test_main_entry_point_success():
 def test_main_entry_point_fatal_error():
     """Validates Line 163-166: Catching global exceptions in main."""
     with (
-        patch("src.main_solver.run_solver", side_effect=RuntimeError("System Collapse")),
+        patch("src.main.run_solver", side_effect=RuntimeError("System Collapse")),
         patch.object(sys, 'argv', ['src/main_solver.py', 'dummy.json']),
         pytest.raises(SystemExit) as e,
     ):

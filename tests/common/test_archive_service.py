@@ -6,7 +6,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-from src.main_solver import BASE_DIR
+from src.main import BASE_DIR
 
 from src.common.archive_service import archive_simulation_artifacts
 
@@ -81,7 +81,7 @@ class TestArchiveServiceIntegrity:
         mock_state.manifest.output_directory = "/tmp/non_existent_solver_results_9999"
         
         # 2. Setup Mock for main_solver.BASE_DIR
-        with patch("src.main_solver.BASE_DIR", "/tmp/mock_base"):
+        with patch("src.main.BASE_DIR", "/tmp/mock_base"):
             
             # 3. Execution & Verification
             with pytest.raises(FileNotFoundError) as exc_info:
@@ -104,7 +104,7 @@ class TestArchiveServiceIntegrity:
         mock_state.manifest.output_directory = str(source)
         
         # Mock main_solver.BASE_DIR to point to our temp test area
-        mocker.patch("src.main_solver.BASE_DIR", str(tmp_path))
+        mocker.patch("src.main.BASE_DIR", str(tmp_path))
         
         # Execute
         final_zip = archive_simulation_artifacts(mock_state)
@@ -124,7 +124,7 @@ class TestArchiveServiceIntegrity:
         # 1. SETUP: Create a fake project structure
         mock_base = tmp_path / "project_root"
         mock_base.mkdir()
-        mocker.patch("src.main_solver.BASE_DIR", str(mock_base))
+        mocker.patch("src.main.BASE_DIR", str(mock_base))
         
         # 2. SETUP: Create the "Target" and a pre-existing ZIP
         target_dir = mock_base / "data" / "testing-input-output"
