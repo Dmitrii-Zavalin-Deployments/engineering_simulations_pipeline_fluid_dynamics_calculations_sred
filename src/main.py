@@ -179,8 +179,7 @@ def main():
         input_path = Path(args.positional_input)
     else:
         print(
-            "FATAL PIPELINE ERROR: Must provide either positional <input_json_path> OR both --input_output_folder and --input_file_name",
-            file=sys.stderr,
+            "FATAL PIPELINE ERROR: Must provide either positional <input_json_path> OR both --input_output_folder and --input_file_name"
         )
         sys.exit(1)
 
