@@ -78,7 +78,7 @@ def run_solver(input_path: str | Path, output_path: str | Path | None = None) ->
         state.validate_against_schema(str(SCHEMA_PATH))
     except jsonschema.exceptions.ValidationError as e:
         path_str = ".".join([str(p) for p in e.path])
-        logger.error(f"!!! STATE CONTRACT VALIDATION at {path_str}: {e.message}")
+        logger.error(f"!!! STATE CONTRACT VIOLATION at {path_str}: {e.message}")
         raise
 
     # 4. ELASTICITY ENGINE
