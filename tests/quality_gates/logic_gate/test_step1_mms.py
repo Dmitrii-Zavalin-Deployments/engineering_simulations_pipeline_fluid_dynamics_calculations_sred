@@ -34,7 +34,7 @@ def test_logic_gate_1_padded_ingestion():
     solver_input.grid.ny = ny
     solver_input.grid.nz = nz
     
-    # Compliance: Wrap in SimulationContext to simulate main_solver.py loop
+    # Compliance: Wrap in SimulationContext to simulate main.py loop
     context = wrap_in_context(solver_input)
     
     # Success Metric Calculation: (2+2)*(2+2)*(2+2) = 64 cells

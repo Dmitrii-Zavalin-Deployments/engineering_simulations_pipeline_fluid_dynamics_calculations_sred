@@ -17,8 +17,8 @@ def archive_simulation_artifacts(state: SolverState) -> str:
     """
     # 1. Resolve Dynamic Paths via SSoT
     # We pull the live BASE_DIR to ensure consistency across environments.
-    import src.main_solver
-    current_base = Path(src.main_solver.BASE_DIR)
+    import src.main
+    current_base = Path(src.main.BASE_DIR)
 
     # Source: Where the solver results currently reside
     source_dir = Path(state.manifest.output_directory).resolve()

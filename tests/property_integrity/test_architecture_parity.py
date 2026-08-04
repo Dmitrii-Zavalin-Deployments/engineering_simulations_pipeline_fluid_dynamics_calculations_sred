@@ -6,7 +6,7 @@ from src.common.field_schema import FI
 from src.common.stencil_block import StencilBlock
 from tests.helpers.solver_output_schema_dummy import make_output_schema_dummy
 
-# Dummies updated to match the orchestration steps in main_solver.py
+# Dummies updated to match the orchestration steps in main.py
 from tests.helpers.solver_step1_output_dummy import make_step1_output_dummy
 from tests.helpers.solver_step2_output_dummy import make_step2_output_dummy
 from tests.helpers.solver_step3_output_dummy import make_step3_output_dummy
@@ -14,7 +14,7 @@ from tests.helpers.solver_step4_output_dummy import make_step4_output_dummy
 
 # --- ARCHITECTURE CATEGORIZATION ---
 
-# Stages using the monolithic SolverState.fields manager (per src/main_solver.py)
+# Stages using the monolithic SolverState.fields manager (per src/main.py)
 STATE_BASED_STAGES = [
     ("Step 1 (Init)", make_step1_output_dummy),
     ("Step 2 (Assembly)", make_step2_output_dummy),

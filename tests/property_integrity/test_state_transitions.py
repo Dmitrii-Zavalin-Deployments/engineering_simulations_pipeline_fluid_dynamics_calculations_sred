@@ -9,7 +9,7 @@ from tests.helpers.solver_step4_output_dummy import make_step4_output_dummy
 def test_bridge_step4_to_output_integrity():
     """
     SYSTEM AUDITOR: Verifies continuity between the Finalized Step (Step 4) 
-    and the Terminal/Archived (Step 6) states per src/main_solver.py.
+    and the Terminal/Archived (Step 6) states per src/main.py.
     """
     nx, ny, nz = 4, 4, 4
     

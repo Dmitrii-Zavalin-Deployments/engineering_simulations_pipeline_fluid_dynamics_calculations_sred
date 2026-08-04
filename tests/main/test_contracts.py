@@ -1,4 +1,4 @@
-# tests/main_solver/test_contracts.py
+# tests/main/test_contracts.py
 
 from unittest.mock import MagicMock, patch
 

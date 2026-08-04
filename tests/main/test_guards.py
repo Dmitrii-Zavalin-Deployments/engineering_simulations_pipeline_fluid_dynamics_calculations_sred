@@ -1,4 +1,4 @@
-# tests/main_solver/test_guards.py
+# tests/main/test_guards.py
 
 import sys
 from unittest.mock import patch
@@ -33,14 +33,14 @@ def test_cli_entrypoint_no_args():
     Validates the Usage prompt and Exit(1) when no path is provided.
     Uses the direct main() call to avoid runpy double-import warnings.
     """
-    with patch("sys.argv", ["src/main_solver.py"]), \
+    with patch("sys.argv", ["src/main.py"]), \
          patch("builtins.print") as mock_print:
         
         with pytest.raises(SystemExit) as e:
             main()
             
         assert e.value.code == 1
-        mock_print.assert_any_call("Usage: python src/main_solver.py <input_json_path>")
+        mock_print.assert_any_call("Usage: python src/main.py <input_json_path>")
 
 def test_cli_entrypoint_success():
     """
@@ -49,7 +49,7 @@ def test_cli_entrypoint_success():
     """
     # Patch the orchestrator to simulate a successful physics run
     with patch("src.main.run_solver", return_value="mock.zip"), \
-         patch("sys.argv", ["src/main_solver.py", "valid.json"]), \
+         patch("sys.argv", ["src/main.py", "valid.json"]), \
          patch("builtins.print") as mock_print:
         
         with pytest.raises(SystemExit) as e:
@@ -65,7 +65,7 @@ def test_cli_entrypoint_fatal_error():
     Ensures that errors are reported to stderr as per Rule 8.
     """
     with patch("src.main.run_solver", side_effect=RuntimeError("System Collapse")), \
-         patch("sys.argv", ["src/main_solver.py", "valid.json"]), \
+         patch("sys.argv", ["src/main.py", "valid.json"]), \
          patch("builtins.print") as mock_print, \
          patch("traceback.print_exc"): # Silent traceback for cleaner test logs
         

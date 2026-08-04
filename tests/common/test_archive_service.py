@@ -80,7 +80,7 @@ class TestArchiveServiceIntegrity:
         mock_state = MagicMock()
         mock_state.manifest.output_directory = "/tmp/non_existent_solver_results_9999"
         
-        # 2. Setup Mock for main_solver.BASE_DIR
+        # 2. Setup Mock for main.BASE_DIR
         with patch("src.main.BASE_DIR", "/tmp/mock_base"):
             
             # 3. Execution & Verification
@@ -103,7 +103,7 @@ class TestArchiveServiceIntegrity:
         mock_state = MagicMock()
         mock_state.manifest.output_directory = str(source)
         
-        # Mock main_solver.BASE_DIR to point to our temp test area
+        # Mock main.BASE_DIR to point to our temp test area
         mocker.patch("src.main.BASE_DIR", str(tmp_path))
         
         # Execute

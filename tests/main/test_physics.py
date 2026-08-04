@@ -1,4 +1,4 @@
-# tests/main_solver/test_physics.py
+# tests/main/test_physics.py
 
 import logging
 from unittest.mock import MagicMock, patch
@@ -59,7 +59,7 @@ def test_run_solver_telemetry_logging(caplog):
 
 def test_run_solver_elastic_success_signal():
     """
-    Forensic Audit: Validates Line 120 of src/main_solver.py.
+    Forensic Audit: Validates Line 120 of src/main.py.
     Ensures that a successful iteration triggers the 'stabilization(is_needed=False)' 
     signal to the Elasticity Engine.
     
@@ -117,7 +117,7 @@ def test_run_solver_elastic_success_signal():
 
 def test_run_solver_terminal_error_coverage(caplog):
     """
-    Forensic Audit: Validates the catch-all terminal exception block in src/main_solver.py.
+    Forensic Audit: Validates the catch-all terminal exception block in src/main.py.
     This test ensures that any non-arithmetic error (like ValueError) is logged 
     with the [ClassName] and re-raised to stop the pipeline.
     """
