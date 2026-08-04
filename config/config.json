@@ -6,5 +6,5 @@
     "ppe_max_iter": 1000,
     "ppe_omega": 0.8,
     "ppe_max_retries": 5,
-    "divergence_threshold": 1000.0
+    "divergence_threshold": 1e6
 }
