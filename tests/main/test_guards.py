@@ -40,7 +40,7 @@ def test_cli_entrypoint_no_args():
             main()
             
         assert e.value.code == 1
-        mock_print.assert_any_call("Usage: python src/main.py <input_json_path>")
+        mock_print.assert_any_call("FATAL PIPELINE ERROR: Must provide either positional <input_json_path> OR both --input_output_folder and --input_file_name")
 
 def test_cli_entrypoint_success():
     """
