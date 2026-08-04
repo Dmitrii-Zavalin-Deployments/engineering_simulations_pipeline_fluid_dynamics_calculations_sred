@@ -1,16 +1,28 @@
 # tests/main/test_main_full_coverage.py
+import json
 import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from src.main import main, run_solver
+from tests.helpers.solver_input_schema_dummy import create_validated_input, get_explicit_solver_config
 
 
 def test_run_solver_with_output_path(tmp_path):
     """Cover line 139: run_solver with valid output_path."""
     input_file = tmp_path / "input.json"
-    input_file.write_text('{"simulation_parameters": {"total_time": 0.0}}')
+    config = get_explicit_solver_config(2, 2, 2)
+    config["simulation_parameters"]["total_time"] = 0.0
+    config["simulation_parameters"]["dt"] = 0.0001
+    config["simulation_parameters"]["dt_min_limit"] = 0.00001
+    config["simulation_parameters"]["ppe_tolerance"] = 1e-3
+    config["simulation_parameters"]["ppe_atol"] = 1e-5
+    config["simulation_parameters"]["ppe_max_iter"] = 1000
+    config["simulation_parameters"]["ppe_omega"] = 0.8
+    config["simulation_parameters"]["ppe_max_retries"] = 5
+    config["simulation_parameters"]["divergence_threshold"] = 1000.0
+    input_file.write_text(json.dumps(config))
     
     with patch("src.main._load_simulation_context") as mock_load, \
          patch("src.main._configure_numerical_runtime"), \
@@ -20,6 +32,7 @@ def test_run_solver_with_output_path(tmp_path):
          patch("src.main.archive_simulation_artifacts") as mock_archive:
         
         mock_context = MagicMock()
+        mock_context.input_data = create_validated_input(2, 2, 2)
         mock_load.return_value = mock_context
         
         mock_state = MagicMock()
@@ -38,7 +51,17 @@ def test_run_solver_with_output_path(tmp_path):
 def test_run_solver_output_path_typeerror_fallback(tmp_path):
     """Cover lines 141-142: TypeError fallback in archive_simulation_artifacts with output_path."""
     input_file = tmp_path / "input.json"
-    input_file.write_text('{"simulation_parameters": {"total_time": 0.0}}')
+    config = get_explicit_solver_config(2, 2, 2)
+    config["simulation_parameters"]["total_time"] = 0.0
+    config["simulation_parameters"]["dt"] = 0.0001
+    config["simulation_parameters"]["dt_min_limit"] = 0.00001
+    config["simulation_parameters"]["ppe_tolerance"] = 1e-3
+    config["simulation_parameters"]["ppe_atol"] = 1e-5
+    config["simulation_parameters"]["ppe_max_iter"] = 1000
+    config["simulation_parameters"]["ppe_omega"] = 0.8
+    config["simulation_parameters"]["ppe_max_retries"] = 5
+    config["simulation_parameters"]["divergence_threshold"] = 1000.0
+    input_file.write_text(json.dumps(config))
     
     with patch("src.main._load_simulation_context") as mock_load, \
          patch("src.main._configure_numerical_runtime"), \
@@ -48,6 +71,7 @@ def test_run_solver_output_path_typeerror_fallback(tmp_path):
          patch("src.main.archive_simulation_artifacts") as mock_archive:
         
         mock_context = MagicMock()
+        mock_context.input_data = create_validated_input(2, 2, 2)
         mock_load.return_value = mock_context
         
         mock_state = MagicMock()
@@ -73,7 +97,16 @@ def test_main_cli_input_output_folder_and_file(monkeypatch, tmp_path):
     input_dir = tmp_path / "data"
     input_dir.mkdir()
     input_file = input_dir / "navier_stokes_solver_input.json"
-    input_file.write_text("{}")
+    config = get_explicit_solver_config(2, 2, 2)
+    config["simulation_parameters"]["dt"] = 0.0001
+    config["simulation_parameters"]["dt_min_limit"] = 0.00001
+    config["simulation_parameters"]["ppe_tolerance"] = 1e-3
+    config["simulation_parameters"]["ppe_atol"] = 1e-5
+    config["simulation_parameters"]["ppe_max_iter"] = 1000
+    config["simulation_parameters"]["ppe_omega"] = 0.8
+    config["simulation_parameters"]["ppe_max_retries"] = 5
+    config["simulation_parameters"]["divergence_threshold"] = 1000.0
+    input_file.write_text(json.dumps(config))
     
     monkeypatch.setattr(
         sys,
@@ -100,7 +133,16 @@ def test_main_cli_input_output_folder_and_file(monkeypatch, tmp_path):
 def test_main_cli_output_file_name_only(monkeypatch, tmp_path):
     """Cover line 189: --output_file_name without --input_output_folder (using positional input)."""
     input_file = tmp_path / "input.json"
-    input_file.write_text("{}")
+    config = get_explicit_solver_config(2, 2, 2)
+    config["simulation_parameters"]["dt"] = 0.0001
+    config["simulation_parameters"]["dt_min_limit"] = 0.00001
+    config["simulation_parameters"]["ppe_tolerance"] = 1e-3
+    config["simulation_parameters"]["ppe_atol"] = 1e-5
+    config["simulation_parameters"]["ppe_max_iter"] = 1000
+    config["simulation_parameters"]["ppe_omega"] = 0.8
+    config["simulation_parameters"]["ppe_max_retries"] = 5
+    config["simulation_parameters"]["divergence_threshold"] = 1000.0
+    input_file.write_text(json.dumps(config))
     
     monkeypatch.setattr(
         sys,
