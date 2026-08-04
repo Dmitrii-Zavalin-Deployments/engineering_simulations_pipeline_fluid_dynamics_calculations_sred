@@ -67,8 +67,8 @@ class TestSchemaContracts:
             pytest.fail(f"Input Contract Violation at [{error_path}]: {e.message}")
 
     def test_output_dummy_matches_schema(self):
-        """Validates that the SolverState dummy matches solver_output_schema.json"""
-        schema = load_schema("solver_output_schema.json")
+        """Validates that the SolverState dummy matches solver_results_schema.json"""
+        schema = load_schema("solver_results_schema.json")
         
         # Generate the Output Dummy (SolverState)
         state = make_output_schema_dummy(nx=4, ny=4, nz=4)
