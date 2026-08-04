@@ -70,6 +70,7 @@ def solve_pressure_poisson_step(
             f"Val: {p_old:.2e} | Threshold: {divergence_threshold:.2e}"
         )
         raise ArithmeticError(f"Poisoned Pressure Trial detected at {block.id}")
+        
     # 5. Calculate Trial Pressure via SOR Formula
     # p_new = (1-w)*p_old + w*(Source + Neighbors)/Denom
     p_new = (1.0 - omega) * p_old + (omega / stencil_denom) * (sum_neighbors - rhs)
