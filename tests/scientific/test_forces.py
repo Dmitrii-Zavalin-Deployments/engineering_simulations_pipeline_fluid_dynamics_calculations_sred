@@ -17,6 +17,7 @@ def setup_force_block(block, force_tuple):
     object.__setattr__(block, '_f_vals', force_tuple)
     return block
 
+
 # --- PHYSICS ACCURACY GATE ---
 
 def test_body_force_zero_gravity():
@@ -30,6 +31,7 @@ def test_body_force_zero_gravity():
     assert result == expected
     assert isinstance(result, tuple)
 
+
 def test_body_force_earth_gravity():
     """Scenario 2: Standard Vertical Force. Fy=-9.81 mapping verification."""
     block = make_step3_output_dummy()
@@ -40,6 +42,7 @@ def test_body_force_earth_gravity():
     
     assert result == expected
     assert result[1] == -9.81
+
 
 def test_body_force_precision_integrity():
     """Scenario 3: High Precision Preservation. Verifies Rule 7 machine precision."""
@@ -52,6 +55,7 @@ def test_body_force_precision_integrity():
     
     assert result[0] == pytest.approx(val, abs=1e-15)
 
+
 # --- FORENSIC LOGGING & SAFETY GATE ---
 
 def test_body_force_topology_crash_logger(caplog):
@@ -60,11 +64,11 @@ def test_body_force_topology_crash_logger(caplog):
     # Force complete removal of the attribute to trigger AttributeError
     delattr(block, '_f_vals')
     
-    with caplog.at_level(logging.CRITICAL):
-        with pytest.raises(AttributeError, match="force metadata missing"):
-            get_local_body_force(block)
+    with caplog.at_level(logging.CRITICAL), pytest.raises(AttributeError, match="force metadata missing"):
+        get_local_body_force(block)
             
     assert "TOPOLOGY CRASH" in caplog.text
+
 
 def test_body_force_contract_violation_logger(caplog):
     """Verify CRITICAL log when force vector has wrong dimensions (Rule 8)."""
@@ -72,12 +76,12 @@ def test_body_force_contract_violation_logger(caplog):
     # Provide a 2D vector instead of 3D
     setup_force_block(block, (1.0, 1.0))
     
-    with caplog.at_level(logging.CRITICAL):
-        with pytest.raises(ValueError, match="Invalid body force vector"):
-            get_local_body_force(block)
+    with caplog.at_level(logging.CRITICAL), pytest.raises(ValueError, match="Invalid body force vector"):
+        get_local_body_force(block)
             
     assert "CONTRACT VIOLATION" in caplog.text
     assert "Expected 3 components" in caplog.text
+
 
 def test_body_force_numerical_instability_logger(caplog):
     """Verify ERROR log when forces are non-finite (Rule 7)."""
@@ -85,12 +89,12 @@ def test_body_force_numerical_instability_logger(caplog):
     # Inject NaN into the force vector
     setup_force_block(block, (1.0, np.nan, 0.0))
     
-    with caplog.at_level(logging.ERROR):
-        with pytest.raises(ArithmeticError, match="force is non-finite"):
-            get_local_body_force(block)
+    with caplog.at_level(logging.ERROR), pytest.raises(ArithmeticError, match="force is non-finite"):
+        get_local_body_force(block)
             
     assert "MATH FAILURE" in caplog.text
     assert "F_vals: [" in caplog.text
+
 
 def test_body_force_success_trace(caplog):
     """Verify DEBUG log on successful retrieval."""
