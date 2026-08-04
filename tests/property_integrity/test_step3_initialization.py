@@ -17,7 +17,8 @@ class TestStep3Initialization:
     """AUDITOR: Step 3 Projection Method & Boundary Pipeline Verification."""
 
     @pytest.fixture(scope="class")
-    def setup_state(self):
+    @classmethod
+    def setup_state(cls):
         """Prepare a fully wired state with explicit configuration per Rule 5."""
         input_data = create_validated_input(nx=4, ny=4, nz=4)
         

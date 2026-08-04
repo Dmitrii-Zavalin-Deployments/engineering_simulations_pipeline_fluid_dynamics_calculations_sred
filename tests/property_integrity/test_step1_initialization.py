@@ -14,7 +14,8 @@ class TestStep1Initialization:
     """AUDITOR: Step 1 Structural Gate, Metadata Hydration & Lifecycle Transitions."""
 
     @pytest.fixture(scope="class")
-    def setup_data(self):
+    @classmethod
+    def setup_data(cls):
         # 1. Hydrate input data (Rule 5: Explicit initialization)
         input_data = create_validated_input(nx=4, ny=4, nz=4)
         

@@ -25,7 +25,8 @@ class TestStep4Initialization:
     """AUDITOR: Step 4 Archivist (Persistence) Pipeline Verification."""
 
     @pytest.fixture(scope="class")
-    def setup_state(self):
+    @classmethod
+    def setup_state(cls):
         """
         Rule 9: Dummy Initialization.
         Prepare a SolverState to verify archival decision logic (Step 4).

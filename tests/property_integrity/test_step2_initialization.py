@@ -10,7 +10,8 @@ class TestStep2Initialization:
     """AUDITOR: Step 2 Wiring & Matrix Assembly Verification."""
 
     @pytest.fixture(scope="class")
-    def assembled_state(self):
+    @classmethod
+    def assembled_state(cls):
         """
         Hydrates state via the Step 1 Dummy and runs Step 2 orchestration.
         Verifies that Step 2 successfully ingests the Step 1 Foundation.
