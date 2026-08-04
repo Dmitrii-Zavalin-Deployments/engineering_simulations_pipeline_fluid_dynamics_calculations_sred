@@ -1,7 +1,7 @@
 # tests/main/test_main_full_coverage.py
 import json
-from pathlib import Path
 import sys
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
