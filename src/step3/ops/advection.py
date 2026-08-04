@@ -31,7 +31,7 @@ def compute_local_advection(block: StencilBlock, field_id: FI) -> float:
         f_jm = block.j_minus.get_field(field_id)
         f_kp = block.k_plus.get_field(field_id)
         f_km = block.k_minus.get_field(field_id)
-    except AttributeError as e:
+    except AttributeError:
         logger.critical(f"TOPOLOGY CRASH: Block {block.id} missing neighbor for field {field_id.name}")
         raise
 
@@ -78,6 +78,6 @@ def compute_local_advection_vector(block: StencilBlock) -> tuple[float, float, f
         
         return adv_v
 
-    except Exception as e:
+    except Exception:
         logger.error(f"OPS [Failure]: Advection vector computation failed in {block.id}")
         raise

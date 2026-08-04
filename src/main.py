@@ -144,7 +144,7 @@ def run_solver(input_path: str | Path, output_path: str | Path | None = None) ->
             # Reduce dt and loop back to try again with clean memory
             elasticity.stabilization(is_needed=True)
 
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             # Catch-all for Terminal errors
             logger.error(f"❌ CRITICAL TERMINATION [{type(e).__name__}]: {e!s}")
             raise

@@ -33,7 +33,7 @@ def compute_local_laplacian(block: StencilBlock, field_id: FI) -> float:
         
         f_kp = block.k_plus.get_field(field_id)
         f_km = block.k_minus.get_field(field_id)
-    except AttributeError as e:
+    except AttributeError:
         logger.critical(f"TOPOLOGY CRASH: Block {block.id} missing neighbors for Laplacian of {field_id.name}.")
         raise
 
@@ -73,7 +73,7 @@ def compute_local_laplacian_v_n(block: StencilBlock) -> tuple[float, float, floa
             compute_local_laplacian(block, FI.VY),
             compute_local_laplacian(block, FI.VZ)
         )
-    except Exception as e:
+    except Exception:
         logger.error(f"OPS [Failure]: Laplacian vector computation failed for {block.id}")
         raise
 
