@@ -78,7 +78,7 @@ def run_solver(input_path: str | Path, output_path: str | Path | None = None) ->
         state.validate_against_schema(str(SCHEMA_PATH))
     except jsonschema.exceptions.ValidationError as e:
         path_str = ".".join([str(p) for p in e.path])
-        logger.error(f"!!! STATE CONTRACT VIOLATION at {path_str}: {e.message}")
+        logger.error(f"!!! STATE CONTRACT VALIDATION at {path_str}: {e.message}")
         raise
 
     # 4. ELASTICITY ENGINE
@@ -86,15 +86,12 @@ def run_solver(input_path: str | Path, output_path: str | Path | None = None) ->
 
     # 5. MAIN EXECUTION LOOP
     while state.ready_for_time_loop:
-        # RULE 9: Snapshot memory BEFORE the trial begins
         state.capture_stable_state()
 
         try:
-            # Sync time-step from Elasticity SSoT
             for b in state.stencil_matrix:
                 b.dt = elasticity.dt
 
-            # PREDICTOR PASS
             for block in state.stencil_matrix:
                 orchestrate_step3(
                     block,
@@ -104,7 +101,6 @@ def run_solver(input_path: str | Path, output_path: str | Path | None = None) ->
                     is_first_pass=True,
                 )
 
-            # PPE ITERATION
             for _ in range(context.config.ppe_max_iter):
                 max_delta = 0.0
                 for block in state.stencil_matrix:
@@ -120,32 +116,22 @@ def run_solver(input_path: str | Path, output_path: str | Path | None = None) ->
                 if max_delta < context.config.ppe_tolerance:
                     break
 
-            # Success signal
             elasticity.stabilization(is_needed=False)
-
-            # Finalize Step (Iteration incremented here)
             state = orchestrate_step4(state, context)
 
             if state.time >= context.input_data.simulation_parameters.total_time:
                 state.ready_for_time_loop = False
 
         except ArithmeticError as e:
-            # RULE 9: ANTI-FRANKENSTEIN ROLLBACK
             logger.error(f"Audit Failure: {e}")
-
-            # Wipes memory pollution and restores stable state
             state.rollback_to_stable_state()
-
-            # REQUIRED FOR PYTEST
             logger.warning(
                 f"STABILITY TRIGGER: Physical anomaly at iteration {state.iteration}. Reducing dt..."
             )
-
-            # Reduce dt and loop back to try again with clean memory
             elasticity.stabilization(is_needed=True)
 
-        except (RuntimeError, TypeError, AttributeError) as e:
-            logger.error(f"❌ CRITICAL TERMINATION [{type(e).__name__}]: {e!s}")
+        except (RuntimeError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"CRITICAL TERMINATION [{type(e).__name__}]: {e!s}")
             raise
 
     try:
@@ -187,13 +173,12 @@ def main():
 
     args = parser.parse_args()
 
-    # Resolve Input Path
     if args.input_output_folder and args.input_file_name:
         input_path = Path(args.input_output_folder) / args.input_file_name
     elif args.positional_input:
         input_path = Path(args.positional_input)
     else:
-        logger.error(
+        print(
             "FATAL PIPELINE ERROR: Must provide either positional <input_json_path> OR both --input_output_folder and --input_file_name",
             file=sys.stderr,
         )
