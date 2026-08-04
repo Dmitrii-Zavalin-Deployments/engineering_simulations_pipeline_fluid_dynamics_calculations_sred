@@ -210,7 +210,15 @@ def main():
         zip_path = run_solver(input_path=input_path, output_path=output_path)
         print(f"Pipeline complete. Artifacts archived at: {zip_path}")
         sys.exit(0)
-    except Exception as e:  # noqa: BLE001
+    except (
+        FileNotFoundError,
+        ValueError,
+        KeyError,
+        jsonschema.exceptions.ValidationError,
+        ArithmeticError,
+        OSError,
+        json.JSONDecodeError,
+    ) as e:
         print(f"FATAL PIPELINE ERROR: {e!s}", file=sys.stderr)
         traceback.print_exc()
         sys.exit(1)
