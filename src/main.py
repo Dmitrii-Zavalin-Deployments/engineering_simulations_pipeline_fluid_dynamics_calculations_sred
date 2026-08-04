@@ -39,7 +39,7 @@ def _load_simulation_context(input_path: str | Path) -> SimulationContext:
     if not full_input_path.is_absolute():
         full_input_path = BASE_DIR / input_path
 
-    config_path = BASE_DIR / "config.json"
+    config_path = BASE_DIR / "config/config.json"
 
     if not full_input_path.exists():
         raise FileNotFoundError(f"Input file missing at {full_input_path}")
