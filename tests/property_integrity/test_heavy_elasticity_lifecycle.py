@@ -11,6 +11,8 @@ import numpy as np
 import pytest
 from src.main_solver import BASE_DIR, run_solver
 
+logger = logging.getLogger(__name__)
+
 
 class TestHeavyElasticityLifecycle:
 
@@ -119,7 +121,7 @@ class TestHeavyElasticityLifecycle:
                         vx_data = h5_audit["vx"][:]
                         assert np.all(np.isfinite(vx_data)), "PHYSICS FAIL: Non-finite values detected in final velocity field."
                         
-            print(f"\n✅ Scenario 1 Passed: Plumbing and Physics are nominal. Artifact: {zip_path.name}")
+        print(f"\n✅ Scenario 1 Passed: Plumbing and Physics are nominal. Artifact: {zip_path.name}")
 
     def test_scenario_2_elasticity_terminal_failure(self, caplog, base_config, base_input):
         """
@@ -154,9 +156,8 @@ class TestHeavyElasticityLifecycle:
 
         input_filename = "test_elastic_terminal_fail.json"
 
-        with caplog.at_level(logging.INFO):
-            with pytest.raises(RuntimeError) as excinfo:
-                self._run_with_config_protection(base_config, base_input, input_filename, logging.INFO)
+        with caplog.at_level(logging.INFO), pytest.raises(RuntimeError) as excinfo:
+            self._run_with_config_protection(base_config, base_input, input_filename, logging.INFO)
 
         error_msg = str(excinfo.value)
         assert "CRITICAL INSTABILITY" in error_msg
@@ -166,7 +167,6 @@ class TestHeavyElasticityLifecycle:
         assert "STABILITY TRIGGER" in caplog.text
         # And the physical audit must have been involved
         assert "AUDIT [Explosion]" in caplog.text or "AUDIT [Limit]" in caplog.text
-
 
     def test_scenario_3_terminal_failure_hard_config(self, caplog, base_config, base_input):
         """
@@ -179,9 +179,8 @@ class TestHeavyElasticityLifecycle:
 
         input_filename = "test_terminal_fail.json"
 
-        with caplog.at_level(logging.WARNING):
-            with pytest.raises(RuntimeError) as excinfo:
-                self._run_with_config_protection(base_config, base_input, input_filename, logging.WARNING)
+        with caplog.at_level(logging.WARNING), pytest.raises(RuntimeError) as excinfo:
+            self._run_with_config_protection(base_config, base_input, input_filename, logging.WARNING)
 
         error_msg = str(excinfo.value)
         assert "CRITICAL INSTABILITY" in error_msg
@@ -209,9 +208,8 @@ class TestHeavyElasticityLifecycle:
 
         side_effects = [ArithmeticError("Mocked explosion"), None, None, None]
 
-        with patch("src.common.solver_state.SolverState.audit_physical_bounds", side_effect=side_effects):
-            with caplog.at_level(logging.INFO):
-                zip_path = self._run_with_config_protection(base_config, base_input, input_filename, logging.INFO)
+        with patch("src.common.solver_state.SolverState.audit_physical_bounds", side_effect=side_effects), caplog.at_level(logging.INFO):
+            zip_path = self._run_with_config_protection(base_config, base_input, input_filename, logging.INFO)
 
         assert zip_path is not None
 

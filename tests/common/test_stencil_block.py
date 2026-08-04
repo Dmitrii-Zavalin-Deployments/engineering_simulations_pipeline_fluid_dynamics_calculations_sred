@@ -58,10 +58,9 @@ def test_dt_instability_guard_real_logic(physical_stencil, caplog):
     """VERIFICATION: Non-positive dt must log a STABILITY CRASH and raise ValueError."""
     block = physical_stencil
 
-    with caplog.at_level(logging.ERROR):
-        # Rule 5: Reject invalid numerical state immediately
-        with pytest.raises(ValueError, match="Numerical Instability"):
-            block.dt = -0.005
+    # Rule 5: Reject invalid numerical state immediately
+    with caplog.at_level(logging.ERROR), pytest.raises(ValueError, match="Numerical Instability"):
+        block.dt = -0.005
 
     # Check for the specific forensic log string
     assert "STABILITY CRASH" in caplog.text

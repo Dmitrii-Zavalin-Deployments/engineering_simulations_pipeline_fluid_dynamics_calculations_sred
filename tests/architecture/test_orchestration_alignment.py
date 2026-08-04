@@ -55,10 +55,9 @@ def assert_structural_parity(actual, expected, path=""):
         
         if isinstance(actual_val, dict):
             assert_structural_parity(actual_val, expected_val, current_path)
-        elif isinstance(actual_val, list) and len(actual_val) > 0:
-            if isinstance(actual_val[0], dict):
-                # Only recurse if the elements are dictionaries
-                assert_structural_parity(actual_val[0], expected_val[0], f"{current_path}[0]")
+        elif isinstance(actual_val, list) and actual_val and isinstance(actual_val[0], dict):
+            # Only recurse if the elements are dictionaries
+            assert_structural_parity(actual_val[0], expected_val[0], f"{current_path}[0]")
 
 class TestVerticalIntegrity:
     """Verifies data survival and structural alignment across the pipeline."""
