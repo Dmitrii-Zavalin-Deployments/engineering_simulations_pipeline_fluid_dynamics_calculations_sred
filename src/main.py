@@ -218,6 +218,7 @@ def main():
         ArithmeticError,
         OSError,
         json.JSONDecodeError,
+        Exception,
     ) as e:
         print(f"FATAL PIPELINE ERROR: {e!s}", file=sys.stderr)
         traceback.print_exc()
