@@ -15,7 +15,7 @@ def test_anti_density_axiom():
         # Use grep to search for violations
         result = subprocess.run(
             ["grep", "-r", term, target_dir], 
-            capture_output=True, 
+            capture_output=True, check=False, 
             text=True
         )
         

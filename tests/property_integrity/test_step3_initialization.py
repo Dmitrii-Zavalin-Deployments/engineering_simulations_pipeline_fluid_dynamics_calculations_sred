@@ -45,7 +45,7 @@ class TestStep3Initialization:
 
     def test_ghost_cell_immunity(self, setup_state):
         """Rule 9: Ensure Step 3 logic ignores ghost cell pointers via sync path."""
-        state, context, elasticity = setup_state
+        state, context, _elasticity = setup_state
         # Pick a block from the matrix and force center to be ghost
         block = state.stencil_matrix[0]
         block.center.is_ghost = True 
@@ -58,7 +58,7 @@ class TestStep3Initialization:
 
     def test_foundation_mutation_consistency(self, setup_state):
         """Rule 9: Verify buffer mutation remains schema-compliant."""
-        state, context, elasticity = setup_state
+        state, context, _elasticity = setup_state
         block = state.stencil_matrix[len(state.stencil_matrix) // 2]
         block.center.is_ghost = False # Ensure it's treated as fluid
         
@@ -74,7 +74,7 @@ class TestStep3Initialization:
 
     def test_boundary_integration_contract(self, setup_state):
         """Rule 5 & 8: Verify merged Step 3/4 Boundary Enforcement logic."""
-        state, context, elasticity = setup_state
+        state, context, _elasticity = setup_state
         block = state.stencil_matrix[0] # Usually a boundary-adjacent cell
         
         # We test the 'is_first_pass' flag which triggers predictor + boundary enforcement
@@ -89,7 +89,7 @@ class TestStep3Initialization:
 
     def test_omega_parameter_ingress(self, setup_state):
         """Rule 4: Verify numerical parameter (omega) is sourced from context."""
-        state, context, elasticity = setup_state
+        state, context, _elasticity = setup_state
         # Update config to ensure the solver sees the new omega
         context.config.ppe_omega = 1.2 
         

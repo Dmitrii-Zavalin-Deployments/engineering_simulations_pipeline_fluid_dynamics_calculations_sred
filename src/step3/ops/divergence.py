@@ -35,7 +35,7 @@ def compute_local_divergence_v_star(block: StencilBlock) -> float:
         w_km = block.k_minus.get_field(FI.VZ_STAR)
     except AttributeError as e:
         logger.critical(f"TOPOLOGY CRASH: Block {block.id} missing neighbors for Divergence.")
-        raise e
+        raise
 
     # 2. Central difference: ∂u*/∂x + ∂v*/∂y + ∂w*/∂z
     # Rule 7: Defensive geometry audit
@@ -45,7 +45,7 @@ def compute_local_divergence_v_star(block: StencilBlock) -> float:
         div_z = (w_kp - w_km) / (2.0 * block.dz)
     except ZeroDivisionError as e:
         logger.critical(f"GEOMETRY CRASH: Block {block.id} has invalid dimensions (dx={block.dx})")
-        raise e
+        raise
     
     divergence_val = div_x + div_y + div_z
 

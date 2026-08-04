@@ -335,8 +335,9 @@ class MaskManager(ValidatedContainer):
     def mask(self) -> np.ndarray: return self._get_safe("mask")
     @mask.setter
     def mask(self, value: np.ndarray):
-        if value is not None:
-            if not isinstance(value, np.ndarray) or not np.all(np.isin(value, [-1, 0, 1])):
+        if value is not None and (
+            not isinstance(value, np.ndarray) or not np.all(np.isin(value, [-1, 0, 1]))
+        ):
                 raise ValueError("Mask must be a NumPy array of -1, 0, 1.")
         self._set_safe("mask", value, np.ndarray)
 

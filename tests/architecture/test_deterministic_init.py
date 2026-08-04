@@ -28,7 +28,7 @@ def test_no_lazy_defaults_in_src():
                 file_path = os.path.join(root, file)
                 result = subprocess.run(
                     ["grep", "-nE", forbidden_pattern, file_path],
-                    capture_output=True,
+                    capture_output=True, check=False,
                     text=True
                 )
                 if result.returncode == 0:

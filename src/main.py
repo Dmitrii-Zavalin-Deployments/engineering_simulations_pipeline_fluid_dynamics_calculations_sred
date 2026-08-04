@@ -144,7 +144,7 @@ def run_solver(input_path: str | Path, output_path: str | Path | None = None) ->
             # Reduce dt and loop back to try again with clean memory
             elasticity.stabilization(is_needed=True)
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             # Catch-all for Terminal errors
             logger.error(f"❌ CRITICAL TERMINATION [{type(e).__name__}]: {e!s}")
             raise
@@ -210,7 +210,7 @@ def main():
         zip_path = run_solver(input_path=input_path, output_path=output_path)
         print(f"Pipeline complete. Artifacts archived at: {zip_path}")
         sys.exit(0)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"FATAL PIPELINE ERROR: {e!s}", file=sys.stderr)
         traceback.print_exc()
         sys.exit(1)

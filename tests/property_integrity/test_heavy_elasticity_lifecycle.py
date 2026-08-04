@@ -115,7 +115,7 @@ class TestHeavyElasticityLifecycle:
                 # Audit the final frame for finite physics
                 with archive.open(h5_files[-1]) as f:
                     with h5py.File(BytesIO(f.read()), "r") as h5_audit:
-                        assert "vx" in h5_audit.keys(), "SCHEMA FAIL: 'vx' dataset missing from HDF5."
+                        assert "vx" in h5_audit, "SCHEMA FAIL: 'vx' dataset missing from HDF5."
                         vx_data = h5_audit["vx"][:]
                         assert np.all(np.isfinite(vx_data)), "PHYSICS FAIL: Non-finite values detected in final velocity field."
                         
@@ -136,7 +136,7 @@ class TestHeavyElasticityLifecycle:
         dx = (x_max - x_min) / nx
         courant_number = (u * dt_initial) / dx
 
-        logging.info(
+        logger.info(
             f"DEBUG: Scenario 2 Initial Courant Number = {courant_number:.4f} (Target >> 1.0)"
         )
 

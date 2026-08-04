@@ -35,7 +35,7 @@ def compute_local_laplacian(block: StencilBlock, field_id: FI) -> float:
         f_km = block.k_minus.get_field(field_id)
     except AttributeError as e:
         logger.critical(f"TOPOLOGY CRASH: Block {block.id} missing neighbors for Laplacian of {field_id.name}.")
-        raise e
+        raise
 
     # 2. Geometry Setup (Rule 4: SSoT from block)
     if block.dx <= 0 or block.dy <= 0 or block.dz <= 0:
@@ -75,7 +75,7 @@ def compute_local_laplacian_v_n(block: StencilBlock) -> tuple[float, float, floa
         )
     except Exception as e:
         logger.error(f"OPS [Failure]: Laplacian vector computation failed for {block.id}")
-        raise e
+        raise
 
 def compute_local_laplacian_p_next(block: StencilBlock) -> float:
     """Computes Laplacian for trial pressure p^{n+1}."""

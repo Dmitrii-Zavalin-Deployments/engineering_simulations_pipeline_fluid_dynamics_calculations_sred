@@ -95,7 +95,7 @@ class TestVerticalIntegrity:
         expected_block_dummy = make_step3_output_dummy() 
         
         # Execute Step 3 Physics Kernel
-        actual_block, delta = orchestrate_step3(
+        actual_block, _delta = orchestrate_step3(
             block=sample_block,
             context=global_context,
             state_grid=state.grid,
@@ -133,7 +133,7 @@ class TestVerticalIntegrity:
         
         # 3. Process Physics (Simulate one iteration for the first block)
         # We ensure the data doesn't lose structure after a predictor pass
-        block, _ = orchestrate_step3(
+        _block, _ = orchestrate_step3(
             block=state.stencil_matrix[0],
             context=global_context,
             state_grid=state.grid,
