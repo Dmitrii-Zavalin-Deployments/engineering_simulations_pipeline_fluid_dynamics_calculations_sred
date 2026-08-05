@@ -88,7 +88,7 @@ def solve_pressure_poisson_step(
 
   # --- RULE 7: PRE-UPDATE AUDIT ---
   # Catch non-finite values or extreme divergence before the SOR calculation
-  # pollutes the entire grid.
+  # pollutes the entire grid. Strict access policy: no default fallbacks.
   if not np.isfinite(p_old) or abs(p_old) > divergence_threshold:
     logger.error(
         f"\n==================================================\n"
@@ -104,6 +104,14 @@ def solve_pressure_poisson_step(
         f"  Stencil Denominator:   {stencil_denom:.2e}\n"
         f"  Grid Spacing (dx,dy,dz): {block.dx:.2e}, {block.dy:.2e},"
         f" {block.dz:.2e}\n"
+        f"--------------------------------------------------\n"
+        f"  [TOPOLOGY & NEIGHBOR PROVENANCE]\n"
+        f"  i_minus ID: {block.i_minus.id} | p_next: {block.i_minus.get_field(FI.P_NEXT):.2e}\n"
+        f"  i_plus  ID: {block.i_plus.id}  | p_next: {block.i_plus.get_field(FI.P_NEXT):.2e}\n"
+        f"  j_minus ID: {block.j_minus.id} | p_next: {block.j_minus.get_field(FI.P_NEXT):.2e}\n"
+        f"  j_plus  ID: {block.j_plus.id}  | p_next: {block.j_plus.get_field(FI.P_NEXT):.2e}\n"
+        f"  k_minus ID: {block.k_minus.id} | p_next: {block.k_minus.get_field(FI.P_NEXT):.2e}\n"
+        f"  k_plus  ID: {block.k_plus.id}  | p_next: {block.k_plus.get_field(FI.P_NEXT):.2e}\n"
         f"=================================================="
     )
     raise ArithmeticError(f"Poisoned Pressure Trial detected at {block.id}")
