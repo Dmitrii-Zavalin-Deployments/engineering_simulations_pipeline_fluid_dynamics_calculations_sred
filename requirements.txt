@@ -2,9 +2,8 @@
 numpy>=2.0.0
 h5py>=3.12.0
 
-# Archivist I/O Layer (Rule 10: Cloud Sync)
-dropbox>=11.36.2
-requests>=2.32.0
+# Visualization & Preview Generation
+matplotlib>=3.8.0
 
 # Contract Enforcement
 jsonschema>=4.23.0
