@@ -1,7 +1,9 @@
 # src/step4/orchestrate_step4.py
 
+from pathlib import Path
 from src.common.simulation_context import SimulationContext
 from src.common.solver_state import SolverState
+from src.step4.generate_previews import generate_pipeline_previews
 from src.step4.io_archivist import save_snapshot
 
 
@@ -20,7 +22,15 @@ def orchestrate_step4(state: SolverState, context: SimulationContext) -> SolverS
     # Output frequency is a simulation parameter defined in the Input Schema,
     # not an algorithmic tuning parameter (SolverConfig).
     interval = context.input_data.simulation_parameters.output_interval
-    
+
+    # Generate README pipeline preview images on initialization (iteration 0)
+    if state.iteration == 0:
+        print(
+            "DEBUG: Generating README pipeline preview snapshots"
+            " (Initial Field -> PPE Solver -> Vorticity Slice)..."
+        )
+        generate_pipeline_previews()
+
     # Logic-layer operation: Decision to archive
     # state.iteration is a property managed within the SolverState lifecycle
     if state.iteration % interval == 0:
