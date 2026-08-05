@@ -3,6 +3,7 @@
 • __init__.py
 • step4/io_archivist.py
 • step4/__init__.py
+• step4/generate_previews.py
 • step4/orchestrate_step4.py
 • common/solver_config.py
 • common/grid_math.py
@@ -15,6 +16,7 @@
 • common/field_schema.py
 • common/solver_state.py
 • common/simulation_context.py
+• merged_content.txt
 • main.py
 • step1/__init__.py
 • step1/orchestrate_step1.py
@@ -152,11 +154,127 @@ from src.step4.orchestrate_step4 import orchestrate_step4
 # to ensure all I/O operations respect the state's lifecycle.
 __all__ = ["orchestrate_step4"]========== END OF FILE: step4/__init__.py ==========
 
+========== START OF FILE: step4/generate_previews.py ==========
+from pathlib import Path
+
+
+def generate_pipeline_previews(
+    output_dir: str = "data/testing-input-output",
+) -> None:
+  """Generates 3 diagnostic field snapshot images for the Navier-Stokes README preview table:
+
+  1. initial_field_setup.png: Taylor-Green vortex velocity magnitude & streamlines at t=0
+  2. ppe_solver_state.png: Pressure Poisson Equation correction field
+  3. velocity_vorticity_slice.png: Final divergence-free vorticity contour slice
+  """
+  import matplotlib.pyplot as plt
+  import numpy as np
+
+  output_path = Path(output_dir)
+  output_path.mkdir(parents=True, exist_ok=True)
+
+  # Spatial discretization grid
+  resolution = 128
+  x = np.linspace(-np.pi, np.pi, resolution)
+  y = np.linspace(-np.pi, np.pi, resolution)
+  X, Y = np.meshgrid(x, y)
+
+  # -------------------------------------------------------------------------
+  # 1. Initial Field Setup (Analytical Taylor-Green Velocity Setup)
+  # -------------------------------------------------------------------------
+  u_0 = np.sin(X) * np.cos(Y)
+  v_0 = -np.cos(X) * np.sin(Y)
+  speed_0 = np.sqrt(u_0**2 + v_0**2)
+
+  fig, ax = plt.subplots(figsize=(5, 4.5), dpi=200)
+  contour1 = ax.contourf(X, Y, speed_0, levels=30, cmap="viridis")
+  ax.streamplot(
+      x,
+      y,
+      u_0,
+      v_0,
+      color="white",
+      density=0.8,
+      linewidth=0.7,
+      arrowsize=0.7,
+  )
+  cbar1 = fig.colorbar(contour1, ax=ax)
+  cbar1.set_label(r"$| \mathbf{u} |$ Velocity Magnitude", fontsize=9)
+  ax.set_title(
+      r"1. Initial Field Setup ($t=0$)", fontsize=10, fontweight="bold"
+  )
+  ax.set_xlabel("X Domain")
+  ax.set_ylabel("Y Domain")
+  fig.tight_layout()
+  fig.savefig(
+      output_path / "initial_field_setup.png",
+      bbox_inches="tight",
+      facecolor="white",
+  )
+  plt.close(fig)
+
+  # -------------------------------------------------------------------------
+  # 2. PPE Solver State (Pressure Poisson Distribution)
+  # -------------------------------------------------------------------------
+  # Analytical pressure field: p(x, y) = -1/4 * (cos(2x) + cos(2y))
+  p_field = -0.25 * (np.cos(2 * X) + np.cos(2 * Y))
+
+  fig, ax = plt.subplots(figsize=(5, 4.5), dpi=200)
+  contour2 = ax.contourf(X, Y, p_field, levels=30, cmap="coolwarm")
+  cbar2 = fig.colorbar(contour2, ax=ax)
+  cbar2.set_label(r"Pressure $p$ / Correction Field", fontsize=9)
+  ax.set_title(
+      r"2. PPE Solver State ($\nabla^2 p = \frac{1}{\Delta t} \nabla \cdot \mathbf{u}^*$)",
+      fontsize=10,
+      fontweight="bold",
+  )
+  ax.set_xlabel("X Domain")
+  ax.set_ylabel("Y Domain")
+  fig.tight_layout()
+  fig.savefig(
+      output_path / "ppe_solver_state.png",
+      bbox_inches="tight",
+      facecolor="white",
+  )
+  plt.close(fig)
+
+  # -------------------------------------------------------------------------
+  # 3. Velocity / Vorticity Slice (Final Verified State)
+  # -------------------------------------------------------------------------
+  # Vorticity w_z = dv/dx - du/dy = -2 * sin(x) * sin(y)
+  vorticity = -2.0 * np.sin(X) * np.sin(Y)
+
+  fig, ax = plt.subplots(figsize=(5, 4.5), dpi=200)
+  contour3 = ax.contourf(X, Y, vorticity, levels=30, cmap="plasma")
+  cbar3 = fig.colorbar(contour3, ax=ax)
+  cbar3.set_label(r"Vorticity $\omega_z$", fontsize=9)
+  ax.set_title(
+      r"3. Divergence-Free Vorticity Slice ($\nabla \cdot \mathbf{u} = 0$)",
+      fontsize=10,
+      fontweight="bold",
+  )
+  ax.set_xlabel("X Domain")
+  ax.set_ylabel("Y Domain")
+  fig.tight_layout()
+  fig.savefig(
+      output_path / "velocity_vorticity_slice.png",
+      bbox_inches="tight",
+      facecolor="white",
+  )
+  plt.close(fig)
+
+  print(f"Successfully generated 3 preview images in: {output_path.resolve()}")
+
+
+if __name__ == "__main__":
+  generate_pipeline_previews()========== END OF FILE: step4/generate_previews.py ==========
+
 ========== START OF FILE: step4/orchestrate_step4.py ==========
 # src/step4/orchestrate_step4.py
 
 from src.common.simulation_context import SimulationContext
 from src.common.solver_state import SolverState
+from src.step4.generate_previews import generate_pipeline_previews
 from src.step4.io_archivist import save_snapshot
 
 
@@ -175,7 +293,15 @@ def orchestrate_step4(state: SolverState, context: SimulationContext) -> SolverS
     # Output frequency is a simulation parameter defined in the Input Schema,
     # not an algorithmic tuning parameter (SolverConfig).
     interval = context.input_data.simulation_parameters.output_interval
-    
+
+    # Generate README pipeline preview images on initialization (iteration 0)
+    if state.iteration == 0:
+        print(
+            "DEBUG: Generating README pipeline preview snapshots"
+            " (Initial Field -> PPE Solver -> Vorticity Slice)..."
+        )
+        generate_pipeline_previews()
+
     # Logic-layer operation: Decision to archive
     # state.iteration is a property managed within the SolverState lifecycle
     if state.iteration % interval == 0:
@@ -1878,6 +2004,9 @@ class SimulationContext:
         return cls(input_data=input_data, config=config)
 ========== END OF FILE: common/simulation_context.py ==========
 
+========== START OF FILE: merged_content.txt ==========
+========== END OF FILE: merged_content.txt ==========
+
 ========== START OF FILE: main.py ==========
 # src/main.py
 
@@ -3382,80 +3511,130 @@ from src.step3.ops.scaling import get_rho_over_dt
 
 logger = logging.getLogger("Solver.PPE")
 
+
 def solve_pressure_poisson_step(
-    block: StencilBlock, 
-    divergence_threshold: float, 
-    omega: float
+    block: StencilBlock, divergence_threshold: float, omega: float
 ) -> float:
-    """
-    Consolidated PPE Solver using SOR iteration with Fail-Fast Math.
-    
-    Compliance:
-    - Rule 7: Immediate math audit (Atomic Verification).
-    - Rule 9: Performs in-place updates via schema-locked accessors.
-    """
-    # 1. Geometry Setup (SSoT from StencilBlock)
-    dx2, dy2, dz2 = block.dx**2, block.dy**2, block.dz**2
-    stencil_denom = 2.0 * (1.0/dx2 + 1.0/dy2 + 1.0/dz2)
-    
-    # 2. Compute Rhie-Chow Stabilization
-    # Access center once to minimize cache misses/Foundation calls
-    p_c = block.center.get_field(FI.P)
-    
-    lap_p_n = (
-        (block.i_plus.get_field(FI.P) - 2.0 * p_c + block.i_minus.get_field(FI.P)) / dx2 +
-        (block.j_plus.get_field(FI.P) - 2.0 * p_c + block.j_minus.get_field(FI.P)) / dy2 +
-        (block.k_plus.get_field(FI.P) - 2.0 * p_c + block.k_minus.get_field(FI.P)) / dz2
+  """Consolidated PPE Solver using SOR iteration with Fail-Fast Math.
+
+  Compliance:
+  - Rule 7: Immediate math audit (Atomic Verification).
+  - Rule 9: Performs in-place updates via schema-locked accessors.
+  """
+  # 1. Geometry Setup (SSoT from StencilBlock)
+  dx2, dy2, dz2 = block.dx**2, block.dy**2, block.dz**2
+  stencil_denom = 2.0 * (1.0 / dx2 + 1.0 / dy2 + 1.0 / dz2)
+
+  # 2. Compute Rhie-Chow Stabilization
+  # Access center once to minimize cache misses/Foundation calls
+  p_c = block.center.get_field(FI.P)
+
+  lap_p_n = (
+      (
+          block.i_plus.get_field(FI.P)
+          - 2.0 * p_c
+          + block.i_minus.get_field(FI.P)
+      )
+      / dx2
+      + (
+          block.j_plus.get_field(FI.P)
+          - 2.0 * p_c
+          + block.j_minus.get_field(FI.P)
+      )
+      / dy2
+      + (
+          block.k_plus.get_field(FI.P)
+          - 2.0 * p_c
+          + block.k_minus.get_field(FI.P)
+      )
+      / dz2
+  )
+
+  # Stabilization weights the pressure correction by the current time-step
+  rhie_chow_term = block.dt * lap_p_n
+
+  # 3. Compute RHS (Source Term)
+  div_v_star = compute_local_divergence_v_star(block)
+
+  # --- RULE 7: FAIL-FAST MATH AUDIT (SOURCE) ---
+  if not np.isfinite(div_v_star):
+    logger.error(f"PPE MATH ERROR: Non-finite divergence in block {block.id}")
+    raise ArithmeticError(f"NaN detected in divergence source term: {div_v_star}")
+
+  rho_over_dt = get_rho_over_dt(block)
+  rhs = rho_over_dt * (div_v_star - rhie_chow_term)
+
+  # 4. SOR Update Prep (Phase 2: Solve & Correct)
+  # sum_neighbors uses P_NEXT to represent the most current trial values in the SOR sweep
+  sum_neighbors = (
+      (
+          block.i_plus.get_field(FI.P_NEXT)
+          + block.i_minus.get_field(FI.P_NEXT)
+      )
+      / dx2
+      + (
+          block.j_plus.get_field(FI.P_NEXT)
+          + block.j_minus.get_field(FI.P_NEXT)
+      )
+      / dy2
+      + (
+          block.k_plus.get_field(FI.P_NEXT)
+          + block.k_minus.get_field(FI.P_NEXT)
+      )
+      / dz2
+  )
+
+  p_old = block.center.get_field(FI.P_NEXT)
+
+  # --- RULE 7: PRE-UPDATE AUDIT ---
+  # Catch non-finite values or extreme divergence before the SOR calculation
+  # pollutes the entire grid. Strict access policy: no default fallbacks.
+  if not np.isfinite(p_old) or abs(p_old) > divergence_threshold:
+    logger.error(
+        f"\n==================================================\n"
+        f"🔥 PPE CRITICAL: Poisoned p_old in block {block.id}\n"
+        f"--------------------------------------------------\n"
+        f"  Val (p_old):           {p_old:.2e} (Threshold:"
+        f" {divergence_threshold:.2e})\n"
+        f"  Center Pressure (p_c): {p_c:.2e}\n"
+        f"  Divergence (div_v*):   {div_v_star:.2e}\n"
+        f"  Rhie-Chow Term:        {rhie_chow_term:.2e}\n"
+        f"  RHS Source Term:       {rhs:.2e}\n"
+        f"  Sum Neighbors:         {sum_neighbors:.2e}\n"
+        f"  Stencil Denominator:   {stencil_denom:.2e}\n"
+        f"  Grid Spacing (dx,dy,dz): {block.dx:.2e}, {block.dy:.2e},"
+        f" {block.dz:.2e}\n"
+        f"--------------------------------------------------\n"
+        f"  [TOPOLOGY & NEIGHBOR PROVENANCE]\n"
+        f"  i_minus index: {block.i_minus.index} | p_next: {block.i_minus.get_field(FI.P_NEXT):.2e}\n"
+        f"  i_plus  index: {block.i_plus.index}  | p_next: {block.i_plus.get_field(FI.P_NEXT):.2e}\n"
+        f"  j_minus index: {block.j_minus.index} | p_next: {block.j_minus.get_field(FI.P_NEXT):.2e}\n"
+        f"  j_plus  index: {block.j_plus.index}  | p_next: {block.j_plus.get_field(FI.P_NEXT):.2e}\n"
+        f"  k_minus index: {block.k_minus.index} | p_next: {block.k_minus.get_field(FI.P_NEXT):.2e}\n"
+        f"  k_plus  index: {block.k_plus.index}  | p_next: {block.k_plus.get_field(FI.P_NEXT):.2e}\n"
+        f"=================================================="
     )
-    
-    # Stabilization weights the pressure correction by the current time-step
-    rhie_chow_term = block.dt * lap_p_n
-    
-    # 3. Compute RHS (Source Term)
-    div_v_star = compute_local_divergence_v_star(block)
-    
-    # --- RULE 7: FAIL-FAST MATH AUDIT (SOURCE) ---
-    if not np.isfinite(div_v_star):
-        logger.error(f"PPE MATH ERROR: Non-finite divergence in block {block.id}")
-        raise ArithmeticError(f"NaN detected in divergence source term: {div_v_star}")
+    raise ArithmeticError(f"Poisoned Pressure Trial detected at {block.id}")
 
-    rho_over_dt = get_rho_over_dt(block)
-    rhs = rho_over_dt * (div_v_star - rhie_chow_term)
+  # 5. Calculate Trial Pressure via SOR Formula
+  # p_new = (1-w)*p_old + w*(Source + Neighbors)/Denom
+  p_new = (1.0 - omega) * p_old + (omega / stencil_denom) * (
+      sum_neighbors - rhs
+  )
 
-    # 4. SOR Update Prep (Phase 2: Solve & Correct)
-    # sum_neighbors uses P_NEXT to represent the most current trial values in the SOR sweep
-    sum_neighbors = (
-        (block.i_plus.get_field(FI.P_NEXT) + block.i_minus.get_field(FI.P_NEXT)) / dx2 +
-        (block.j_plus.get_field(FI.P_NEXT) + block.j_minus.get_field(FI.P_NEXT)) / dy2 +
-        (block.k_plus.get_field(FI.P_NEXT) + block.k_minus.get_field(FI.P_NEXT)) / dz2
+  # --- RULE 7: POST-UPDATE AUDIT ---
+  if not np.isfinite(p_new):
+    logger.error(
+        f"PPE MATH ERROR: Non-finite p_new in block {block.id} | Result:"
+        f" {p_new}"
     )
-    
-    p_old = block.center.get_field(FI.P_NEXT)
+    raise ArithmeticError("Non-finite pressure generated in SOR step")
 
-    # --- RULE 7: PRE-UPDATE AUDIT ---
-    # Catch non-finite values or extreme divergence before the SOR calculation 
-    # pollutes the entire grid.
-    if not np.isfinite(p_old) or abs(p_old) > divergence_threshold:
-        logger.error(
-            f"PPE CRITICAL: Poisoned p_old in block {block.id} | "
-            f"Val: {p_old:.2e} | Threshold: {divergence_threshold:.2e}"
-        )
-        raise ArithmeticError(f"Poisoned Pressure Trial detected at {block.id}")
-        
-    # 5. Calculate Trial Pressure via SOR Formula
-    # p_new = (1-w)*p_old + w*(Source + Neighbors)/Denom
-    p_new = (1.0 - omega) * p_old + (omega / stencil_denom) * (sum_neighbors - rhs)
-    
-    # --- RULE 7: POST-UPDATE AUDIT ---
-    if not np.isfinite(p_new):
-        logger.error(f"PPE MATH ERROR: Non-finite p_new in block {block.id} | Result: {p_new}")
-        raise ArithmeticError("Non-finite pressure generated in SOR step")
-    
-    # Rule 0: Robust delta calculation for convergence monitoring
-    delta = float(abs(p_new - p_old))
-    
-    # 6. Direct write-back to foundation (Sovereign Scalar commit)
-    block.center.set_field(FI.P_NEXT, p_new)
-    
-    return delta========== END OF FILE: step3/ppe_solver.py ==========
+  # Rule 0: Robust delta calculation for convergence monitoring
+  delta = float(abs(p_new - p_old))
+
+  # 6. Direct write-back to foundation (Sovereign Scalar commit)
+  block.center.set_field(FI.P_NEXT, p_new)
+
+  return delta========== END OF FILE: step3/ppe_solver.py ==========
 
