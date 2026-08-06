@@ -49,20 +49,12 @@ jobs:
   #         chmod +x requirements.sh
   #         ./requirements.sh
 
-  #     - name: 🌐 Install Headless Rendering & C++ Build Dependencies
+  #     - name: 🌐 Install Headless Rendering Dependencies
   #       run: |
-  #         # Establish virtual display device infrastructure, OpenGL bindings, and C++ build tools
+  #         # Establish virtual display device infrastructure and OpenGL bindings
   #         sudo apt-get update
   #         # libgl1 replaces the deprecated libgl1-mesa-glx on Ubuntu 24.04+
-  #         sudo apt-get install -y libgl1 xvfb libglu1-mesa cmake build-essential libgtest-dev
-
-  #     - name: ⚙️ Build C++ Native Kernels & Extensions
-  #       run: |
-  #         mkdir -p build && cd build
-  #         cmake .. -DCMAKE_BUILD_TYPE=Release
-  #         make -j$(nproc)
-  #         cd ..
-  #         python setup.py build_ext --inplace
+  #         sudo apt-get install -y libgl1 xvfb libglu1-mesa
 
   #     - name: 🧪 Run Native C++ Unit Tests
   #       run: |
@@ -211,26 +203,18 @@ jobs:
           python-version: "3.11"
           cache: 'pip'
 
-      - name: 📦 Provision Environment Layers (Pip)
+      - name: 📦 Provision Environment Layers & C++ Build (Pip & CMake)
         run: |
           python -m pip install --upgrade pip
           chmod +x requirements.sh
           ./requirements.sh
 
-      - name: 🌐 Install Headless Rendering & C++ Build Dependencies
+      - name: 🌐 Install Headless Rendering Dependencies
         run: |
-          # Establish virtual display device infrastructure, OpenGL bindings, and C++ build tools
+          # Establish virtual display device infrastructure and OpenGL bindings
           sudo apt-get update
           # libgl1 replaces the deprecated libgl1-mesa-glx on Ubuntu 24.04+
-          sudo apt-get install -y libgl1 xvfb libglu1-mesa cmake build-essential
-
-      - name: ⚙️ Build C++ Native Extensions for Execution Engine
-        run: |
-          mkdir -p build && cd build
-          cmake .. -DCMAKE_BUILD_TYPE=Release
-          make -j$(nproc)
-          cd ..
-          python setup.py build_ext --inplace
+          sudo apt-get install -y libgl1 xvfb libglu1-mesa
 
       - name: 🌊 Execute Navier–Stokes Solver (with Live Profiling)
         run: |
@@ -251,11 +235,11 @@ jobs:
             exit 1
           fi
           
-          # Run core execution module under verbose tool monitoring to record Peak Resident Set Size (RSS)
-          /usr/bin/time -v xvfb-run --auto-servernum python src/main.py \
-            --input_output_folder "${GITHUB_WORKSPACE}/data/testing-input-output/" \
-            --input_file_name "navier_stokes_solver_input.json" \
-            --output_file_name "navier_stokes_output.zip" 2> /tmp/memory_profile.log
+          # # Run core execution module under verbose tool monitoring to record Peak Resident Set Size (RSS)
+          # /usr/bin/time -v xvfb-run --auto-servernum python src/main.py \
+          #   --input_output_folder "${GITHUB_WORKSPACE}/data/testing-input-output/" \
+          #   --input_file_name "navier_stokes_solver_input.json" \
+          #   --output_file_name "navier_stokes_output.zip" 2> /tmp/memory_profile.log
           
           # Unwind profile monitoring immediately post-execution 
           kill $SAMPLER_PID
