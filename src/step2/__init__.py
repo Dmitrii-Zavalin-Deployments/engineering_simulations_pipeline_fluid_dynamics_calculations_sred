@@ -1,5 +1,3 @@
-# src/step2/__init__.py
-
 """
 Step 2: Topology Assembly Layer
 This module manages the instantiation of the topological graph (StencilBlocks).

@@ -1,5 +1,3 @@
-# src/step1/__init__.py
-
 """
 Step 1: Orchestration Layer
 This module serves as the primary entry point for the simulation assembly.

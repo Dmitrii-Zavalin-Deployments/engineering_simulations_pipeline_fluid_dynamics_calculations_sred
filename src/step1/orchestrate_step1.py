@@ -1,5 +1,3 @@
-# src/step1/orchestrate_step1.py
-
 from __future__ import annotations
 
 import numpy as np
