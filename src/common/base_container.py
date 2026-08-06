@@ -1,4 +1,3 @@
-# src/common/base_container.py
 import json
 from collections.abc import Iterator
 from typing import Any

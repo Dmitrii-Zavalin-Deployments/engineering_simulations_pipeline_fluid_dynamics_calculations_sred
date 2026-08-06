@@ -1,5 +1,3 @@
-# src/common/solver_state.py
-
 import logging
 
 import numpy as np

@@ -1,5 +1,3 @@
-# src/common/elasticity.py
-
 import logging
 
 from src.common.field_schema import FI

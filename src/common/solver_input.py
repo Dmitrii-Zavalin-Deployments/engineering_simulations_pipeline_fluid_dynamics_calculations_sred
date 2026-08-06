@@ -1,5 +1,3 @@
-# src/common/solver_input.py
-
 from dataclasses import dataclass
 
 from src.common.base_container import ValidatedContainer
@@ -280,7 +278,7 @@ class SolverInput(ValidatedContainer):
         obj.external_forces = ExternalForcesInput()
         obj.mask = MaskInput()
         obj.boundary_conditions = BoundaryConditionsInput()
-        obj.physical_constraints = PhysicalConstraintsInput() # New Instance
+        obj.physical_constraints = PhysicalConstraintsInput()
 
         # Ingestion logic
         obj.boundary_conditions.items = data["boundary_conditions"]
