@@ -13,7 +13,7 @@ python -m pip install -r requirements.txt
 
 echo "⚙️ Compiling C++ solver binary via direct g++..."
 mkdir -p bin
-# Compile C++ source files directly into a high-performance standalone binary
-g++ -O3 -march=native src/*.cpp -o bin/navier_stokes_solver
+# Compile C++ source files directly from the new cpp/ directory structure
+g++ -O3 -march=native cpp/src/*.cpp -Icpp/include -o bin/navier_stokes_solver
 
 echo "✅ C++ native binary compiled and ready for orchestration."
