@@ -105,6 +105,3 @@ void compute_predictor_kernel_cpp(
     }
 }
 
-PYBIND11_MODULE(navier_stokes_cpp, m) {
-    m.def("compute_predictor_kernel_cpp", &compute_predictor_kernel_cpp, "C++ Optimized Predictor Kernel");
-}

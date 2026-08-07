@@ -155,6 +155,3 @@ double solve_ppe_sor_kernel_cpp(
     return max_residual;
 }
 
-PYBIND11_MODULE(navier_stokes_cpp, m) {
-    m.def("solve_ppe_sor_kernel_cpp", &solve_ppe_sor_kernel_cpp, "C++ PPE SOR Solver Kernel with Mask Awareness");
-}
