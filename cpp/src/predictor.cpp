@@ -8,6 +8,7 @@
 #include "laplacian.hpp"
 #include <stdexcept>
 #include <cmath>
+#include <vector>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -59,24 +60,42 @@ void compute_trial_velocities(
     const size_t nx = dims.nx;
     const size_t ny = dims.ny;
     const size_t nz = dims.nz;
+    const size_t total_cells = nx * ny * nz;
 
-    #pragma omp parallel for collapse(2) schedule(static) if(nx * ny * nz > 1000)
+    // Convert grid dimensions to int to match repository operator signatures
+    const int Nx_int = static_cast<int>(nx);
+    const int Ny_int = static_cast<int>(ny);
+    const int Nz_int = static_cast<int>(nz);
+
+    // 1. Allocate temporary field buffers for advection and Laplacian terms
+    std::vector<double> adv_u(total_cells, 0.0);
+    std::vector<double> adv_v(total_cells, 0.0);
+    std::vector<double> adv_w(total_cells, 0.0);
+
+    std::vector<double> lap_u(total_cells, 0.0);
+    std::vector<double> lap_v(total_cells, 0.0);
+    std::vector<double> lap_w(total_cells, 0.0);
+
+    // 2. Compute domain-wide advection fields using repository operator
+    compute_advection(u, v, w, u, adv_u.data(), Nx_int, Ny_int, Nz_int, dims.dx, dims.dy, dims.dz);
+    compute_advection(u, v, w, v, adv_v.data(), Nx_int, Ny_int, Nz_int, dims.dx, dims.dy, dims.dz);
+    compute_advection(u, v, w, w, adv_w.data(), Nx_int, Ny_int, Nz_int, dims.dx, dims.dy, dims.dz);
+
+    // 3. Compute domain-wide Laplacian fields using repository operator
+    compute_laplacian(u, lap_u.data(), Nx_int, Ny_int, Nz_int, dims.dx, dims.dy, dims.dz);
+    compute_laplacian(v, lap_v.data(), Nx_int, Ny_int, Nz_int, dims.dx, dims.dy, dims.dz);
+    compute_laplacian(w, lap_w.data(), Nx_int, Ny_int, Nz_int, dims.dx, dims.dy, dims.dz);
+
+    // 4. Parallel Temporal Integration (Forward-Euler Predictor Step)
+    #pragma omp parallel for collapse(2) schedule(static) if(total_cells > 1000)
     for (size_t i = 1; i < nx - 1; ++i) {
         for (size_t j = 1; j < ny - 1; ++j) {
             for (size_t k = 1; k < nz - 1; ++k) {
                 const size_t idx = get_index(i, j, k, ny, nz);
 
-                double adv_x = compute_advection_x(u, v, w, i, j, k, dims.dx, dims.dy, dims.dz, ny, nz);
-                double adv_y = compute_advection_y(u, v, w, i, j, k, dims.dx, dims.dy, dims.dz, ny, nz);
-                double adv_z = compute_advection_z(u, v, w, i, j, k, dims.dx, dims.dy, dims.dz, ny, nz);
-
-                double lap_u = compute_laplacian(u, i, j, k, dims.dx, dims.dy, dims.dz, ny, nz);
-                double lap_v = compute_laplacian(v, i, j, k, dims.dx, dims.dy, dims.dz, ny, nz);
-                double lap_w = compute_laplacian(w, i, j, k, dims.dx, dims.dy, dims.dz, ny, nz);
-
-                double u_t = u[idx] + fluid.dt * (-adv_x + fluid.nu * lap_u + fx[idx]);
-                double v_t = v[idx] + fluid.dt * (-adv_y + fluid.nu * lap_v + fy[idx]);
-                double w_t = w[idx] + fluid.dt * (-adv_z + fluid.nu * lap_w + fz[idx]);
+                double u_t = u[idx] + fluid.dt * (-adv_u[idx] + fluid.nu * lap_u[idx] + fx[idx]);
+                double v_t = v[idx] + fluid.dt * (-adv_v[idx] + fluid.nu * lap_v[idx] + fy[idx]);
+                double w_t = w[idx] + fluid.dt * (-adv_w[idx] + fluid.nu * lap_w[idx] + fz[idx]);
 
                 if (!std::isfinite(u_t) || !std::isfinite(v_t) || !std::isfinite(w_t)) {
                     #pragma omp critical

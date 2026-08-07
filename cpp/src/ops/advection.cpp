@@ -1,9 +1,25 @@
-#include "advection.hpp"
+/**
+ * @file advection.cpp
+ * @brief Implementation of 3D advection operator with OpenMP multi-threading.
+ */
 
+#include "advection.hpp"
+#include <cmath>
+#include <stdexcept>
+#include <iostream>
+
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
+namespace ops {
+
+namespace {
 // Local 3D row-major indexing helper
 inline size_t advect_idx(int i, int j, int k, int Ny, int Nz) {
     return static_cast<size_t>(i) * (Ny * Nz) + static_cast<size_t>(j) * Nz + k;
 }
+} // anonymous namespace
 
 void compute_advection(
     const double* u, const double* v, const double* w,
@@ -11,7 +27,9 @@ void compute_advection(
     int Nx, int Ny, int Nz,
     double dx, double dy, double dz
 ) {
-    #pragma omp parallel for collapse(3)
+    const long long total_cells = static_cast<long long>(Nx) * Ny * Nz;
+
+    #pragma omp parallel for collapse(3) schedule(static) if(total_cells > 1000)
     for (int i = 1; i < Nx - 1; ++i) {
         for (int j = 1; j < Ny - 1; ++j) {
             for (int k = 1; k < Nz - 1; ++k) {
@@ -32,11 +50,14 @@ void compute_advection(
 
                 // --- FORENSIC NUMERICAL AUDIT ---
                 if (!std::isfinite(advection_val)) {
-                    std::cerr << "MATH FAILURE: Non-finite advection at grid index [" 
-                              << i << ", " << j << ", " << k << "] | "
-                              << "Vel: [" << u_c << ", " << v_c << ", " << w_c << "] | "
-                              << "Gradients: [" << df_dx << ", " << df_dy << ", " << df_dz << "]\n";
-                    throw std::runtime_error("Advection term exploded in grid computation.");
+                    #pragma omp critical
+                    {
+                        std::cerr << "MATH FAILURE: Non-finite advection at grid index [" 
+                                  << i << ", " << j << ", " << k << "] | "
+                                  << "Vel: [" << u_c << ", " << v_c << ", " << w_c << "] | "
+                                  << "Gradients: [" << df_dx << ", " << df_dy << ", " << df_dz << "]\n";
+                        throw std::runtime_error("Advection term exploded in grid computation.");
+                    }
                 }
 
                 adv_out[c] = advection_val;
@@ -44,3 +65,5 @@ void compute_advection(
         }
     }
 }
+
+} // namespace ops
