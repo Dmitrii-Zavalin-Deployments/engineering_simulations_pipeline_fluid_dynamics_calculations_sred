@@ -33,17 +33,17 @@ protected:
  * Test Case 1: Analytical Linear Velocity Field Divergence Exactness
  * 
  * We construct velocity vector components following linear distributions:
- *     u*(x, y, z) = 2.0 * x
- *     v*(x, y, z) = -3.0 * y
- *     w*(x, y, z) = 4.0 * z
+ *     u_star(x, y, z) = 2.0 * x
+ *     v_star(x, y, z) = -3.0 * y
+ *     w_star(x, y, z) = 4.0 * z
  * 
  * Using second-order central differences, the analytical partial derivatives are:
- *     du*/dx = 2.0
- *     dv*/dy = -3.0
- *     dw*/dz = 4.0
+ *     ∂u_star/dx = 2.0
+ *     ∂v_star/dy = -3.0
+ *     ∂w_star/dz = 4.0
  * 
  * The total scalar divergence is their sum:
- *     div u* = du*/dx + dv*/dy + dw*/dz = 2.0 + (-3.0) + 4.0 = 3.0
+ *     ∇ ⋅ u_star = ∂u_star/dx + ∂v_star/dy + ∂w_star/dz = 2.0 + (-3.0) + 4.0 = 3.0
  */
 TEST_F(DivergenceTest, LinearFieldExactDivergence) {
     size_t total_size = static_cast<size_t>(Nx) * Ny * Nz;
