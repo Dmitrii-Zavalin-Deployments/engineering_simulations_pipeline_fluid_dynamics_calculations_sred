@@ -1,42 +1,69 @@
 #!/usr/bin/env bash
+# ============================================================================
+# @file forensic_audit.sh
+# @brief Forensic diagnostic and repair script for missing pybind11 dependencies
+# ============================================================================
+
 set -euo pipefail
 
-echo "======================================================================"
-echo "🔍 STARTING FORENSIC AUDIT: C++ Compilation Failure Diagnosis"
-echo "======================================================================"
+echo "============================================================================"
+echo "🔍 STARTING FORENSIC AUDIT: Missing pybind11 Headers"
+echo "============================================================================"
 
+# 1. Environment & Package Diagnostics
+echo "--- [1] Checking Python and pybind11 Package Availability ---"
+if command -v python3 &> /dev/null; then
+    python3 -c "import sys; print('Python version:', sys.version)"
+    python3 -c "import pybind11; print('pybind11 found via Python. Include path:', pybind11.get_include())" || echo "⚠️ pybind11 python module not installed or not in python path."
+else
+    echo "⚠️ python3 not found in PATH."
+fi
+
+if command -v dpkg &> /dev/null; then
+    echo "--- Checking APT packages ---"
+    dpkg -l | grep -E "pybind11|python3-dev" || echo "No matching APT pybind11 packages found."
+fi
+
+# 2. Build Configuration Diagnostics (Grep & Cat)
+echo "--- [2] Inspecting Build Systems (CMakeLists.txt / Makefiles) ---"
+find . -maxdepth 3 -name "CMakeLists.txt" -o -name "Makefile" -o -name "*.cmake" | while read -r buildfile; do
+    echo "=== Scanning config file: $buildfile ==="
+    grep -n -i "pybind" "$buildfile" || echo "No explicit 'pybind' reference found in $buildfile"
+    echo "--- First 40 lines of $buildfile ---"
+    cat -n "$buildfile" | head -n 40
+done
+
+# 3. Smoking-Gun Source Audit (cat -n)
+echo "--- [3] Inspecting Offending Source Files ---"
+TARGET_FILES=(
+    "cpp/src/bindings.cpp"
+    "cpp/src/corrector_kernel.cpp"
+    "cpp/src/ppe_solver_cpp"
+)
+
+for file in "${TARGET_FILES[@]}"; do
+    if [ -f "$file" ]; then
+        echo "=== Smoking-Gun Source Audit: $file ==="
+        grep -n "pybind11" "$file" || echo "No pybind11 include in $file"
+        echo "--- Content Preview (First 25 lines) ---"
+        cat -n "$file" | head -n 25
+    else
+        echo "ℹ️ File not found: $file"
+    fi
+done
+
+echo "============================================================================"
+echo "🛠️ AUTOMATED REPAIR INJECTIONS (Reference / Manual Application Guide)"
+echo "============================================================================"
+echo "Uncomment the appropriate sed commands below to apply automated fixes:"
 echo ""
-echo "--- 1. DIAGNOSTICS: Root Cause Identification ---"
-echo "Checking for pybind11 installation and headers across standard paths:"
-find /usr -name "pybind11.h" 2>/dev/null || echo "⚠️ Warning: pybind11.h not found in system include paths. Check Python bindings setup."
 
-echo ""
-echo "Scanning test files for namespace resolution indicators:"
-grep -rn "TEST(" cpp/tests/ --include="*.cpp" -A 2 || true
+# sed -i 's|#include <pybind11/pybind11.h>|#include <pybind11/pybind11.h> // Fixed include|g' cpp/src/corrector_kernel.cpp
+# sed -i 's|#include <pybind11/pybind11.h>|#include <pybind11/pybind11.h> // Fixed include|g' cpp/src/ppe_solver_cpp
+# sed -i '/project(/a find_package(pybind11 REQUIRED)' CMakeLists.txt
+# sed -i '/add_library(/a target_link_libraries(core_kernel PRIVATE pybind11::module)' CMakeLists.txt
+# sed -i '/add_executable(unit_tests/s|cpp/src/bindings.cpp||g' CMakeLists.txt
 
-echo ""
-echo "--- 2. SMOKING-GUN SOURCE AUDITS (cat -n) ---"
-echo "Inspecting top lines of cpp/tests/test_advection.cpp for missing namespace declarations:"
-cat -n cpp/tests/test_advection.cpp | head -n 30
-
-echo ""
-echo "Inspecting header encapsulation in cpp/include/advection.hpp:"
-cat -n cpp/include/advection.hpp | head -n 25
-
-echo ""
-echo "--- 3. AUTOMATED REPAIRS (sed injections) ---"
-echo "Note: The following sed commands can be uncommented to automatically inject"
-echo "'using namespace ops;' into test suites where operators are called without scope resolution."
-echo ""
-
-# sed -i '/#include <gtest\/gtest.h>/a using namespace ops;' cpp/tests/test_advection.cpp
-# sed -i '/#include <gtest\/gtest.h>/a using namespace ops;' cpp/tests/test_divergence.cpp
-# sed -i '/#include <gtest\/gtest.h>/a using namespace ops;' cpp/tests/test_forces.cpp
-# sed -i '/#include <gtest\/gtest.h>/a using namespace ops;' cpp/tests/test_ghost_handler.cpp
-# sed -i '/#include <gtest\/gtest.h>/a using namespace ops;' cpp/tests/test_gradient.cpp
-# sed -i '/#include <gtest\/gtest.h>/a using namespace ops;' cpp/tests/test_laplacian.cpp
-# sed -i '/#include <gtest\/gtest.h>/a using namespace ops;' cpp/tests/test_scaling.cpp
-
-echo "======================================================================"
-echo "🏁 Forensic Audit Script Complete."
-echo "======================================================================"
+echo "============================================================================"
+echo "🏁 FORENSIC AUDIT COMPLETE"
+echo "============================================================================"
