@@ -1,5 +1,6 @@
 #ifndef GHOST_HANDLER_HPP
 #define GHOST_HANDLER_HPP
+namespace ops {
 
 #include "base_operator.hpp"
 
@@ -17,4 +18,5 @@ void sync_ghost_trial_buffers(
     size_t total_cells
 );
 
+} // namespace ops
 #endif // GHOST_HANDLER_HPP

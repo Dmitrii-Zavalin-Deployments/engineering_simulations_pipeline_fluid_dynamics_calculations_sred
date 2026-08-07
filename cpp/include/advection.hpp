@@ -1,5 +1,6 @@
 #ifndef ADVECTION_HPP
 #define ADVECTION_HPP
+namespace ops {
 
 #include "base_operator.hpp"
 
@@ -14,4 +15,5 @@ void compute_advection(
     double dx, double dy, double dz
 );
 
+} // namespace ops
 #endif // ADVECTION_HPP

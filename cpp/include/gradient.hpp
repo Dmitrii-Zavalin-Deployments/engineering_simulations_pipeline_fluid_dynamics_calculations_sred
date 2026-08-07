@@ -1,5 +1,6 @@
 #ifndef GRADIENT_HPP
 #define GRADIENT_HPP
+namespace ops {
 
 #include "base_operator.hpp"
 
@@ -14,4 +15,5 @@ void compute_gradient(
     double dx, double dy, double dz
 );
 
+} // namespace ops
 #endif // GRADIENT_HPP

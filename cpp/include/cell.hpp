@@ -1,5 +1,6 @@
 #ifndef CELL_HPP
 #define CELL_HPP
+namespace ops {
 
 #include "field_schema.hpp"
 
@@ -65,4 +66,5 @@ public:
 
 } // namespace navier_stokes
 
+} // namespace ops
 #endif // CELL_HPP

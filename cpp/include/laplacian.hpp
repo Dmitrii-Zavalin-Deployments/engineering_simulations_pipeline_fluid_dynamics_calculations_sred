@@ -1,5 +1,6 @@
 #ifndef LAPLACIAN_HPP
 #define LAPLACIAN_HPP
+namespace ops {
 
 #include "base_operator.hpp"
 
@@ -13,4 +14,5 @@ void compute_laplacian(
     double dx, double dy, double dz
 );
 
+} // namespace ops
 #endif // LAPLACIAN_HPP

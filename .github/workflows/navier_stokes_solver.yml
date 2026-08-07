@@ -64,7 +64,7 @@ jobs:
           mkdir -p build/tests
           
           # Compile with --coverage and -O0 for accurate line-by-line reporting
-          g++ --coverage -O0 -std=c++17 \
+          g++ --coverage -O0 -std=c++17 cpp/src/*.cpp cpp/src/ops/*.cpp \
             /usr/src/googletest/googletest/src/gtest-all.cc \
             /usr/src/googletest/googletest/src/gtest_main.cc \
             cpp/src/ops/*.cpp \

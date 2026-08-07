@@ -1,5 +1,6 @@
 #ifndef FIELD_SCHEMA_HPP
 #define FIELD_SCHEMA_HPP
+namespace ops {
 
 namespace navier_stokes {
 
@@ -27,4 +28,5 @@ enum class FI : int {
 
 } // namespace navier_stokes
 
+} // namespace ops
 #endif // FIELD_SCHEMA_HPP

@@ -2,6 +2,7 @@
 
 #ifndef STENCIL_ASSEMBLER_HPP
 #define STENCIL_ASSEMBLER_HPP
+namespace ops {
 
 #include <vector>
 #include "stencil_block.hpp"
@@ -24,4 +25,5 @@ std::vector<StencilBlock> assemble_stencil_matrix_cpp(
 
 } // namespace navier_stokes
 
+} // namespace ops
 #endif // STENCIL_ASSEMBLER_HPP

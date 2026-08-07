@@ -1,5 +1,6 @@
 #ifndef SCALING_HPP
 #define SCALING_HPP
+namespace ops {
 
 #include "base_operator.hpp"
 
@@ -15,4 +16,5 @@ double get_dt_over_rho(double dt, double rho);
  */
 double get_rho_over_dt(double dt, double rho);
 
+} // namespace ops
 #endif // SCALING_HPP

@@ -1,5 +1,6 @@
 #ifndef FORCES_HPP
 #define FORCES_HPP
+namespace ops {
 
 #include "base_operator.hpp"
 #include <vector>
@@ -11,4 +12,5 @@
  */
 std::array<double, 3> validate_and_get_forces(const std::vector<double>& forces);
 
+} // namespace ops
 #endif // FORCES_HPP

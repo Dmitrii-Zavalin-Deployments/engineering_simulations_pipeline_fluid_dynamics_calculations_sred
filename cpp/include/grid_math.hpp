@@ -1,5 +1,6 @@
 #ifndef GRID_MATH_HPP
 #define GRID_MATH_HPP
+namespace ops {
 
 #include <tuple>
 
@@ -29,4 +30,5 @@ inline constexpr std::tuple<int, int, int> get_coords_from_index(int index, int 
 
 } // namespace navier_stokes
 
+} // namespace ops
 #endif // GRID_MATH_HPP

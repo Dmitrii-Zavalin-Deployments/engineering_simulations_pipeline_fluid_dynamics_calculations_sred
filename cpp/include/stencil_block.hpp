@@ -2,6 +2,7 @@
 
 #ifndef STENCIL_BLOCK_HPP
 #define STENCIL_BLOCK_HPP
+namespace ops {
 
 #include <stdexcept>
 #include <string>
@@ -59,4 +60,5 @@ struct StencilBlock {
     inline double get_mu() const { return mu; }
 };
 
+} // namespace ops
 #endif // STENCIL_BLOCK_HPP

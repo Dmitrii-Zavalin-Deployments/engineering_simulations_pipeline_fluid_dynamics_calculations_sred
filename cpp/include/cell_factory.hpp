@@ -2,6 +2,7 @@
 
 #ifndef CELL_FACTORY_HPP
 #define CELL_FACTORY_HPP
+namespace ops {
 
 #include <stdexcept>
 #include <string>
@@ -41,4 +42,5 @@ public:
 
 } // namespace navier_stokes
 
+} // namespace ops
 #endif // CELL_FACTORY_HPP

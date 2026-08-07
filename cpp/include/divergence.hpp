@@ -1,5 +1,6 @@
 #ifndef DIVERGENCE_HPP
 #define DIVERGENCE_HPP
+namespace ops {
 
 #include "base_operator.hpp"
 
@@ -14,4 +15,5 @@ void compute_divergence(
     double dx, double dy, double dz
 );
 
+} // namespace ops
 #endif // DIVERGENCE_HPP
