@@ -1,6 +1,8 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 
+namespace py = pybind11;
+
 // Function declarations for core solver kernels
 void compute_predictor_kernel_cpp(
     py::array_t<double> fields, py::array_t<int> mask,
@@ -23,8 +25,6 @@ void apply_corrector_kernel_cpp(
     double dx, double dy, double dz,
     double dt, double rho
 );
-
-namespace py = pybind11;
 
 PYBIND11_MODULE(navier_stokes_cpp, m) {
     m.doc() = "High-performance Navier-Stokes C++ extension module";
