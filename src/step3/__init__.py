@@ -11,7 +11,7 @@ Compliance:
 
 from src.step3.orchestrate_step3 import orchestrate_step3
 
-# We expose ONLY the orchestrator. The individual solver components (corrector, 
-# ppe_solver, predictor) are kept internal to enforce the API Minimalism 
-# mandate and prevent direct attribute access bypasses.
+# We expose ONLY the orchestrator. The compiled C++ extension kernels 
+# (corrector, ppe_solver, predictor) are kept internal to the backend module 
+# to enforce the API Minimalism mandate and prevent direct attribute access bypasses.
 __all__ = ["orchestrate_step3"]
