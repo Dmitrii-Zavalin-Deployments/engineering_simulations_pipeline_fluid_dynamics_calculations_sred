@@ -1,7 +1,7 @@
 #ifndef SCALING_HPP
 #define SCALING_HPP
 
-#include <cstddef>
+#include "base_operator.hpp"
 
 /**
  * Returns the scaling factor (dt / rho) for the Predictor and Corrector Steps.

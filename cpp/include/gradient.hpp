@@ -1,7 +1,7 @@
 #ifndef GRADIENT_HPP
 #define GRADIENT_HPP
 
-#include <cstddef>
+#include "base_operator.hpp"
 
 /**
  * Computes the 3D gradient vector of a scalar field (e.g., pressure p):

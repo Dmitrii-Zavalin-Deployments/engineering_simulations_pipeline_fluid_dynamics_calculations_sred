@@ -1,7 +1,4 @@
 #include "advection.hpp"
-#include <cmath>
-#include <stdexcept>
-#include <iostream>
 
 // Local 3D row-major indexing helper
 inline size_t advect_idx(int i, int j, int k, int Ny, int Nz) {

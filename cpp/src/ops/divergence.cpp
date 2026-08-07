@@ -1,7 +1,4 @@
 #include "divergence.hpp"
-#include <cmath>
-#include <stdexcept>
-#include <iostream>
 
 // Local 3D row-major indexing helper
 inline size_t div_idx(int i, int j, int k, int Ny, int Nz) {

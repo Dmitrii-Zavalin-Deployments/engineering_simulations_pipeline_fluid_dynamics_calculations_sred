@@ -1,6 +1,4 @@
 #include "ghost_handler.hpp"
-#include <stdexcept>
-#include <iostream>
 
 void sync_ghost_trial_buffers(
     const double* u, const double* v, const double* w, const double* p,

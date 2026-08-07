@@ -1,7 +1,4 @@
 #include "scaling.hpp"
-#include <cmath>
-#include <stdexcept>
-#include <iostream>
 
 double get_dt_over_rho(double dt, double rho) {
     // Rule 8: Contract Violation Check (Density cannot be zero or negative)

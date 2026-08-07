@@ -1,7 +1,7 @@
 #ifndef GHOST_HANDLER_HPP
 #define GHOST_HANDLER_HPP
 
-#include <cstddef>
+#include "base_operator.hpp"
 
 /**
  * Synchronizes trial buffers (STAR, NEXT) with baseline foundation values

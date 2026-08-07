@@ -1,7 +1,7 @@
 #ifndef ADVECTION_HPP
 #define ADVECTION_HPP
 
-#include <cstddef>
+#include "base_operator.hpp"
 
 /**
  * Computes the 3D advection term: (v ⋅ ∇) * field

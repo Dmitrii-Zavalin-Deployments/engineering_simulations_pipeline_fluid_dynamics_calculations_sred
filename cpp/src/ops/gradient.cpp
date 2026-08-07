@@ -1,7 +1,4 @@
 #include "gradient.hpp"
-#include <cmath>
-#include <stdexcept>
-#include <iostream>
 
 // Local 3D row-major indexing helper
 inline size_t grad_idx(int i, int j, int k, int Ny, int Nz) {

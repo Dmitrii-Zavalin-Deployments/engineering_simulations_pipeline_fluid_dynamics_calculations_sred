@@ -1,7 +1,7 @@
 #ifndef LAPLACIAN_HPP
 #define LAPLACIAN_HPP
 
-#include <cstddef>
+#include "base_operator.hpp"
 
 /**
  * Computes the 3D discrete Laplacian field: ∇²f = ∂²f/∂x² + ∂²f/∂y² + ∂²f/∂z²

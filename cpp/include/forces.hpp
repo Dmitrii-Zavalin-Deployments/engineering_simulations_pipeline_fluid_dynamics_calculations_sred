@@ -1,6 +1,7 @@
 #ifndef FORCES_HPP
 #define FORCES_HPP
 
+#include "base_operator.hpp"
 #include <vector>
 #include <array>
 

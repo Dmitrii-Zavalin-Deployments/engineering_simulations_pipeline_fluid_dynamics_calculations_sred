@@ -1,7 +1,4 @@
 #include "forces.hpp"
-#include <cmath>
-#include <stdexcept>
-#include <iostream>
 
 std::array<double, 3> validate_and_get_forces(const std::vector<double>& forces) {
     // 1. Contract & Dimension Guard (Rule 8 equivalent)
