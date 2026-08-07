@@ -21,4 +21,23 @@ g++ -O3 -march=native -shared -fPIC \
   $(python3 -m pybind11 --includes) \
   -o bin/navier_stokes_solver$(python3-config --extension-suffix)
 
-echo "✅ C++ native module compiled and ready for orchestration."
+echo "🧪 Discovering and compiling native C++ unit tests dynamically..."
+for test_file in tests/test_*.cpp; do
+    if [ -f "$test_file" ]; then
+        test_name=$(basename "$test_file" .cpp)
+        echo "--- Compiling and executing: $test_name ---"
+        g++ -O3 -march=native -std=c++17 \
+          "$test_file" \
+          cpp/src/*.cpp \
+          cpp/src/ops/*.cpp \
+          -Icpp/include \
+          -lgtest -lgtest_main -pthread \
+          -fopenmp \
+          -o "bin/$test_name"
+        
+        # Execute the compiled test binary
+        ./bin/$test_name
+    fi
+done
+
+echo "✅ All C++ native modules compiled and unit tests passed successfully."
