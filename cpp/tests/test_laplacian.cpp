@@ -4,7 +4,7 @@
  * 
  * This test file narrates and verifies the analytical accuracy, geometry safety,
  * and numerical exception handling of the C++ compute_laplacian kernel using
- * a 7-point central difference stencil.
+ * a 7-point central difference stencil for ∇²f.
  */
 
 #include <gtest/gtest.h>
@@ -33,16 +33,16 @@ protected:
  * Test Case 1: Analytical Quadratic Field Laplacian Exactness
  * 
  * We construct a scalar field following a quadratic distribution:
- *     f(x, y, z) = 1.0 * x^2 - 2.0 * y^2 + 3.0 * z^2
+ *     f(x, y, z) = 1.0 * x² - 2.0 * y² + 3.0 * z²
  * 
  * Using second-order central differences for the 7-point Laplacian stencil, 
  * the second partial derivatives are constant across the interior domain:
- *     d2f/dx2 = 2.0
- *     d2f/dy2 = -4.0
- *     d2f/dz2 = 6.0
+ *     ∂²f/∂x² = 2.0
+ *     ∂²f/∂y² = -4.0
+ *     ∂²f/∂z² = 6.0
  * 
  * The total discrete Laplacian is their sum:
- *     laplacian = d2f/dx2 + d2f/dy2 + d2f/dz2 = 2.0 + (-4.0) + 6.0 = 4.0
+ *     ∇²f = ∂²f/∂x² + ∂²f/∂y² + ∂²f/∂z² = 2.0 + (-4.0) + 6.0 = 4.0
  */
 TEST_F(LaplacianTest, QuadraticFieldExactLaplacian) {
     size_t total_size = static_cast<size_t>(Nx) * Ny * Nz;
@@ -79,7 +79,7 @@ TEST_F(LaplacianTest, QuadraticFieldExactLaplacian) {
 /**
  * Test Case 2: Geometry Guard Verification
  * 
- * Providing non-positive grid steps (e.g., dx <= 0.0) represents an invalid physical 
+ * Providing non-positive grid steps (e.g., Δx <= 0.0) represents an invalid physical 
  * space configuration and must trigger an invalid_argument exception.
  */
 TEST_F(LaplacianTest, InvalidGridSpacingThrows) {
