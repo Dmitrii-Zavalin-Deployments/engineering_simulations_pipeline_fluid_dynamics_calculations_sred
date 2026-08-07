@@ -31,6 +31,7 @@ for test_file in tests/test_*.cpp; do
           cpp/src/*.cpp \
           cpp/src/ops/*.cpp \
           -Icpp/include \
+          $(python3 -m pybind11 --includes) \
           -lgtest -lgtest_main -pthread \
           -fopenmp \
           -o "bin/$test_name"
