@@ -18,8 +18,8 @@ namespace ops {
 
 namespace {
 
-inline size_t get_index(size_t i, size_t j, size_t k, size_t ny, size_t nz) {
-    return i * (ny * nz) + j * nz + k;
+inline size_t get_index(int i, int j, int k, int ny, int nz) {
+    return static_cast<size_t>(i) * (ny * nz) + static_cast<size_t>(j) * nz + k;
 }
 
 void validate_inputs(
@@ -87,11 +87,11 @@ void compute_trial_velocities(
     compute_laplacian(w, lap_w.data(), Nx_int, Ny_int, Nz_int, dims.dx, dims.dy, dims.dz);
 
     // 4. Parallel Temporal Integration (Forward-Euler Predictor Step)
-    #pragma omp parallel for collapse(2) schedule(static) if(total_cells > 1000)
-    for (size_t i = 1; i < nx - 1; ++i) {
-        for (size_t j = 1; j < ny - 1; ++j) {
-            for (size_t k = 1; k < nz - 1; ++k) {
-                const size_t idx = get_index(i, j, k, ny, nz);
+    #pragma omp parallel for collapse(3) schedule(static) if(total_cells > 1000)
+    for (int i = 1; i < Nx_int - 1; ++i) {
+        for (int j = 1; j < Ny_int - 1; ++j) {
+            for (int k = 1; k < Nz_int - 1; ++k) {
+                const size_t idx = get_index(i, j, k, Ny_int, Nz_int);
 
                 double u_t = u[idx] + fluid.dt * (-adv_u[idx] + fluid.nu * lap_u[idx] + fx[idx]);
                 double v_t = v[idx] + fluid.dt * (-adv_v[idx] + fluid.nu * lap_v[idx] + fy[idx]);

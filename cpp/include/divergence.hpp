@@ -1,8 +1,9 @@
 #ifndef DIVERGENCE_HPP
 #define DIVERGENCE_HPP
-namespace ops {
 
 #include "base_operator.hpp"
+
+namespace ops {
 
 /**
  * Computes the scalar divergence field (∇ ⋅ v*) for the Pressure Poisson Equation (PPE)
@@ -16,4 +17,5 @@ void compute_divergence(
 );
 
 } // namespace ops
+
 #endif // DIVERGENCE_HPP

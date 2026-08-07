@@ -1,8 +1,9 @@
 #ifndef LAPLACIAN_HPP
 #define LAPLACIAN_HPP
-namespace ops {
 
 #include "base_operator.hpp"
+
+namespace ops {
 
 /**
  * Computes the 3D discrete Laplacian field: ∇²f = ∂²f/∂x² + ∂²f/∂y² + ∂²f/∂z²
@@ -15,4 +16,5 @@ void compute_laplacian(
 );
 
 } // namespace ops
+
 #endif // LAPLACIAN_HPP

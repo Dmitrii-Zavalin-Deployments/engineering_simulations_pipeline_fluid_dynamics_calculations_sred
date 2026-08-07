@@ -1,10 +1,11 @@
 #ifndef FORCES_HPP
 #define FORCES_HPP
-namespace ops {
 
 #include "base_operator.hpp"
 #include <vector>
 #include <array>
+
+namespace ops {
 
 /**
  * Validates and retrieves the 3-component body force vector (Fx, Fy, Fz).
@@ -13,4 +14,5 @@ namespace ops {
 std::array<double, 3> validate_and_get_forces(const std::vector<double>& forces);
 
 } // namespace ops
+
 #endif // FORCES_HPP

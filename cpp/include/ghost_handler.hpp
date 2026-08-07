@@ -1,8 +1,9 @@
 #ifndef GHOST_HANDLER_HPP
 #define GHOST_HANDLER_HPP
-namespace ops {
 
 #include "base_operator.hpp"
+
+namespace ops {
 
 /**
  * Synchronizes trial buffers (STAR, NEXT) with baseline foundation values
@@ -19,4 +20,5 @@ void sync_ghost_trial_buffers(
 );
 
 } // namespace ops
+
 #endif // GHOST_HANDLER_HPP

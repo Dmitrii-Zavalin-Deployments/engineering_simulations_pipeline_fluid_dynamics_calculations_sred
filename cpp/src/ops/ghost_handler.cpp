@@ -1,4 +1,13 @@
+/**
+ * @file ghost_handler.cpp
+ * @brief Implementation of ghost trial buffer synchronization.
+ */
+
 #include "ghost_handler.hpp"
+#include <iostream>
+#include <stdexcept>
+
+namespace ops {
 
 void sync_ghost_trial_buffers(
     const double* u, const double* v, const double* w, const double* p,
@@ -20,3 +29,5 @@ void sync_ghost_trial_buffers(
         p_next[idx] = p[idx];
     }
 }
+
+} // namespace ops

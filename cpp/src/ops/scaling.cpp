@@ -1,4 +1,14 @@
+/**
+ * @file scaling.cpp
+ * @brief Implementation of scaling factors for Navier-Stokes solver.
+ */
+
 #include "scaling.hpp"
+#include <cmath>
+#include <stdexcept>
+#include <iostream>
+
+namespace ops {
 
 double get_dt_over_rho(double dt, double rho) {
     // Rule 8: Contract Violation Check (Density cannot be zero or negative)
@@ -37,3 +47,5 @@ double get_rho_over_dt(double dt, double rho) {
 
     return scaling;
 }
+
+} // namespace ops

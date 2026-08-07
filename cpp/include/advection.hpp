@@ -1,8 +1,9 @@
 #ifndef ADVECTION_HPP
 #define ADVECTION_HPP
-namespace ops {
 
 #include "base_operator.hpp"
+
+namespace ops {
 
 /**
  * Computes the 3D advection term: (v ⋅ ∇) * field
@@ -16,4 +17,5 @@ void compute_advection(
 );
 
 } // namespace ops
+
 #endif // ADVECTION_HPP

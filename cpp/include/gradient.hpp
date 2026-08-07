@@ -1,8 +1,9 @@
 #ifndef GRADIENT_HPP
 #define GRADIENT_HPP
-namespace ops {
 
 #include "base_operator.hpp"
+
+namespace ops {
 
 /**
  * Computes the 3D gradient vector of a scalar field (e.g., pressure p):
@@ -16,4 +17,5 @@ void compute_gradient(
 );
 
 } // namespace ops
+
 #endif // GRADIENT_HPP
