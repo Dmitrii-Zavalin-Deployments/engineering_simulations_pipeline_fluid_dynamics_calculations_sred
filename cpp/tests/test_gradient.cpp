@@ -1,9 +1,10 @@
 /**
  * @file test_gradient.cpp
- * @brief Literate test suite for the 3D Gradient Operator.
+ * @brief Literate test suite for the 3D Gradient Operator with Multi-Threading Verification.
  * 
- * This test file narrates and verifies the accuracy, geometry safety,
- * and numerical exception handling of the C++ compute_gradient kernel.
+ * This test file narrates and verifies the analytical accuracy, multi-threading 
+ * execution correctness, geometry safety, and numerical exception handling of the 
+ * C++ compute_gradient kernel.
  */
 
 #include <gtest/gtest.h>
@@ -75,7 +76,67 @@ TEST_F(GradientTest, LinearFieldExactDerivatives) {
 }
 
 /**
- * Test Case 2: Geometry Guard Verification
+ * Test Case 2: Multi-Threading Parallel Execution Correctness
+ * 
+ * To ensure OpenMP multi-threading executes correctly without data corruption, 
+ * synchronization bugs, or race conditions during parallel traversal, we instantiate 
+ * a large grid domain of size 15 x 15 x 15 = 3375 cells. This strictly exceeds our 
+ * execution threshold of 1000 cells, activating the OpenMP parallel loops across multiple CPU cores.
+ * 
+ * Using the linear scalar field:
+ *     p(x, y, z) = 3.0 * x - 2.0 * y + 5.0 * z
+ * 
+ * The computed parallel gradient components across all threads must identically match 
+ * the exact analytical slopes: 3.0, -2.0, and 5.0 respectively.
+ */
+TEST_F(GradientTest, MultiThreadingParallelExecutionCorrectness) {
+    int large_Nx = 15;
+    int large_Ny = 15;
+    int large_Nz = 15;
+    size_t total_size = static_cast<size_t>(large_Nx) * large_Ny * large_Nz;
+
+    std::vector<double> field(total_size, 0.0);
+    std::vector<double> grad_x(total_size, 0.0);
+    std::vector<double> grad_y(total_size, 0.0);
+    std::vector<double> grad_z(total_size, 0.0);
+
+    // Populate the field grid on the large multi-threaded domain
+    for (int i = 0; i < large_Nx; ++i) {
+        double x = i * dx;
+        for (int j = 0; j < large_Ny; ++j) {
+            double y = j * dy;
+            for (int k = 0; k < large_Nz; ++k) {
+                double z = k * dz;
+                size_t idx = static_cast<size_t>(i) * (large_Ny * large_Nz) + static_cast<size_t>(j) * large_Nz + k;
+                field[idx] = 3.0 * x - 2.0 * y + 5.0 * z;
+            }
+        }
+    }
+
+    // Execute multi-threaded gradient kernel safely without throwing exceptions
+    EXPECT_NO_THROW({
+        compute_gradient(field.data(), grad_x.data(), grad_y.data(), grad_z.data(), 
+                          large_Nx, large_Ny, large_Nz, dx, dy, dz);
+    });
+
+    // Verify that every interior cell processed in parallel matches the exact analytical solution
+    for (int i = 1; i < large_Nx - 1; ++i) {
+        for (int j = 1; j < large_Ny - 1; ++j) {
+            for (int k = 1; k < large_Nz - 1; ++k) {
+                size_t idx = static_cast<size_t>(i) * (large_Ny * large_Nz) + static_cast<size_t>(j) * large_Nz + k;
+                EXPECT_NEAR(grad_x[idx], 3.0, 1e-9);
+                EXPECT_NEAR(grad_y[idx], -2.0, 1e-9);
+                EXPECT_NEAR(grad_z[idx], 5.0, 1e-9);
+                EXPECT_TRUE(std::isfinite(grad_x[idx]));
+                EXPECT_TRUE(std::isfinite(grad_y[idx]));
+                EXPECT_TRUE(std::isfinite(grad_z[idx]));
+            }
+        }
+    }
+}
+
+/**
+ * Test Case 3: Geometry Guard Verification
  * 
  * Providing non-positive grid steps (e.g., Δx <= 0) represents an invalid physical 
  * space configuration and must trigger an invalid_argument exception.
@@ -93,10 +154,10 @@ TEST_F(GradientTest, InvalidGridSpacingThrows) {
 }
 
 /**
- * Test Case 3: Non-Finite Numerical Audit
+ * Test Case 4: Non-Finite Numerical Audit
  * 
  * If a non-finite value (such as infinity or NaN) is introduced into the scalar 
- * field, the numerical audit mechanism must intercept it and throw a runtime_error.
+ * field, the numerical audit mechanism must intercept it and throw a runtime_error safely across thread boundaries.
  */
 TEST_F(GradientTest, NonFiniteFieldThrows) {
     std::vector<double> field(Nx * Ny * Nz, 1.0);

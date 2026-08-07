@@ -1,9 +1,25 @@
-#include "divergence.hpp"
+/**
+ * @file divergence.cpp
+ * @brief Implementation of 3D Divergence operator with OpenMP multi-threading.
+ */
 
+#include "divergence.hpp"
+#include <cmath>
+#include <stdexcept>
+#include <iostream>
+
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
+namespace ops {
+
+namespace {
 // Local 3D row-major indexing helper
 inline size_t div_idx(int i, int j, int k, int Ny, int Nz) {
     return static_cast<size_t>(i) * (Ny * Nz) + static_cast<size_t>(j) * Nz + k;
 }
+} // anonymous namespace
 
 void compute_divergence(
     const double* u_star, const double* v_star, const double* w_star,
@@ -15,7 +31,9 @@ void compute_divergence(
         throw std::invalid_argument("GEOMETRY CRASH: Invalid zero dimensions provided for divergence calculation.");
     }
 
-    #pragma omp parallel for collapse(3)
+    const long long total_cells = static_cast<long long>(Nx) * Ny * Nz;
+
+    #pragma omp parallel for collapse(3) schedule(static) if(total_cells > 1000)
     for (int i = 1; i < Nx - 1; ++i) {
         for (int j = 1; j < Ny - 1; ++j) {
             for (int k = 1; k < Nz - 1; ++k) {
@@ -30,11 +48,14 @@ void compute_divergence(
 
                 // --- FORENSIC NUMERICAL AUDIT ---
                 if (!std::isfinite(divergence_val)) {
-                    std::cerr << "MATH FAILURE: Non-finite divergence at grid index [" 
-                              << i << ", " << j << ", " << k << "] | "
-                              << "Components [dx:" << div_x << ", dy:" << div_y << ", dz:" << div_z << "] | "
-                              << "Result: " << divergence_val << "\n";
-                    throw std::runtime_error("Divergence exploded. PPE source term is poisoned.");
+                    #pragma omp critical
+                    {
+                        std::cerr << "MATH FAILURE: Non-finite divergence at grid index [" 
+                                  << i << ", " << j << ", " << k << "] | "
+                                  << "Components [dx:" << div_x << ", dy:" << div_y << ", dz:" << div_z << "] | "
+                                  << "Result: " << divergence_val << "\n";
+                        throw std::runtime_error("Divergence exploded. PPE source term is poisoned.");
+                    }
                 }
 
                 div_out[c] = divergence_val;
@@ -42,3 +63,5 @@ void compute_divergence(
         }
     }
 }
+
+} // namespace ops

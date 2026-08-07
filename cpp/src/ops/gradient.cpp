@@ -1,9 +1,25 @@
-#include "gradient.hpp"
+/**
+ * @file gradient.cpp
+ * @brief Implementation of 3D Gradient operator with OpenMP multi-threading.
+ */
 
+#include "gradient.hpp"
+#include <cmath>
+#include <stdexcept>
+#include <iostream>
+
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
+namespace ops {
+
+namespace {
 // Local 3D row-major indexing helper
 inline size_t grad_idx(int i, int j, int k, int Ny, int Nz) {
     return static_cast<size_t>(i) * (Ny * Nz) + static_cast<size_t>(j) * Nz + k;
 }
+} // anonymous namespace
 
 void compute_gradient(
     const double* field,
@@ -18,7 +34,9 @@ void compute_gradient(
         throw std::invalid_argument("Invalid grid spacing in gradient kernel.");
     }
 
-    #pragma omp parallel for collapse(3)
+    const long long total_cells = static_cast<long long>(Nx) * Ny * Nz;
+
+    #pragma omp parallel for collapse(3) schedule(static) if(total_cells > 1000)
     for (int i = 1; i < Nx - 1; ++i) {
         for (int j = 1; j < Ny - 1; ++j) {
             for (int k = 1; k < Nz - 1; ++k) {
@@ -31,10 +49,13 @@ void compute_gradient(
 
                 // --- FORENSIC NUMERICAL AUDIT ---
                 if (!std::isfinite(gx) || !std::isfinite(gy) || !std::isfinite(gz)) {
-                    std::cerr << "MATH FAILURE: Gradient exploded at grid index [" 
-                              << i << ", " << j << ", " << k << "] | "
-                              << "Components: [" << gx << ", " << gy << ", " << gz << "]\n";
-                    throw std::runtime_error("Pressure gradient is non-finite in grid computation.");
+                    #pragma omp critical
+                    {
+                        std::cerr << "MATH FAILURE: Gradient exploded at grid index [" 
+                                  << i << ", " << j << ", " << k << "] | "
+                                  << "Components: [" << gx << ", " << gy << ", " << gz << "]\n";
+                        throw std::runtime_error("Pressure gradient is non-finite in grid computation.");
+                    }
                 }
 
                 grad_x_out[c] = gx;
@@ -44,3 +65,5 @@ void compute_gradient(
         }
     }
 }
+
+} // namespace ops

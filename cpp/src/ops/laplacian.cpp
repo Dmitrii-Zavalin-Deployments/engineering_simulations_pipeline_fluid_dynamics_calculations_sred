@@ -1,27 +1,44 @@
-#include "laplacian.hpp"
+/**
+ * @file laplacian.cpp
+ * @brief Implementation of 3D Laplacian operator with OpenMP multi-threading.
+ */
 
+#include "laplacian.hpp"
+#include <cmath>
+#include <stdexcept>
+#include <iostream>
+
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
+namespace ops {
+
+namespace {
 // Local 3D row-major indexing helper
 inline size_t lap_idx(int i, int j, int k, int Ny, int Nz) {
     return static_cast<size_t>(i) * (Ny * Nz) + static_cast<size_t>(j) * Nz + k;
 }
+} // anonymous namespace
 
 void compute_laplacian(
     const double* field, double* lap_out,
     int Nx, int Ny, int Nz,
     double dx, double dy, double dz
 ) {
-    // Geometry Guard (Rule 7 equivalent)
+    // Geometry Guard
     if (dx <= 0.0 || dy <= 0.0 || dz <= 0.0) {
         std::cerr << "GEOMETRY CRASH: Invalid grid dimensions provided for Laplacian calculation (dx=" 
                   << dx << ", dy=" << dy << ", dz=" << dz << ").\n";
         throw std::invalid_argument("Invalid grid geometry in Laplacian kernel.");
     }
 
-    double dx2 = dx * dx;
-    double dy2 = dy * dy;
-    double dz2 = dz * dz;
+    const long long total_cells = static_cast<long long>(Nx) * Ny * Nz;
+    const double dx2 = dx * dx;
+    const double dy2 = dy * dy;
+    const double dz2 = dz * dz;
 
-    #pragma omp parallel for collapse(3)
+    #pragma omp parallel for collapse(3) schedule(static) if(total_cells > 1000)
     for (int i = 1; i < Nx - 1; ++i) {
         for (int j = 1; j < Ny - 1; ++j) {
             for (int k = 1; k < Nz - 1; ++k) {
@@ -43,11 +60,14 @@ void compute_laplacian(
 
                 // --- FORENSIC NUMERICAL AUDIT ---
                 if (!std::isfinite(lap_val)) {
-                    std::cerr << "MATH FAILURE: Non-finite Laplacian at grid index [" 
-                              << i << ", " << j << ", " << k << "] | "
-                              << "Center Val: " << f_c << " | "
-                              << "Terms [X:" << term_x << ", Y:" << term_y << ", Z:" << term_z << "]\n";
-                    throw std::runtime_error("Laplacian exploded in grid computation.");
+                    #pragma omp critical
+                    {
+                        std::cerr << "MATH FAILURE: Non-finite Laplacian at grid index [" 
+                                  << i << ", " << j << ", " << k << "] | "
+                                  << "Center Val: " << f_c << " | "
+                                  << "Terms [X:" << term_x << ", Y:" << term_y << ", Z:" << term_z << "]\n";
+                        throw std::runtime_error("Laplacian exploded in grid computation.");
+                    }
                 }
 
                 lap_out[c] = lap_val;
@@ -55,3 +75,5 @@ void compute_laplacian(
         }
     }
 }
+
+} // namespace ops
