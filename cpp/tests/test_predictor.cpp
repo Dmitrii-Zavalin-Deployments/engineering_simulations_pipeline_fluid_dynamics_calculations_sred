@@ -1,0 +1,202 @@
+/**
+ * @file test_predictor.cpp
+ * @brief Literate Test Suite for Step 1 Predictor Kernel (Trial Velocity Computation)
+ *
+ * This test file acts as a narrative document. Explanatory text and physical 
+ * formulas are written as commented prose, while the executable C++ assertions 
+ * verify numerical accuracy, contract safety guards, and multi-threading correctness.
+ */
+
+#include <gtest/gtest.h>
+#include "predictor.hpp"
+#include <vector>
+#include <cmath>
+#include <stdexcept>
+
+// ============================================================================
+// NARRATIVE SECTION 1: Input Validation and Contract Safety Guards
+// ============================================================================
+// Before executing floating-point physics kernels, the predictor must rigorously
+// defend against invalid memory addresses, degenerate geometries, and illegal 
+// physical parameters. Here we verify that contract violations throw immediate exceptions.
+// ============================================================================
+
+TEST(PredictorTest, NullPointerThrowsInvalidateArgument) {
+    // We define minimal valid grid dimensions and fluid properties.
+    ops::GridDimensions dims = {5, 5, 5, 0.1, 0.1, 0.1};
+    ops::FluidProperties fluid = {0.01, 0.001};
+
+    // We allocate a valid buffer to test individual pointer invalidations.
+    std::vector<double> valid_buffer(125, 1.0);
+    std::vector<double> output_buffer(125, 0.0);
+
+    // If any input pointer (e.g., baseline velocity u) is null, the predictor 
+    // must throw an invalid_argument exception to prevent segmentation faults.
+    EXPECT_THROW(
+        ops::compute_trial_velocities(
+            dims, fluid,
+            nullptr, valid_buffer.data(), valid_buffer.data(),
+            valid_buffer.data(), valid_buffer.data(), valid_buffer.data(),
+            output_buffer.data(), output_buffer.data(), output_buffer.data()
+        ),
+        std::invalid_argument
+    );
+}
+
+TEST(PredictorTest, InvalidGeometryAndPhysicsParametersThrowErrors) {
+    ops::GridDimensions valid_dims = {5, 5, 5, 0.1, 0.1, 0.1};
+    ops::FluidProperties valid_fluid = {0.01, 0.001};
+    std::vector<double> buf(125, 1.0);
+    std::vector<double> out(125, 0.0);
+
+    // Rule 1: Grid dimensions smaller than 3x3x3 violate central finite difference stencils.
+    ops::GridDimensions small_dims = {2, 5, 5, 0.1, 0.1, 0.1};
+    EXPECT_THROW(
+        ops::compute_trial_velocities(
+            small_dims, valid_fluid,
+            buf.data(), buf.data(), buf.data(),
+            buf.data(), buf.data(), buf.data(),
+            out.data(), out.data(), out.data()
+        ),
+        std::invalid_argument
+    );
+
+    // Rule 2: Negative or zero time step dt violates temporal progression rules.
+    ops::FluidProperties invalid_dt_fluid = {-0.01, 0.001};
+    EXPECT_THROW(
+        ops::compute_trial_velocities(
+            valid_dims, invalid_dt_fluid,
+            buf.data(), buf.data(), buf.data(),
+            buf.data(), buf.data(), buf.data(),
+            out.data(), out.data(), out.data()
+        ),
+        std::invalid_argument
+    );
+
+    // Rule 3: Negative kinematic viscosity nu is physically impossible.
+    ops::FluidProperties invalid_nu_fluid = {0.01, -0.001};
+    EXPECT_THROW(
+        ops::compute_trial_velocities(
+            valid_dims, invalid_nu_fluid,
+            buf.data(), buf.data(), buf.data(),
+            buf.data(), buf.data(), buf.data(),
+            out.data(), out.data(), out.data()
+        ),
+        std::invalid_argument
+    );
+}
+
+// ============================================================================
+// NARRATIVE SECTION 2: Deterministic Baseline Verification (Uniform Flow)
+// ============================================================================
+// In a perfectly uniform flow field where velocity components are constant everywhere 
+// (e.g., $u = 2.0$, $v = 1.0$, $w = 0.5$), spatial gradients (advection and Laplacian) 
+// must evaluate precisely to zero:
+//     $\nabla u = 0, \quad \nabla^2 u = 0$
+// Therefore, the explicit Forward-Euler trial velocity update simplifies directly to:
+//     $u^* = u^n + \Delta t \cdot f_x$
+// ============================================================================
+
+TEST(PredictorTest, UniformFlowExactEulerUpdate) {
+    size_t nx = 5, ny = 5, nz = 5;
+    size_t total_cells = nx * ny * nz;
+    ops::GridDimensions dims = {nx, ny, nz, 1.0, 1.0, 1.0};
+    ops::FluidProperties fluid = {0.1, 0.01}; // dt = 0.1, nu = 0.01
+
+    std::vector<double> u(total_cells, 2.0);
+    std::vector<double> v(total_cells, 1.0);
+    std::vector<double> w(total_cells, 0.5);
+
+    // Apply constant external body forces
+    std::vector<double> fx(total_cells, 0.5);
+    std::vector<double> fy(total_cells, -0.2);
+    std::vector<double> fz(total_cells, 0.1);
+
+    std::vector<double> u_star(total_cells, 0.0);
+    std::vector<double> v_star(total_cells, 0.0);
+    std::vector<double> w_star(total_cells, 0.0);
+
+    // Execute the predictor kernel
+    ops::compute_trial_velocities(
+        dims, fluid,
+        u.data(), v.data(), w.data(),
+        fx.data(), fy.data(), fz.data(),
+        u_star.data(), v_star.data(), w_star.data()
+    );
+
+    // Check interior cells (since boundary cells are skipped by the 1 to n-2 loop bounds)
+    size_t ny_nz = ny * nz;
+    size_t nz_val = nz;
+    for (size_t i = 1; i < nx - 1; ++i) {
+        for (size_t j = 1; j < ny - 1; ++j) {
+            for (size_t k = 1; k < nz - 1; ++k) {
+                size_t idx = i * ny_nz + j * nz_val + k;
+
+                // Expected calculation: u_star = u + dt * (0 + 0 + fx) = 2.0 + 0.1 * 0.5 = 2.05
+                EXPECT_NEAR(u_star[idx], 2.05, 1e-12);
+                // Expected calculation: v_star = 1.0 + 0.1 * (-0.2) = 0.98
+                EXPECT_NEAR(v_star[idx], 0.98, 1e-12);
+                // Expected calculation: w_star = 0.5 + 0.1 * (0.1) = 0.51
+                EXPECT_NEAR(w_star[idx], 0.51, 1e-12);
+            }
+        }
+    }
+}
+
+// ============================================================================
+// NARRATIVE SECTION 3: Multi-threading Correctness & Execution Verification
+// ============================================================================
+// To ensure OpenMP multi-threading executes correctly without data corruption, 
+// race conditions, or incorrect chunk distribution, we test a large grid domain 
+// ($15 \times 15 \times 15 = 3375$ cells), which strictly exceeds our threshold 
+// of $1000$ cells to trigger parallel thread execution. We verify that all interior 
+// cells compute correct deterministic values and remain completely free of NaN/Inf anomalies.
+// ============================================================================
+
+TEST(PredictorTest, MultiThreadingParallelExecutionCorrectness) {
+    // Grid size 15x15x15 = 3375 cells (> 1000 threshold, activating OpenMP parallel region)
+    size_t nx = 15, ny = 15, nz = 15;
+    size_t total_cells = nx * ny * nz;
+    ops::GridDimensions dims = {nx, ny, nz, 0.5, 0.5, 0.5};
+    ops::FluidProperties fluid = {0.05, 0.02};
+
+    std::vector<double> u(total_cells, 1.5);
+    std::vector<double> v(total_cells, -0.5);
+    std::vector<double> w(total_cells, 1.0);
+    std::vector<double> fx(total_cells, 0.1);
+    std::vector<double> fy(total_cells, 0.1);
+    std::vector<double> fz(total_cells, 0.1);
+
+    std::vector<double> u_star(total_cells, 0.0);
+    std::vector<double> v_star(total_cells, 0.0);
+    std::vector<double> w_star(total_cells, 0.0);
+
+    // Run kernel across multiple threads
+    EXPECT_NO_THROW(
+        ops::compute_trial_velocities(
+            dims, fluid,
+            u.data(), v.data(), w.data(),
+            fx.data(), fy.data(), fz.data(),
+            u_star.data(), v_star.data(), w_star.data()
+        )
+    );
+
+    // Verify that every interior cell was processed correctly in parallel
+    size_t ny_nz = ny * nz;
+    size_t nz_val = nz;
+    for (size_t i = 1; i < nx - 1; ++i) {
+        for (size_t j = 1; j < ny - 1; ++j) {
+            for (size_t k = 1; k < nz - 1; ++k) {
+                size_t idx = i * ny_nz + j * nz_val + k;
+
+                // With uniform flow, advection and Laplacian are zero. 
+                // Expected u_star = 1.5 + 0.05 * 0.1 = 1.505
+                EXPECT_NEAR(u_star[idx], 1.505, 1e-12);
+                // Ensure no thread produced non-finite artifacts
+                EXPECT_TRUE(std::isfinite(u_star[idx]));
+                EXPECT_TRUE(std::isfinite(v_star[idx]));
+                EXPECT_TRUE(std::isfinite(w_star[idx]));
+            }
+        }
+    }
+}
