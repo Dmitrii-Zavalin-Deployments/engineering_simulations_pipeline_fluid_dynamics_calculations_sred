@@ -38,12 +38,12 @@ protected:
  *     w*(x, y, z) = 4.0 * z
  * 
  * Using second-order central differences, the analytical partial derivatives are:
- *     ∂u*/∂x = 2.0
- *     ∂v*/∂y = -3.0
- *     ∂w*/∂z = 4.0
+ *     du*/dx = 2.0
+ *     dv*/dy = -3.0
+ *     dw*/dz = 4.0
  * 
  * The total scalar divergence is their sum:
- *     ∇ ⋅ u* = ∂u*/∂x + ∂v*/∂y + ∂w*/∂z = 2.0 + (-3.0) + 4.0 = 3.0
+ *     div u* = du*/dx + dv*/dy + dw*/dz = 2.0 + (-3.0) + 4.0 = 3.0
  */
 TEST_F(DivergenceTest, LinearFieldExactDivergence) {
     size_t total_size = static_cast<size_t>(Nx) * Ny * Nz;
