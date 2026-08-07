@@ -12,6 +12,8 @@
 #include <stdexcept>
 #include "ghost_handler.hpp"
 
+using namespace ops;
+
 class GhostHandlerTest : public ::testing::Test {
 protected:
     void SetUp() override {

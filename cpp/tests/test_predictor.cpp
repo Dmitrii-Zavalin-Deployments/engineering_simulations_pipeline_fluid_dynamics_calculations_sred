@@ -8,10 +8,12 @@
  */
 
 #include <gtest/gtest.h>
-#include "predictor.hpp"
 #include <vector>
 #include <cmath>
 #include <stdexcept>
+#include "predictor.hpp"
+
+using namespace ops;
 
 // ============================================================================
 // NARRATIVE SECTION 1: Input Validation and Contract Safety Guards
@@ -23,8 +25,8 @@
 
 TEST(PredictorTest, NullPointerThrowsInvalidateArgument) {
     // We define minimal valid grid dimensions and fluid properties.
-    ops::GridDimensions dims = {5, 5, 5, 0.1, 0.1, 0.1};
-    ops::FluidProperties fluid = {0.01, 0.001};
+    GridDimensions dims = {5, 5, 5, 0.1, 0.1, 0.1};
+    FluidProperties fluid = {0.01, 0.001};
 
     // We allocate a valid buffer to test individual pointer invalidations.
     std::vector<double> valid_buffer(125, 1.0);
@@ -33,7 +35,7 @@ TEST(PredictorTest, NullPointerThrowsInvalidateArgument) {
     // If any input pointer (e.g., baseline velocity u) is null, the predictor 
     // must throw an invalid_argument exception to prevent segmentation faults.
     EXPECT_THROW(
-        ops::compute_trial_velocities(
+        compute_trial_velocities(
             dims, fluid,
             nullptr, valid_buffer.data(), valid_buffer.data(),
             valid_buffer.data(), valid_buffer.data(), valid_buffer.data(),
@@ -44,15 +46,15 @@ TEST(PredictorTest, NullPointerThrowsInvalidateArgument) {
 }
 
 TEST(PredictorTest, InvalidGeometryAndPhysicsParametersThrowErrors) {
-    ops::GridDimensions valid_dims = {5, 5, 5, 0.1, 0.1, 0.1};
-    ops::FluidProperties valid_fluid = {0.01, 0.001};
+    GridDimensions valid_dims = {5, 5, 5, 0.1, 0.1, 0.1};
+    FluidProperties valid_fluid = {0.01, 0.001};
     std::vector<double> buf(125, 1.0);
     std::vector<double> out(125, 0.0);
 
     // Rule 1: Grid dimensions smaller than 3x3x3 violate central finite difference stencils.
-    ops::GridDimensions small_dims = {2, 5, 5, 0.1, 0.1, 0.1};
+    GridDimensions small_dims = {2, 5, 5, 0.1, 0.1, 0.1};
     EXPECT_THROW(
-        ops::compute_trial_velocities(
+        compute_trial_velocities(
             small_dims, valid_fluid,
             buf.data(), buf.data(), buf.data(),
             buf.data(), buf.data(), buf.data(),
@@ -62,9 +64,9 @@ TEST(PredictorTest, InvalidGeometryAndPhysicsParametersThrowErrors) {
     );
 
     // Rule 2: Negative or zero time step dt violates temporal progression rules.
-    ops::FluidProperties invalid_dt_fluid = {-0.01, 0.001};
+    FluidProperties invalid_dt_fluid = {-0.01, 0.001};
     EXPECT_THROW(
-        ops::compute_trial_velocities(
+        compute_trial_velocities(
             valid_dims, invalid_dt_fluid,
             buf.data(), buf.data(), buf.data(),
             buf.data(), buf.data(), buf.data(),
@@ -74,9 +76,9 @@ TEST(PredictorTest, InvalidGeometryAndPhysicsParametersThrowErrors) {
     );
 
     // Rule 3: Negative kinematic viscosity nu is physically impossible.
-    ops::FluidProperties invalid_nu_fluid = {0.01, -0.001};
+    FluidProperties invalid_nu_fluid = {0.01, -0.001};
     EXPECT_THROW(
-        ops::compute_trial_velocities(
+        compute_trial_velocities(
             valid_dims, invalid_nu_fluid,
             buf.data(), buf.data(), buf.data(),
             buf.data(), buf.data(), buf.data(),
@@ -100,8 +102,8 @@ TEST(PredictorTest, InvalidGeometryAndPhysicsParametersThrowErrors) {
 TEST(PredictorTest, UniformFlowExactEulerUpdate) {
     size_t nx = 5, ny = 5, nz = 5;
     size_t total_cells = nx * ny * nz;
-    ops::GridDimensions dims = {nx, ny, nz, 1.0, 1.0, 1.0};
-    ops::FluidProperties fluid = {0.1, 0.01}; // dt = 0.1, nu = 0.01
+    GridDimensions dims = {nx, ny, nz, 1.0, 1.0, 1.0};
+    FluidProperties fluid = {0.1, 0.01}; // dt = 0.1, nu = 0.01
 
     std::vector<double> u(total_cells, 2.0);
     std::vector<double> v(total_cells, 1.0);
@@ -117,7 +119,7 @@ TEST(PredictorTest, UniformFlowExactEulerUpdate) {
     std::vector<double> w_star(total_cells, 0.0);
 
     // Execute the predictor kernel
-    ops::compute_trial_velocities(
+    compute_trial_velocities(
         dims, fluid,
         u.data(), v.data(), w.data(),
         fx.data(), fy.data(), fz.data(),
@@ -157,8 +159,8 @@ TEST(PredictorTest, MultiThreadingParallelExecutionCorrectness) {
     // Grid size 15x15x15 = 3375 cells (> 1000 threshold, activating OpenMP parallel region)
     size_t nx = 15, ny = 15, nz = 15;
     size_t total_cells = nx * ny * nz;
-    ops::GridDimensions dims = {nx, ny, nz, 0.5, 0.5, 0.5};
-    ops::FluidProperties fluid = {0.05, 0.02};
+    GridDimensions dims = {nx, ny, nz, 0.5, 0.5, 0.5};
+    FluidProperties fluid = {0.05, 0.02};
 
     std::vector<double> u(total_cells, 1.5);
     std::vector<double> v(total_cells, -0.5);
@@ -173,7 +175,7 @@ TEST(PredictorTest, MultiThreadingParallelExecutionCorrectness) {
 
     // Run kernel across multiple threads
     EXPECT_NO_THROW(
-        ops::compute_trial_velocities(
+        compute_trial_velocities(
             dims, fluid,
             u.data(), v.data(), w.data(),
             fx.data(), fy.data(), fz.data(),

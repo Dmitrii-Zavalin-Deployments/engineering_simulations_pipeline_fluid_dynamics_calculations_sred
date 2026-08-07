@@ -12,6 +12,8 @@
 #include <stdexcept>
 #include "scaling.hpp"
 
+using namespace ops;
+
 class ScalingTest : public ::testing::Test {
 protected:
     void SetUp() override {

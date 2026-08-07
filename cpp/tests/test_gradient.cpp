@@ -13,6 +13,8 @@
 #include <stdexcept>
 #include "gradient.hpp"
 
+using namespace ops;
+
 class GradientTest : public ::testing::Test {
 protected:
     void SetUp() override {

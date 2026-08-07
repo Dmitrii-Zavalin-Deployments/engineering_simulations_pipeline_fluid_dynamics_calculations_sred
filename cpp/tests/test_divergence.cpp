@@ -13,6 +13,8 @@
 #include <stdexcept>
 #include "divergence.hpp"
 
+using namespace ops;
+
 class DivergenceTest : public ::testing::Test {
 protected:
     void SetUp() override {

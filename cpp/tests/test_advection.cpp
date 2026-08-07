@@ -13,6 +13,8 @@
 #include <stdexcept>
 #include "advection.hpp"
 
+using namespace ops;
+
 class AdvectionTest : public ::testing::Test {
 protected:
     void SetUp() override {

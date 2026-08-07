@@ -1,12 +1,14 @@
-#include <gtest/gtest.h>
-#include "forces.hpp"
-#include <cmath>
-#include <vector>
-
 /**
  * @file test_forces.cpp
  * @brief Literate test suite for body force vector validation and numerical auditing.
  */
+
+#include <gtest/gtest.h>
+#include <cmath>
+#include <vector>
+#include "forces.hpp"
+
+using namespace ops;
 
 // =========================================================================
 // NARRATIVE: Body Force Validation and Safety Guardrails

@@ -13,6 +13,8 @@
 #include <stdexcept>
 #include "laplacian.hpp"
 
+using namespace ops;
+
 class LaplacianTest : public ::testing::Test {
 protected:
     void SetUp() override {
