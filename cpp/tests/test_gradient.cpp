@@ -68,7 +68,7 @@ TEST_F(GradientTest, LinearFieldExactDerivatives) {
                 size_t idx = static_cast<size_t>(i) * (Ny * Nz) + static_cast<size_t>(j) * Nz + k;
                 EXPECT_NEAR(grad_x[idx], 3.0, 1e-9);
                 EXPECT_NEAR(grad_y[idx], -2.0, 1e-9);
-                EXPECT_NEAR(grad_z[idx], -5.0 * -1.0, 5.0, 1e-9);
+                EXPECT_NEAR(grad_z[idx], 5.0, 1e-9);
             }
         }
     }
