@@ -56,15 +56,15 @@ jobs:
       #     # libgl1 replaces the deprecated libgl1-mesa-glx on Ubuntu 24.04+
       #     sudo apt-get install -y libgl1 xvfb libglu1-mesa
 
-      - name: 🛠️ Build and Run Native C++ Unit Tests
+      - name: 🛠️ Build, Run Native C++ Unit Tests & Generate Coverage
         run: |
-          echo "🚀 Compiling and executing native C++ kernel unit tests via direct g++..."
+          echo "🚀 Compiling and executing native C++ kernel unit tests with coverage instrumentation..."
           
           # Create output directory for test binaries
           mkdir -p build/tests
           
-          # Compile Google Test sources directly along with operators and test files using g++
-          g++ -O3 -march=native -std=c++17 \
+          # Compile with --coverage and -O0 for accurate line-by-line reporting
+          g++ --coverage -O0 -std=c++17 \
             /usr/src/googletest/googletest/src/gtest-all.cc \
             /usr/src/googletest/googletest/src/gtest_main.cc \
             cpp/src/ops/*.cpp \
@@ -76,6 +76,9 @@ jobs:
             
           echo "🧪 Executing native C++ unit test suite..."
           ./build/tests/cpp_unit_tests
+          
+          echo "📊 Generating C++ Code Coverage Terminal Report..."
+          gcovr --root=. --filter=cpp/src/ --print-summary --txt
 
   #     - name: 🧹 Auto-Clean (Autoflake)
   #       run: |

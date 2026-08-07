@@ -1,9 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 
-echo "🌐 Installing C++ build essentials & testing libraries..."
+echo "🌐 Installing C++ build essentials, testing libraries, and gcovr..."
 sudo apt-get update
-sudo apt-get install -y build-essential libgtest-dev
+sudo apt-get install -y build-essential libgtest-dev gcovr
 
 echo "🚀 Upgrading core Python packaging tools & installing pybind11..."
 python -m pip install --upgrade pip setuptools wheel pybind11
