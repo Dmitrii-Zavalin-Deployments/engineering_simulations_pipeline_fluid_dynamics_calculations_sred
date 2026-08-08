@@ -122,7 +122,7 @@ TEST(PredictorTest, InvalidGeometryAndPhysicsParametersThrowErrors) {
 TEST(PredictorTest, UniformFlowExactEulerUpdate) {
     size_t nx = 5, ny = 5, nz = 5;
     size_t total_cells = nx * ny * nz;
-    GridDimensions dims = {nx, ny, nz, 1.0, 1.0, 1.0};
+    GridDimensions dims = {static_cast<int>(nx), static_cast<int>(ny), static_cast<int>(nz), 1.0, 1.0, 1.0};
     FluidProperties fluid = {0.1, 0.01}; // dt = 0.1, nu = 0.01
 
     std::vector<double> u(total_cells, 2.0);
@@ -182,7 +182,7 @@ TEST(PredictorTest, MultiThreadingParallelExecutionCorrectness) {
     // Grid size 15x15x15 = 3375 cells (> 1000 threshold, activating OpenMP parallel region)
     size_t nx = 15, ny = 15, nz = 15;
     size_t total_cells = nx * ny * nz;
-    GridDimensions dims = {nx, ny, nz, 0.5, 0.5, 0.5};
+    GridDimensions dims = {static_cast<int>(nx), static_cast<int>(ny), static_cast<int>(nz), 0.5, 0.5, 0.5};
     FluidProperties fluid = {0.05, 0.02};
 
     std::vector<double> u(total_cells, 1.5);
@@ -239,7 +239,7 @@ TEST(PredictorTest, MultiThreadingParallelExecutionCorrectness) {
 TEST(PredictorTest, NonFiniteVelocityThrowsRuntimeError) {
     size_t nx = 5, ny = 5, nz = 5;
     size_t total_cells = nx * ny * nz;
-    GridDimensions dims = {nx, ny, nz, 0.1, 0.1, 0.1};
+    GridDimensions dims = {static_cast<int>(nx), static_cast<int>(ny), static_cast<int>(nz), 0.1, 0.1, 0.1};
     FluidProperties fluid = {0.1, 0.01};
 
     std::vector<double> u(total_cells, 1.0);
@@ -284,7 +284,7 @@ TEST(PredictorTest, NonFiniteVelocityThrowsRuntimeError) {
 TEST(PredictorTest, MaskProtectsNonFluidCellsFromModification) {
     size_t nx = 5, ny = 5, nz = 5;
     size_t total_cells = nx * ny * nz;
-    GridDimensions dims = {nx, ny, nz, 1.0, 1.0, 1.0};
+    GridDimensions dims = {static_cast<int>(nx), static_cast<int>(ny), static_cast<int>(nz), 1.0, 1.0, 1.0};
     FluidProperties fluid = {0.1, 0.01};
 
     std::vector<double> u(total_cells, 1.0);
