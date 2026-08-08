@@ -67,10 +67,12 @@ void NavierStokesOrchestrator::step(
 
     // 4. CORRECTOR STEP: Project trial velocity to divergence-free velocity field u^{n+1}
     solve_corrector_parallel(
-        dims_, config_.density, dt,
+        u, v, w,
         u_star_, v_star_, w_star_,
         p, mask,
-        u, v, w
+        dims_.nx, dims_.ny, dims_.nz,
+        dims_.dx, dims_.dy, dims_.dz,
+        dt, config_.density
     );
 
     // 5. GHOST & TRIAL BUFFER SYNCHRONIZATION: Sync ghost/boundary memory regions across buffers

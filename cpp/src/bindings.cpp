@@ -15,9 +15,9 @@ public:
         size_t max_poisson_iters, double poisson_tolerance, double density
     ) {
         dims_ = {
-            static_cast<size_t>(nx), 
-            static_cast<size_t>(ny), 
-            static_cast<size_t>(nz), 
+            nx, 
+            ny, 
+            nz, 
             dx, dy, dz
         };
         config_ = {max_poisson_iters, poisson_tolerance, density};
