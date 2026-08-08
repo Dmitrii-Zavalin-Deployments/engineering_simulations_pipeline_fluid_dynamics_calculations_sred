@@ -63,7 +63,7 @@ jobs:
           # Create output directory for test binaries
           mkdir -p build/tests
 
-          # Compile with --coverage and -O0 for accurate line-by-line reporting, including pybind11 include paths
+          # Compile with --coverage, -O0, pybind11 headers, and Python embedding flags
           g++ --coverage -O0 -std=c++17 cpp/src/*.cpp cpp/src/ops/*.cpp \
             /usr/src/googletest/googletest/src/gtest-all.cc \
             /usr/src/googletest/googletest/src/gtest_main.cc \
@@ -71,6 +71,7 @@ jobs:
             -I/usr/src/googletest/googletest \
             -Icpp/include \
             $(python3 -m pybind11 --includes) \
+            $(python3-config --ldflags --embed) \
             -lpthread \
             -o build/tests/cpp_unit_tests
             
