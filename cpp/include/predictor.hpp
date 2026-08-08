@@ -8,9 +8,9 @@
 
 #include <cstddef>
 #include <vector>
+#include "orchestrator.hpp"
 
 namespace ops {
-
 
 struct FluidProperties {
     double dt;

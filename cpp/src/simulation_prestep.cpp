@@ -2,6 +2,8 @@
 #include "simulation_prestep.hpp"
 #include <omp.h>
 
+namespace ops {
+
 inline bool matches_location(int i, int j, int k, int nx, int ny, int nz, const std::string& location) {
     if (location == "x_min" && i == 0) return true;
     if (location == "x_max" && i == nx - 1) return true;
@@ -54,3 +56,5 @@ void execute_pre_step(
         }
     }
 }
+
+} // namespace ops

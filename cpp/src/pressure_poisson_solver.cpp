@@ -3,6 +3,8 @@
 #include <cmath>
 #include <omp.h>
 
+namespace ops {
+
 void apply_neumann_pressure(
     std::vector<double>& p,
     const std::string& location,
@@ -144,3 +146,5 @@ void solve_poisson_red_black_parallel(
         apply_solid_neumann_pressure_parallel(p, mask, nx, ny, nz);
     }
 }
+
+} // namespace ops
