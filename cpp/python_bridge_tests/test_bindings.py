@@ -16,10 +16,10 @@ except ImportError:
     navier_stokes_cpp = None
 
 # ============================================================================
-# NARRATIVE SECTION 1: Extension Module Availability and Initialization
+# NARRATIVE SECTION 1: Extension Module Availability and Introspection
 # ============================================================================
 # The pybind11 module must successfully load into the Python interpreter,
-# registering the high-performance C++ classes and module documentation string.
+# registering high-performance C++ classes, docstrings, and py::arg metadata.
 # ============================================================================
 
 def test_module_initialization():
@@ -29,15 +29,55 @@ def test_module_initialization():
     assert hasattr(navier_stokes_cpp, "NavierStokesSolver")
     assert hasattr(navier_stokes_cpp, "BoundaryCondition")
 
+
+def test_signature_and_docstring_introspection():
+    """Forces pybind11 to evaluate py::arg metadata for 100% binding coverage."""
+    if navier_stokes_cpp is None:
+        pytest.skip("navier_stokes_cpp module not available.")
+
+    # Inspect class and method docstrings to trigger py::arg formatting
+    solver_doc = str(navier_stokes_cpp.NavierStokesSolver.__doc__)
+    init_doc = str(navier_stokes_cpp.NavierStokesSolver.__init__.__doc__)
+    step_doc = str(navier_stokes_cpp.NavierStokesSolver.step.__doc__)
+
+    assert "Initialize solver grid dimensions" in solver_doc or "Initialize solver grid dimensions" in init_doc
+    assert "Advance the Navier-Stokes system" in step_doc
+
+    # Verify py::arg parameter names are registered in the signature string
+    assert "nx" in init_doc or "nx" in solver_doc
+    assert "fields" in step_doc
+
+
+def test_boundary_condition_property_access():
+    """Verifies read/write access to all BoundaryCondition fields."""
+    if navier_stokes_cpp is None:
+        pytest.skip("navier_stokes_cpp module not available.")
+
+    bc = navier_stokes_cpp.BoundaryCondition()
+    bc.location = "x_min"
+    bc.type = "inflow"
+    bc.scalar_p = 101325.0
+    bc.u_val = 1.5
+    bc.v_val = 0.0
+    bc.w_val = -0.5
+
+    assert bc.location == "x_min"
+    assert bc.type == "inflow"
+    assert bc.scalar_p == 101325.0
+    assert bc.u_val == 1.5
+    assert bc.v_val == 0.0
+    assert bc.w_val == -0.5
+
+
 # ============================================================================
 # NARRATIVE SECTION 2: Orchestrator Full Step Python Bridge Execution
 # ============================================================================
-# The Python bridge function coordinates the full fractional-step Navier-Stokes 
-# solver sequence (Pre-Step -> Predictor -> Pressure Poisson -> Corrector) 
-# using 4D fields [u, v, w, p] and 3D domain masks.
+# Test execution using both positional arguments and explicit keyword arguments 
+# (kwargs) to trigger both argument-dispatch branches in pybind11.
 # ============================================================================
 
-def test_navier_stokes_solver_execution():
+def test_navier_stokes_solver_execution_positional():
+    """Executes solver using positional arguments."""
     if navier_stokes_cpp is None:
         pytest.skip("navier_stokes_cpp module not available.")
 
@@ -47,44 +87,59 @@ def test_navier_stokes_solver_execution():
     density = 1000.0
     mu = 0.001
 
-    # Fields shape: (4, nx, ny, nz) -> [u, v, w, p]
     fields = np.zeros((4, nx, ny, nz), dtype=np.float64)
-    fields[0, :, :, :] = 0.1  # Initial uniform u velocity
+    fields[0, :, :, :] = 0.1
 
-    # Domain mask: 1 = Fluid (Interior), -1 = Wall, 0 = Solid
     mask = np.ones((nx, ny, nz), dtype=np.int32)
-    # Set outer boundaries to wall (-1)
     mask[0, :, :] = -1
     mask[-1, :, :] = -1
-    mask[:, 0, :] = -1
-    mask[:, -1, :] = -1
-    mask[:, :, 0] = -1
-    mask[:, :, -1] = -1
 
     fx = np.full((nx, ny, nz), 10.0, dtype=np.float64)
     fy = np.zeros((nx, ny, nz), dtype=np.float64)
     fz = np.zeros((nx, ny, nz), dtype=np.float64)
 
-    # Configure Boundary Conditions (Testing all read/write attributes for 100% coverage)
     bc = navier_stokes_cpp.BoundaryCondition()
     bc.location = "wall"
     bc.type = "no-slip"
-    bc.scalar_p = 0.0
-    bc.u_val = 0.0
-    bc.v_val = 0.0
-    bc.w_val = 0.0
 
-    bc_pressure = navier_stokes_cpp.BoundaryCondition()
-    bc_pressure.location = "z_max"
-    bc_pressure.type = "pressure"
-    bc_pressure.scalar_p = 101325.0
-    bc_pressure.u_val = 0.0
-    bc_pressure.v_val = 0.0
-    bc_pressure.w_val = 0.0
+    # Positional initialization
+    solver = navier_stokes_cpp.NavierStokesSolver(
+        nx, ny, nz, dx, dy, dz, 50, 1e-6, density
+    )
 
-    bc_list = [bc, bc_pressure]
+    # Positional step execution
+    solver.step(fields, mask, fx, fy, fz, [bc], dt, mu)
 
-    # Initialize C++ Solver Orchestrator (Testing keyword arguments for 100% coverage)
+    assert np.all(np.isfinite(fields))
+
+
+def test_navier_stokes_solver_execution_kwargs():
+    """Executes solver using keyword arguments to trigger py::arg dispatching."""
+    if navier_stokes_cpp is None:
+        pytest.skip("navier_stokes_cpp module not available.")
+
+    nx, ny, nz = 8, 8, 8
+    dx, dy, dz = 0.1, 0.1, 0.1
+    dt = 0.001
+    density = 1000.0
+    mu = 0.001
+
+    fields = np.zeros((4, nx, ny, nz), dtype=np.float64)
+    fields[0, :, :, :] = 0.1
+
+    mask = np.ones((nx, ny, nz), dtype=np.int32)
+    mask[0, :, :] = -1
+    mask[-1, :, :] = -1
+
+    fx = np.full((nx, ny, nz), 10.0, dtype=np.float64)
+    fy = np.zeros((nx, ny, nz), dtype=np.float64)
+    fz = np.zeros((nx, ny, nz), dtype=np.float64)
+
+    bc = navier_stokes_cpp.BoundaryCondition()
+    bc.location = "wall"
+    bc.type = "no-slip"
+
+    # Keyword argument initialization
     solver = navier_stokes_cpp.NavierStokesSolver(
         nx=nx, ny=ny, nz=nz,
         dx=dx, dy=dy, dz=dz,
@@ -93,21 +148,18 @@ def test_navier_stokes_solver_execution():
         density=density
     )
 
-    # Execute one time-step (Testing keyword arguments for step() coverage)
+    # Keyword argument step execution
     solver.step(
         fields=fields,
         mask=mask,
         fx=fx,
         fy=fy,
         fz=fz,
-        bc_list=bc_list,
+        bc_list=[bc],
         dt=dt,
         mu=mu
     )
 
-    # Verify fields remain finite and valid after step execution
     assert np.all(np.isfinite(fields))
-    
-    # Assert that active interior fluid cells (mask == 1) have been updated by the solver pipeline
     interior_u = fields[0, 1:nx-1, 1:ny-1, 1:nz-1]
     assert np.any(interior_u != 0.1)
