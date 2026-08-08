@@ -7,6 +7,7 @@ principles are written as commented prose, while the executable Python assertion
 verify correct interaction between the Python runtime and the C++ Navier-Stokes Orchestrator.
 """
 
+import inspect
 import numpy as np
 import pytest
 
@@ -31,11 +32,11 @@ def test_module_initialization():
 
 
 def test_signature_and_docstring_introspection():
-    """Forces pybind11 to evaluate py::arg metadata for 100% binding coverage."""
+    """Forces pybind11 to evaluate py::arg metadata and signature bindings for 100% coverage."""
     if navier_stokes_cpp is None:
         pytest.skip("navier_stokes_cpp module not available.")
 
-    # Inspect class and method docstrings to trigger py::arg formatting
+    # Inspect class and method docstrings
     solver_doc = str(navier_stokes_cpp.NavierStokesSolver.__doc__)
     init_doc = str(navier_stokes_cpp.NavierStokesSolver.__init__.__doc__)
     step_doc = str(navier_stokes_cpp.NavierStokesSolver.step.__doc__)
@@ -43,9 +44,43 @@ def test_signature_and_docstring_introspection():
     assert "Initialize solver grid dimensions" in solver_doc or "Initialize solver grid dimensions" in init_doc
     assert "Advance the Navier-Stokes system" in step_doc
 
-    # Verify py::arg parameter names are registered in the signature string
-    assert "nx" in init_doc or "nx" in solver_doc
-    assert "fields" in step_doc
+    # Use Python's inspect module to force signature generation, traversing lines 114-117 and 120-121
+    init_sig = inspect.signature(navier_stokes_cpp.NavierStokesSolver)
+    assert "nx" in init_sig.parameters
+    assert "ny" in init_sig.parameters
+    assert "nz" in init_sig.parameters
+    assert "dx" in init_sig.parameters
+    assert "dy" in init_sig.parameters
+    assert "dz" in init_sig.parameters
+    assert "max_poisson_iters" in init_sig.parameters
+    assert "poisson_tolerance" in init_sig.parameters
+    assert "density" in init_sig.parameters
+
+    step_sig = inspect.signature(navier_stokes_cpp.NavierStokesSolver.step)
+    assert "fields" in step_sig.parameters
+    assert "mask" in step_sig.parameters
+    assert "fx" in step_sig.parameters
+    assert "fy" in step_sig.parameters
+    assert "fz" in step_sig.parameters
+    assert "bc_list" in step_sig.parameters
+    assert "dt" in step_sig.parameters
+    assert "mu" in step_sig.parameters
+
+
+def test_invalid_keyword_arguments_error_handling():
+    """Triggers pybind11 argument parser error branches for robust coverage."""
+    if navier_stokes_cpp is None:
+        pytest.skip("navier_stokes_cpp module not available.")
+
+    with pytest.raises((TypeError, ValueError)):
+        navier_stokes_cpp.NavierStokesSolver(
+            nx=8, ny=8, nz=8,
+            dx=0.1, dy=0.1, dz=0.1,
+            max_poisson_iters=50,
+            poisson_tolerance=1e-6,
+            density=1000.0,
+            nonexistent_argument=999
+        )
 
 
 def test_boundary_condition_property_access():
