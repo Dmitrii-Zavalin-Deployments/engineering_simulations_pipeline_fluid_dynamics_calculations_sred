@@ -56,27 +56,27 @@ jobs:
       #     # libgl1 replaces the deprecated libgl1-mesa-glx on Ubuntu 24.04+
       #     sudo apt-get install -y libgl1 xvfb libglu1-mesa
 
-      - name: 🛠️ Build, Run Native C++ Unit Tests & Generate Coverage
+      - name: Compile and Run C++ Unit Tests
         run: |
           echo "🚀 Compiling and executing native C++ kernel unit tests with coverage instrumentation..."
           
           # Create output directory for test binaries
           mkdir -p build/tests
-          
-          # Compile with --coverage and -O0 for accurate line-by-line reporting
+
+          # Compile with --coverage and -O0 for accurate line-by-line reporting, including pybind11 include paths
           g++ --coverage -O0 -std=c++17 cpp/src/*.cpp cpp/src/ops/*.cpp \
             /usr/src/googletest/googletest/src/gtest-all.cc \
             /usr/src/googletest/googletest/src/gtest_main.cc \
-            cpp/src/ops/*.cpp \
             cpp/tests/*.cpp \
             -I/usr/src/googletest/googletest \
             -Icpp/include \
+            $(python3 -m pybind11 --includes) \
             -lpthread \
             -o build/tests/cpp_unit_tests
             
           echo "🧪 Executing native C++ unit test suite..."
           ./build/tests/cpp_unit_tests
-          
+
           echo "📊 Generating C++ Code Coverage Terminal Report..."
           gcovr --root=. --filter=cpp/src/ --print-summary --txt
 
