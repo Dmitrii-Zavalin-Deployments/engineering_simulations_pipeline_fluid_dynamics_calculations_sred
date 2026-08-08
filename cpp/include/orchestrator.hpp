@@ -4,7 +4,12 @@
 #include <vector>
 #include <string>
 #include <cstddef>
+
 #include "predictor.hpp"
+#include "simulation_prestep.hpp"
+#include "pressure_poisson_solver.hpp"
+#include "corrector.hpp"
+#include "ghost_handler.hpp"
 
 namespace ops {
 
@@ -29,10 +34,11 @@ public:
     
     /**
      * @brief Executes one full time step of the fractional-step Navier-Stokes solver:
-     * 1. Pre-Step: Apply Dirichlet velocity & pressure boundary conditions (mask == -1)
-     * 2. Predictor Step: Compute trial velocities u* (mask == 1)
-     * 3. Poisson Solver: Parallel Red-Black Gauss-Seidel with Solid & Neumann sync
-     * 4. Corrector Step: Project trial velocities to divergence-free field u^{n+1}
+     * 1. Pre-Step: Apply Dirichlet velocity & pressure boundary conditions (mask == -1, mask == 0)
+     * 2. Predictor Step: Compute trial velocities u* (mask == 1) via advection + diffusion + body forces
+     * 3. Poisson Solver: Compute RHS divergence and solve pressure Poisson equation iteratively
+     * 4. Corrector Step: Project trial velocities to divergence-free velocity field u^{n+1}
+     * 5. Ghost/Buffer Sync: Synchronize intermediate trial and persistent state buffers
      */
     void step(
         double dt,
@@ -49,43 +55,6 @@ public:
     );
 
 private:
-    void apply_pre_step_bcs(
-        const std::vector<int>& mask,
-        const std::vector<BoundaryCondition>& bc_list,
-        std::vector<double>& u,
-        std::vector<double>& v,
-        std::vector<double>& w,
-        std::vector<double>& p
-    );
-
-    void compute_divergence_rhs(
-        const std::vector<double>& u_star,
-        const std::vector<double>& v_star,
-        const std::vector<double>& w_star,
-        const std::vector<int>& mask,
-        double dt,
-        std::vector<double>& rhs
-    );
-
-    void solve_poisson(
-        std::vector<double>& p,
-        const std::vector<double>& rhs,
-        const std::vector<int>& mask,
-        const std::vector<BoundaryCondition>& bc_list
-    );
-
-    void apply_corrector(
-        const std::vector<double>& u_star,
-        const std::vector<double>& v_star,
-        const std::vector<double>& w_star,
-        const std::vector<double>& p,
-        const std::vector<int>& mask,
-        double dt,
-        std::vector<double>& u,
-        std::vector<double>& v,
-        std::vector<double>& w
-    );
-
     GridDimensions dims_;
     SolverConfig config_;
     size_t total_cells_;
