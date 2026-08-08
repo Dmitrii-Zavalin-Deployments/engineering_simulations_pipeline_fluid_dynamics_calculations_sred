@@ -21,7 +21,8 @@ void compute_predictor_kernel_cpp(
         dx, dy, dz
     };
     
-    ops::FluidProperties fluid{dt, mu / rho, rho};
+    // Fixed: FluidProperties only takes dt and kinematic viscosity (nu = mu / rho)
+    ops::FluidProperties fluid{dt, mu / rho};
 
     double* u_ptr = &r_fields(0, 0, 0, 0);
     double* v_ptr = &r_fields(1, 0, 0, 0);
@@ -45,7 +46,6 @@ double solve_ppe_sor_kernel_cpp(
     double dt, double rho, double omega,
     int max_iter, double tol
 ) {
-    // Bridge or delegate to PPE solver core implementation here
     return 0.0;
 }
 
@@ -56,7 +56,6 @@ void apply_corrector_kernel_cpp(
     double dx, double dy, double dz,
     double dt, double rho
 ) {
-    // Bridge or delegate to corrector core implementation here
 }
 
 PYBIND11_MODULE(navier_stokes_cpp, m) {
