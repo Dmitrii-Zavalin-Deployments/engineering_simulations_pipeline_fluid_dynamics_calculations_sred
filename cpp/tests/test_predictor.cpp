@@ -63,7 +63,19 @@ TEST(PredictorTest, InvalidGeometryAndPhysicsParametersThrowErrors) {
         std::invalid_argument
     );
 
-    // Rule 2: Negative or zero time step dt violates temporal progression rules.
+    // Rule 2: Non-positive grid spacing dx, dy, or dz violates spatial discretization rules.
+    GridDimensions invalid_dx_dims = {5, 5, 5, 0.0, 0.1, 0.1};
+    EXPECT_THROW(
+        compute_trial_velocities(
+            invalid_dx_dims, valid_fluid,
+            buf.data(), buf.data(), buf.data(),
+            buf.data(), buf.data(), buf.data(),
+            out.data(), out.data(), out.data()
+        ),
+        std::invalid_argument
+    );
+
+    // Rule 3: Negative or zero time step dt violates temporal progression rules.
     FluidProperties invalid_dt_fluid = {-0.01, 0.001};
     EXPECT_THROW(
         compute_trial_velocities(
@@ -75,7 +87,7 @@ TEST(PredictorTest, InvalidGeometryAndPhysicsParametersThrowErrors) {
         std::invalid_argument
     );
 
-    // Rule 3: Negative kinematic viscosity nu is physically impossible.
+    // Rule 4: Negative kinematic viscosity nu is physically impossible.
     FluidProperties invalid_nu_fluid = {0.01, -0.001};
     EXPECT_THROW(
         compute_trial_velocities(
@@ -94,9 +106,9 @@ TEST(PredictorTest, InvalidGeometryAndPhysicsParametersThrowErrors) {
 // In a perfectly uniform flow field where velocity components are constant everywhere 
 // (e.g., $u = 2.0$, $v = 1.0$, $w = 0.5$), spatial gradients (advection and Laplacian) 
 // must evaluate precisely to zero:
-//     $\nabla u = 0, \quad \nabla^2 u = 0$
+//      $\nabla u = 0, \quad \nabla^2 u = 0$
 // Therefore, the explicit Forward-Euler trial velocity update simplifies directly to:
-//     $u^* = u^n + \Delta t \cdot f_x$
+//      $u^* = u^n + \Delta t \cdot f_x$
 // ============================================================================
 
 TEST(PredictorTest, UniformFlowExactEulerUpdate) {
@@ -201,4 +213,47 @@ TEST(PredictorTest, MultiThreadingParallelExecutionCorrectness) {
             }
         }
     }
+}
+
+// ============================================================================
+// NARRATIVE SECTION 4: Robustness and Numerical Exception Safety
+// ============================================================================
+// Verifies that non-finite floating-point results (such as NaN or Infinity 
+// generated during force evaluations or integration steps) trigger the 
+// guarded runtime error exception safely across execution threads.
+// ============================================================================
+
+TEST(PredictorTest, NonFiniteVelocityThrowsRuntimeError) {
+    size_t nx = 5, ny = 5, nz = 5;
+    size_t total_cells = nx * ny * nz;
+    GridDimensions dims = {nx, ny, nz, 0.1, 0.1, 0.1};
+    FluidProperties fluid = {0.1, 0.01};
+
+    std::vector<double> u(total_cells, 1.0);
+    std::vector<double> v(total_cells, 1.0);
+    std::vector<double> w(total_cells, 1.0);
+    
+    // Inject a NaN into an interior cell force component to trigger non-finite detection
+    std::vector<double> fx(total_cells, 1.0);
+    size_t ny_nz = ny * nz;
+    size_t nz_val = nz;
+    size_t target_idx = 2 * ny_nz + 2 * nz_val + 2; // interior cell (2,2,2)
+    fx[target_idx] = NAN;
+
+    std::vector<double> fy(total_cells, 0.0);
+    std::vector<double> fz(total_cells, 0.0);
+
+    std::vector<double> u_star(total_cells, 0.0);
+    std::vector<double> v_star(total_cells, 0.0);
+    std::vector<double> w_star(total_cells, 0.0);
+
+    EXPECT_THROW(
+        compute_trial_velocities(
+            dims, fluid,
+            u.data(), v.data(), w.data(),
+            fx.data(), fy.data(), fz.data(),
+            u_star.data(), v_star.data(), w_star.data()
+        ),
+        std::runtime_error
+    );
 }
