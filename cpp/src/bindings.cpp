@@ -111,14 +111,9 @@ PYBIND11_MODULE(navier_stokes_cpp, m) {
 
     py::class_<PythonSolverBridge>(m, "NavierStokesSolver")
         .def(py::init<int, int, int, double, double, double, size_t, double, double>(),
-             py::arg("nx"), py::arg("ny"), py::arg("nz"),
-             py::arg("dx"), py::arg("dy"), py::arg("dz"),
-             py::arg("max_poisson_iters"), py::arg("poisson_tolerance"),
-             py::arg("density"),
+             py::arg("nx"), py::arg("ny"), py::arg("nz"), py::arg("dx"), py::arg("dy"), py::arg("dz"), py::arg("max_poisson_iters"), py::arg("poisson_tolerance"), py::arg("density"),
              "Initialize solver grid dimensions, iteration limits, and fluid density.")
         .def("step", &PythonSolverBridge::step,
-             py::arg("fields"), py::arg("mask"),
-             py::arg("fx"), py::arg("fy"), py::arg("fz"),
-             py::arg("bc_list"), py::arg("dt"), py::arg("mu"),
+             py::arg("fields"), py::arg("mask"), py::arg("fx"), py::arg("fy"), py::arg("fz"), py::arg("bc_list"), py::arg("dt"), py::arg("mu"),
              "Advance the Navier-Stokes system by one time-step (dt).");
 }
