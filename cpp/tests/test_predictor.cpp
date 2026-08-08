@@ -28,9 +28,10 @@ TEST(PredictorTest, NullPointerThrowsInvalidateArgument) {
     GridDimensions dims = {5, 5, 5, 0.1, 0.1, 0.1};
     FluidProperties fluid = {0.01, 0.001};
 
-    // We allocate a valid buffer to test individual pointer invalidations.
+    // We allocate a valid buffer and mask to test individual pointer invalidations.
     std::vector<double> valid_buffer(125, 1.0);
     std::vector<double> output_buffer(125, 0.0);
+    std::vector<int> mask(125, 1);
 
     // If any input pointer (e.g., baseline velocity u) is null, the predictor 
     // must throw an invalid_argument exception to prevent segmentation faults.
@@ -39,6 +40,7 @@ TEST(PredictorTest, NullPointerThrowsInvalidateArgument) {
             dims, fluid,
             nullptr, valid_buffer.data(), valid_buffer.data(),
             valid_buffer.data(), valid_buffer.data(), valid_buffer.data(),
+            mask,
             output_buffer.data(), output_buffer.data(), output_buffer.data()
         ),
         std::invalid_argument
@@ -50,14 +52,17 @@ TEST(PredictorTest, InvalidGeometryAndPhysicsParametersThrowErrors) {
     FluidProperties valid_fluid = {0.01, 0.001};
     std::vector<double> buf(125, 1.0);
     std::vector<double> out(125, 0.0);
+    std::vector<int> valid_mask(125, 1);
 
     // Rule 1: Grid dimensions smaller than 3x3x3 violate central finite difference stencils.
     GridDimensions small_dims = {2, 5, 5, 0.1, 0.1, 0.1};
+    std::vector<int> small_mask(50, 1);
     EXPECT_THROW(
         compute_trial_velocities(
             small_dims, valid_fluid,
             buf.data(), buf.data(), buf.data(),
             buf.data(), buf.data(), buf.data(),
+            small_mask,
             out.data(), out.data(), out.data()
         ),
         std::invalid_argument
@@ -70,6 +75,7 @@ TEST(PredictorTest, InvalidGeometryAndPhysicsParametersThrowErrors) {
             invalid_dx_dims, valid_fluid,
             buf.data(), buf.data(), buf.data(),
             buf.data(), buf.data(), buf.data(),
+            valid_mask,
             out.data(), out.data(), out.data()
         ),
         std::invalid_argument
@@ -82,6 +88,7 @@ TEST(PredictorTest, InvalidGeometryAndPhysicsParametersThrowErrors) {
             valid_dims, invalid_dt_fluid,
             buf.data(), buf.data(), buf.data(),
             buf.data(), buf.data(), buf.data(),
+            valid_mask,
             out.data(), out.data(), out.data()
         ),
         std::invalid_argument
@@ -94,6 +101,7 @@ TEST(PredictorTest, InvalidGeometryAndPhysicsParametersThrowErrors) {
             valid_dims, invalid_nu_fluid,
             buf.data(), buf.data(), buf.data(),
             buf.data(), buf.data(), buf.data(),
+            valid_mask,
             out.data(), out.data(), out.data()
         ),
         std::invalid_argument
@@ -126,6 +134,8 @@ TEST(PredictorTest, UniformFlowExactEulerUpdate) {
     std::vector<double> fy(total_cells, -0.2);
     std::vector<double> fz(total_cells, 0.1);
 
+    std::vector<int> mask(total_cells, 1);
+
     std::vector<double> u_star(total_cells, 0.0);
     std::vector<double> v_star(total_cells, 0.0);
     std::vector<double> w_star(total_cells, 0.0);
@@ -135,10 +145,11 @@ TEST(PredictorTest, UniformFlowExactEulerUpdate) {
         dims, fluid,
         u.data(), v.data(), w.data(),
         fx.data(), fy.data(), fz.data(),
+        mask,
         u_star.data(), v_star.data(), w_star.data()
     );
 
-    // Check interior cells (since boundary cells are skipped by the 1 to n-2 loop bounds)
+    // Check interior cells (since boundary cells are skipped by the mask/loop constraints)
     size_t ny_nz = ny * nz;
     size_t nz_val = nz;
     for (size_t i = 1; i < nx - 1; ++i) {
@@ -180,6 +191,7 @@ TEST(PredictorTest, MultiThreadingParallelExecutionCorrectness) {
     std::vector<double> fx(total_cells, 0.1);
     std::vector<double> fy(total_cells, 0.1);
     std::vector<double> fz(total_cells, 0.1);
+    std::vector<int> mask(total_cells, 1);
 
     std::vector<double> u_star(total_cells, 0.0);
     std::vector<double> v_star(total_cells, 0.0);
@@ -191,6 +203,7 @@ TEST(PredictorTest, MultiThreadingParallelExecutionCorrectness) {
             dims, fluid,
             u.data(), v.data(), w.data(),
             fx.data(), fy.data(), fz.data(),
+            mask,
             u_star.data(), v_star.data(), w_star.data()
         )
     );
@@ -242,6 +255,7 @@ TEST(PredictorTest, NonFiniteVelocityThrowsRuntimeError) {
 
     std::vector<double> fy(total_cells, 0.0);
     std::vector<double> fz(total_cells, 0.0);
+    std::vector<int> mask(total_cells, 1);
 
     std::vector<double> u_star(total_cells, 0.0);
     std::vector<double> v_star(total_cells, 0.0);
@@ -252,8 +266,75 @@ TEST(PredictorTest, NonFiniteVelocityThrowsRuntimeError) {
             dims, fluid,
             u.data(), v.data(), w.data(),
             fx.data(), fy.data(), fz.data(),
+            mask,
             u_star.data(), v_star.data(), w_star.data()
         ),
         std::runtime_error
     );
+}
+
+// ============================================================================
+// NARRATIVE SECTION 5: Mask Protection of Non-Fluid (Boundary/Solid) States
+// ============================================================================
+// Verifies that cells with mask != 1 (such as Dirichlet boundaries or solid walls)
+// are strictly preserved and left unmodified by the predictor trial velocity update,
+// even when large external body forces or gradients are present across the grid.
+// ============================================================================
+
+TEST(PredictorTest, MaskProtectsNonFluidCellsFromModification) {
+    size_t nx = 5, ny = 5, nz = 5;
+    size_t total_cells = nx * ny * nz;
+    GridDimensions dims = {nx, ny, nz, 1.0, 1.0, 1.0};
+    FluidProperties fluid = {0.1, 0.01};
+
+    std::vector<double> u(total_cells, 1.0);
+    std::vector<double> v(total_cells, 1.0);
+    std::vector<double> w(total_cells, 1.0);
+
+    // Apply massive body forces that would aggressively alter active fluid cells
+    std::vector<double> fx(total_cells, 50.0);
+    std::vector<double> fy(total_cells, 50.0);
+    std::vector<double> fz(total_cells, 50.0);
+
+    // Configure mask: default all active fluid (1), but designate specific cells 
+    // as solid walls (0) and Dirichlet boundaries (-1).
+    std::vector<int> mask(total_cells, 1);
+
+    size_t ny_nz = ny * nz;
+    size_t nz_val = nz;
+    size_t solid_idx = 2 * ny_nz + 2 * nz_val + 2;      // cell (2,2,2)
+    size_t dirichlet_idx = 1 * ny_nz + 1 * nz_val + 1;  // cell (1,1,1)
+
+    mask[solid_idx] = 0;      // Solid state
+    mask[dirichlet_idx] = -1; // Dirichlet boundary state
+
+    // Pre-define specific static values for these protected cells
+    u[solid_idx] = 42.0;
+    v[solid_idx] = 42.0;
+    w[solid_idx] = 42.0;
+
+    u[dirichlet_idx] = 99.0;
+    v[dirichlet_idx] = 99.0;
+    w[dirichlet_idx] = 99.0;
+
+    std::vector<double> u_star(total_cells, 0.0);
+    std::vector<double> v_star(total_cells, 0.0);
+    std::vector<double> w_star(total_cells, 0.0);
+
+    compute_trial_velocities(
+        dims, fluid,
+        u.data(), v.data(), w.data(),
+        fx.data(), fy.data(), fz.data(),
+        mask,
+        u_star.data(), v_star.data(), w_star.data()
+    );
+
+    // Assert that the pre-defined boundary and solid states remain untouched
+    EXPECT_EQ(u_star[solid_idx], 42.0);
+    EXPECT_EQ(v_star[solid_idx], 42.0);
+    EXPECT_EQ(w_star[solid_idx], 42.0);
+
+    EXPECT_EQ(u_star[dirichlet_idx], 99.0);
+    EXPECT_EQ(v_star[dirichlet_idx], 99.0);
+    EXPECT_EQ(w_star[dirichlet_idx], 99.0);
 }
