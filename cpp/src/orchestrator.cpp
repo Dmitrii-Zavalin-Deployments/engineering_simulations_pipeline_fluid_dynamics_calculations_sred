@@ -66,7 +66,7 @@ void NavierStokesOrchestrator::step(
     );
 
     // 4. CORRECTOR STEP: Project trial velocity to divergence-free velocity field u^{n+1}
-    apply_corrector_step(
+    solve_corrector_parallel(
         dims_, config_.density, dt,
         u_star_, v_star_, w_star_,
         p, mask,

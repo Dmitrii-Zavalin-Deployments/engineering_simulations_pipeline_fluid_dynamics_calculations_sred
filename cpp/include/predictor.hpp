@@ -11,14 +11,6 @@
 
 namespace ops {
 
-struct GridDimensions {
-    size_t nx;
-    size_t ny;
-    size_t nz;
-    double dx;
-    double dy;
-    double dz;
-};
 
 struct FluidProperties {
     double dt;
