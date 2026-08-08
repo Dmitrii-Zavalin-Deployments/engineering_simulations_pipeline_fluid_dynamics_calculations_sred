@@ -65,29 +65,45 @@ def test_navier_stokes_solver_execution():
     fy = np.zeros((nx, ny, nz), dtype=np.float64)
     fz = np.zeros((nx, ny, nz), dtype=np.float64)
 
-    # Configure Boundary Conditions
+    # Configure Boundary Conditions (Testing all read/write attributes for 100% coverage)
     bc = navier_stokes_cpp.BoundaryCondition()
     bc.location = "wall"
     bc.type = "no-slip"
+    bc.scalar_p = 0.0
+    bc.u_val = 0.0
+    bc.v_val = 0.0
+    bc.w_val = 0.0
 
     bc_pressure = navier_stokes_cpp.BoundaryCondition()
     bc_pressure.location = "z_max"
     bc_pressure.type = "pressure"
     bc_pressure.scalar_p = 101325.0
+    bc_pressure.u_val = 0.0
+    bc_pressure.v_val = 0.0
+    bc_pressure.w_val = 0.0
 
     bc_list = [bc, bc_pressure]
 
-    # Initialize C++ Solver Orchestrator
+    # Initialize C++ Solver Orchestrator (Testing keyword arguments for 100% coverage)
     solver = navier_stokes_cpp.NavierStokesSolver(
-        nx, ny, nz,
-        dx, dy, dz,
+        nx=nx, ny=ny, nz=nz,
+        dx=dx, dy=dy, dz=dz,
         max_poisson_iters=50,
         poisson_tolerance=1e-6,
         density=density
     )
 
-    # Execute one time-step
-    solver.step(fields, mask, fx, fy, fz, bc_list, dt, mu)
+    # Execute one time-step (Testing keyword arguments for step() coverage)
+    solver.step(
+        fields=fields,
+        mask=mask,
+        fx=fx,
+        fy=fy,
+        fz=fz,
+        bc_list=bc_list,
+        dt=dt,
+        mu=mu
+    )
 
     # Verify fields remain finite and valid after step execution
     assert np.all(np.isfinite(fields))
