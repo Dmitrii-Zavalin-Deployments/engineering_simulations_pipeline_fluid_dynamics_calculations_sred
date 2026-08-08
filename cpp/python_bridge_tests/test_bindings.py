@@ -61,7 +61,7 @@ def test_navier_stokes_solver_execution():
     mask[:, :, 0] = -1
     mask[:, :, -1] = -1
 
-    fx = np.zeros((nx, ny, nz), dtype=np.float64)
+    fx = np.full((nx, ny, nz), 10.0, dtype=np.float64)
     fy = np.zeros((nx, ny, nz), dtype=np.float64)
     fz = np.zeros((nx, ny, nz), dtype=np.float64)
 
