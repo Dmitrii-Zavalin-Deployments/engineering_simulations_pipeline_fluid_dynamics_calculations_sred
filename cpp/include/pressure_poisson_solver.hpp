@@ -4,11 +4,11 @@
 #include <vector>
 #include <string>
 
-struct BoundaryCondition {
-    std::string location; // "x_min", "x_max", "y_min", "y_max", "z_min", "z_max", "wall", etc.
-    std::string type;     // "no-slip", "free-slip", "inflow", "outflow", "pressure"
-    double scalar_p;      // Prescribed pressure value for Dirichlet boundaries
-};
+namespace ops {
+    struct BoundaryCondition;
+}
+
+namespace ops {
 
 // Core iterative solver (interior fluid cells only)
 void solve_poisson_red_black_parallel(
@@ -21,7 +21,6 @@ void solve_poisson_red_black_parallel(
     int max_iters, double tol
 );
 
-// Only dynamic synchronization helpers remain here
 void apply_neumann_pressure(
     std::vector<double>& p,
     const std::string& location,
@@ -33,5 +32,7 @@ void apply_solid_neumann_pressure_parallel(
     const std::vector<int>& mask, 
     int nx, int ny, int nz
 );
+
+} // namespace ops
 
 #endif // PRESSURE_POISSON_SOLVER_HPP

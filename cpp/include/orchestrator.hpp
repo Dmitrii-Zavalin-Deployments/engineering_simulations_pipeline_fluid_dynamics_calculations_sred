@@ -5,13 +5,27 @@
 #include <string>
 #include <cstddef>
 
-#include "predictor.hpp"
-#include "simulation_prestep.hpp"
-#include "pressure_poisson_solver.hpp"
-#include "corrector.hpp"
-#include "ghost_handler.hpp"
-
 namespace ops {
+
+struct GridDimensions {
+    int nx;
+    int ny;
+    int nz;
+    double dx;
+    double dy;
+    double dz;
+};
+
+struct BoundaryValues {
+    bool has_u = false;
+    double u = 0.0;
+    bool has_v = false;
+    double v = 0.0;
+    bool has_w = false;
+    double w = 0.0;
+    bool has_p = false;
+    double p = 0.0;
+};
 
 struct BoundaryCondition {
     std::string location; // "x_min", "x_max", "y_min", "y_max", "z_min", "z_max", "wall"
@@ -20,6 +34,7 @@ struct BoundaryCondition {
     double u_val = 0.0;
     double v_val = 0.0;
     double w_val = 0.0;
+    BoundaryValues values;
 };
 
 struct SolverConfig {
@@ -27,6 +42,16 @@ struct SolverConfig {
     double poisson_tolerance;
     double density;
 };
+
+} // namespace ops
+
+#include "predictor.hpp"
+#include "simulation_prestep.hpp"
+#include "pressure_poisson_solver.hpp"
+#include "corrector.hpp"
+#include "ghost_handler.hpp"
+
+namespace ops {
 
 class NavierStokesOrchestrator {
 public:

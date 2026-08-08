@@ -25,7 +25,7 @@ void NavierStokesOrchestrator::step(
     std::vector<double>& p
 ) {
     // 1. PRE-STEP: Apply static Dirichlet velocity/pressure conditions on walls (mask == -1) and solids (mask == 0)
-    apply_prestep_boundary_conditions(dims_, mask, bc_list, u, v, w, p);
+    execute_pre_step(u, v, w, p, mask, bc_list, dims_.nx, dims_.ny, dims_.nz);
 
     // 2. PREDICTOR STEP: Compute trial velocities (u*, v*, w*) for active fluid cells (mask == 1)
     FluidProperties fluid{dt, mu / config_.density};
@@ -38,12 +38,31 @@ void NavierStokesOrchestrator::step(
     );
 
     // 3. PRESSURE POISSON STEP: Compute RHS divergence and solve pressure field iteratively
-    PoissonSolverConfig p_config{config_.max_poisson_iterations, config_.poisson_tolerance, config_.density};
-    solve_pressure_poisson(
-        dims_, p_config, dt,
-        u_star_, v_star_, w_star_,
-        mask, bc_list,
-        p, rhs_
+    // Compute divergence of trial velocity field into rhs_ (scaling by density / dt)
+    const double scale = config_.density / dt;
+    for (int k = 0; k < dims_.nz; ++k) {
+        for (int j = 0; j < dims_.ny; ++j) {
+            for (int i = 0; i < dims_.nx; ++i) {
+                int idx = i + dims_.nx * (j + dims_.ny * k);
+                if (mask[idx] == 1) {
+                    // Central difference divergence of u* / dx, v* / dy, w* / dz
+                    double dudx = (u_star_[i + 1 + dims_.nx * (j + dims_.ny * k)] - u_star_[i - 1 + dims_.nx * (j + dims_.ny * k)]) / (2.0 * dims_.dx);
+                    double dvdy = (v_star_[i + dims_.nx * (j + 1 + dims_.ny * k)] - v_star_[i + dims_.nx * (j - 1 + dims_.ny * k)]) / (2.0 * dims_.dy);
+                    double dwdz = (w_star_[i + dims_.nx * (j + dims_.ny * (k + 1))] - w_star_[i + dims_.nx * (j + dims_.ny * (k - 1))]) / (2.0 * dims_.dz);
+                    rhs_[idx] = scale * (dudx + dvdy + dwdz);
+                } else {
+                    rhs_[idx] = 0.0;
+                }
+            }
+        }
+    }
+
+    solve_poisson_red_black_parallel(
+        p, rhs_, mask, bc_list,
+        dims_.nx, dims_.ny, dims_.nz,
+        dims_.dx, dims_.dy, dims_.dz,
+        static_cast<int>(config_.max_poisson_iterations),
+        config_.poisson_tolerance
     );
 
     // 4. CORRECTOR STEP: Project trial velocity to divergence-free velocity field u^{n+1}

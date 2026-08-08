@@ -4,29 +4,15 @@
 #include <vector>
 #include <string>
 
-// Mirrors the "values" object in the JSON schema
-struct BoundaryValues {
-    bool has_u = false;
-    double u = 0.0;
-    bool has_v = false;
-    double v = 0.0;
-    bool has_w = false;
-    double w = 0.0;
-    bool has_p = false;
-    double p = 0.0;
-};
+namespace ops {
+    struct BoundaryCondition;
+}
 
-// Mirrors the boundary condition schema object
-struct BoundaryCondition {
-    std::string location; // "x_min", "x_max", "y_min", "y_max", "z_min", "z_max", "wall"
-    std::string type;     // "no-slip", "free-slip", "inflow", "outflow", "pressure"
-    BoundaryValues values;
-};
+namespace ops {
 
 /**
  * @brief Executes the Pre-Step static initialization phase.
- *        Directly maps the explicit schema 'values' (u, v, w, p) onto 
- *        matching boundary cells based on configuration data.
+ *        Directly maps explicit boundary conditions onto matching boundary cells.
  */
 void execute_pre_step(
     std::vector<double>& u,
@@ -37,5 +23,7 @@ void execute_pre_step(
     const std::vector<BoundaryCondition>& bc_list,
     int nx, int ny, int nz
 );
+
+} // namespace ops
 
 #endif // SIMULATION_PRESTEP_HPP
