@@ -47,6 +47,31 @@ TEST(PredictorTest, NullPointerThrowsInvalidateArgument) {
     );
 }
 
+TEST(PredictorTest, MaskSizeMismatchThrowsInvalidArgument) {
+    // We define minimal valid grid dimensions and fluid properties.
+    // Total cells = 5 * 5 * 5 = 125.
+    GridDimensions dims = {5, 5, 5, 0.1, 0.1, 0.1};
+    FluidProperties fluid = {0.1, 0.01};
+
+    std::vector<double> buf(125, 1.0);
+    std::vector<double> out(125, 0.0);
+
+    // Rule 5: A mask vector whose element count differs from the total grid volume 
+    // (nx * ny * nz) violates topological consistency and must trigger an exception.
+    std::vector<int> invalid_mask(100, 1);
+
+    EXPECT_THROW(
+        compute_trial_velocities(
+            dims, fluid,
+            buf.data(), buf.data(), buf.data(),
+            buf.data(), buf.data(), buf.data(),
+            invalid_mask,
+            out.data(), out.data(), out.data()
+        ),
+        std::invalid_argument
+    );
+}
+
 TEST(PredictorTest, InvalidGeometryAndPhysicsParametersThrowErrors) {
     GridDimensions valid_dims = {5, 5, 5, 0.1, 0.1, 0.1};
     FluidProperties valid_fluid = {0.01, 0.001};
@@ -302,7 +327,7 @@ TEST(PredictorTest, MaskProtectsNonFluidCellsFromModification) {
 
     size_t ny_nz = ny * nz;
     size_t nz_val = nz;
-    size_t solid_idx = 2 * ny_nz + 2 * nz_val + 2;      // cell (2,2,2)
+    size_t solid_idx = 2 * ny_nz + 2 * nz_val + 2;     // cell (2,2,2)
     size_t dirichlet_idx = 1 * ny_nz + 1 * nz_val + 1;  // cell (1,1,1)
 
     mask[solid_idx] = 0;      // Solid state
