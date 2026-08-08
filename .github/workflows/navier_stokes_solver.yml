@@ -56,11 +56,9 @@ jobs:
       #     # libgl1 replaces the deprecated libgl1-mesa-glx on Ubuntu 24.04+
       #     sudo apt-get install -y libgl1 xvfb libglu1-mesa
 
-      - name: Compile and Run C++ Unit Tests
+      - name: Compile and Run C++ and Python Bridge Tests
         run: |
-          echo "🚀 Compiling and executing native C++ kernel unit tests with coverage instrumentation..."
-          
-          # Create output directory for test binaries
+          echo "🚀 Compiling and executing native C++ kernel unit tests with coverage..."
           mkdir -p build/tests
 
           # Compile with --coverage, -O0, pybind11 headers, and Python embedding flags
@@ -78,7 +76,10 @@ jobs:
           echo "🧪 Executing native C++ unit test suite..."
           ./build/tests/cpp_unit_tests
 
-          echo "📊 Generating C++ Code Coverage Terminal Report..."
+          echo "🐍 Executing Python C++ bridge tests from cpp/python_bridge_tests/..."
+          pytest cpp/python_bridge_tests/ -v
+
+          echo "📊 Generating Combined Code Coverage Report..."
           gcovr --root=. --filter=cpp/src/ --print-summary --txt
 
   #     - name: 🧹 Auto-Clean (Autoflake)
