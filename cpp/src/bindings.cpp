@@ -21,7 +21,7 @@ void compute_predictor_kernel_cpp(
         dx, dy, dz
     };
     
-    // Fixed: FluidProperties only takes dt and kinematic viscosity (nu = mu / rho)
+    // FluidProperties only takes Δt and kinematic viscosity (ν = μ / ρ)
     ops::FluidProperties fluid{dt, mu / rho};
 
     double* u_ptr = &r_fields(0, 0, 0, 0);
