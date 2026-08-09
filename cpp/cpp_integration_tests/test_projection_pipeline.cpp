@@ -174,12 +174,15 @@ TEST_F(ProjectionPipelineTest, NonZeroDivergentFieldCorrection) {
         mask.push_back(val.get<int>());
     }
 
-    // Boundary conditions extracted from input JSON
+    // Boundary conditions extracted from input JSON matching actual struct fields
     std::vector<BoundaryCondition> bc_list;
     for (const auto& bc_item : input_json_["boundary_conditions"]) {
         BoundaryCondition bc;
-        bc.type = BoundaryType::NEUMANN;
-        bc.value = bc_item["values"].contains("u") ? bc_item["values"]["u"].get<double>() : 0.0;
+        bc.location = bc_item["location"].get<std::string>();
+        bc.type = bc_item["type"].get<std::string>();
+        bc.u_val = bc_item["values"].contains("u") ? bc_item["values"]["u"].get<double>() : 0.0;
+        bc.v_val = bc_item["values"].contains("v") ? bc_item["values"]["v"].get<double>() : 0.0;
+        bc.w_val = bc_item["values"].contains("w") ? bc_item["values"]["w"].get<double>() : 0.0;
         bc_list.push_back(bc);
     }
 
