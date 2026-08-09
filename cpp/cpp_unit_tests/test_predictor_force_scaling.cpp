@@ -14,9 +14,9 @@ TEST(PredictorForceScalingTest, VolumetricForceDensityScaling) {
     // 1. Grid Setup: Minimal 3x3x3 domain
     GridDimensions dims{3, 3, 3, 1.0, 1.0, 1.0};
 
-    // 2. Physical Properties: Water density (1000 kg/m^3), zero viscosity to isolate body force
+    // 2. Simulation & Physical Properties: dt = 0.1 s, Water density (1000 kg/m^3), zero viscosity
+    double dt = 0.1;
     FluidProperties fluid;
-    fluid.dt = 0.1;           // Time step dt = 0.1 s
     fluid.nu = 0.0;           // Kinematic viscosity nu = 0 m^2/s
     fluid.density = 1000.0;   // Mass density rho = 1000 kg/m^3
 
@@ -42,7 +42,7 @@ TEST(PredictorForceScalingTest, VolumetricForceDensityScaling) {
 
     // 6. Execute Predictor Kernel
     compute_trial_velocities(
-        dims, fluid,
+        dims, fluid, dt,
         u.data(), v.data(), w.data(),
         fx.data(), fy.data(), fz.data(),
         mask,
