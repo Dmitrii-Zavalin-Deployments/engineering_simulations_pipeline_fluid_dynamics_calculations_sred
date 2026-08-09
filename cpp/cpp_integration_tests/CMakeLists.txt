@@ -3,6 +3,7 @@ project(NavierStokesIntegrationTests)
 
 find_package(GTest REQUIRED)
 find_package(Threads REQUIRED)
+find_package(nlohmann_json REQUIRED)
 
 file(COPY data DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
