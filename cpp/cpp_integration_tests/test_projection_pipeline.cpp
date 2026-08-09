@@ -117,8 +117,8 @@ TEST_F(ProjectionPipelineTest, NonZeroDivergentFieldCorrection) {
     GridDimensions dims{grid_resolution, grid_resolution, grid_resolution, 1.0 / grid_resolution, 1.0 / grid_resolution, 1.0 / grid_resolution};
     SolverConfig config;
     config.density = density;
-    config.max_iterations = 2000;
-    config.tolerance = 1e-8;
+    config.max_poisson_iterations = 2000;
+    config.poisson_tolerance = 1e-8;
 
     NavierStokesOrchestrator orchestrator(dims, config);
 
