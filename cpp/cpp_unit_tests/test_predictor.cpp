@@ -8,12 +8,12 @@
  */
 
 #include <gtest/gtest.h>
-#include <vector>
 #include <cmath>
+#include <vector>
 #include <stdexcept>
 #include "predictor.hpp"
 
-using namespace ops;
+namespace ops {
 
 // ============================================================================
 // NARRATIVE SECTION 1: Input Validation and Contract Safety Guards
@@ -23,10 +23,11 @@ using namespace ops;
 // physical parameters. Here we verify that contract violations throw immediate exceptions.
 // ============================================================================
 
-TEST(PredictorTest, NullPointerThrowsInvalidateArgument) {
+TEST(PredictorTest, NullPointerThrowsInvalidArgument) {
     // We define minimal valid grid dimensions and fluid properties.
     GridDimensions dims = {5, 5, 5, 0.1, 0.1, 0.1};
-    FluidProperties fluid = {0.01, 0.001};
+    FluidProperties fluid = {0.01, 1000.0};
+    double dt = 0.01;
 
     // We allocate a valid buffer and mask to test individual pointer invalidations.
     std::vector<double> valid_buffer(125, 1.0);
@@ -37,7 +38,7 @@ TEST(PredictorTest, NullPointerThrowsInvalidateArgument) {
     // must throw an invalid_argument exception to prevent segmentation faults.
     EXPECT_THROW(
         compute_trial_velocities(
-            dims, fluid,
+            dims, fluid, dt,
             nullptr, valid_buffer.data(), valid_buffer.data(),
             valid_buffer.data(), valid_buffer.data(), valid_buffer.data(),
             mask,
@@ -51,18 +52,19 @@ TEST(PredictorTest, MaskSizeMismatchThrowsInvalidArgument) {
     // We define minimal valid grid dimensions and fluid properties.
     // Total cells = 5 * 5 * 5 = 125.
     GridDimensions dims = {5, 5, 5, 0.1, 0.1, 0.1};
-    FluidProperties fluid = {0.1, 0.01};
+    FluidProperties fluid = {0.01, 1000.0};
+    double dt = 0.01;
 
     std::vector<double> buf(125, 1.0);
     std::vector<double> out(125, 0.0);
 
-    // Rule 5: A mask vector whose element count differs from the total grid volume 
+    // Rule: A mask vector whose element count differs from the total grid volume 
     // (nx * ny * nz) violates topological consistency and must trigger an exception.
     std::vector<int> invalid_mask(100, 1);
 
     EXPECT_THROW(
         compute_trial_velocities(
-            dims, fluid,
+            dims, fluid, dt,
             buf.data(), buf.data(), buf.data(),
             buf.data(), buf.data(), buf.data(),
             invalid_mask,
@@ -74,7 +76,8 @@ TEST(PredictorTest, MaskSizeMismatchThrowsInvalidArgument) {
 
 TEST(PredictorTest, InvalidGeometryAndPhysicsParametersThrowErrors) {
     GridDimensions valid_dims = {5, 5, 5, 0.1, 0.1, 0.1};
-    FluidProperties valid_fluid = {0.01, 0.001};
+    FluidProperties valid_fluid = {0.01, 1000.0};
+    double valid_dt = 0.01;
     std::vector<double> buf(125, 1.0);
     std::vector<double> out(125, 0.0);
     std::vector<int> valid_mask(125, 1);
@@ -84,7 +87,7 @@ TEST(PredictorTest, InvalidGeometryAndPhysicsParametersThrowErrors) {
     std::vector<int> small_mask(50, 1);
     EXPECT_THROW(
         compute_trial_velocities(
-            small_dims, valid_fluid,
+            small_dims, valid_fluid, valid_dt,
             buf.data(), buf.data(), buf.data(),
             buf.data(), buf.data(), buf.data(),
             small_mask,
@@ -97,7 +100,7 @@ TEST(PredictorTest, InvalidGeometryAndPhysicsParametersThrowErrors) {
     GridDimensions invalid_dx_dims = {5, 5, 5, 0.0, 0.1, 0.1};
     EXPECT_THROW(
         compute_trial_velocities(
-            invalid_dx_dims, valid_fluid,
+            invalid_dx_dims, valid_fluid, valid_dt,
             buf.data(), buf.data(), buf.data(),
             buf.data(), buf.data(), buf.data(),
             valid_mask,
@@ -107,10 +110,10 @@ TEST(PredictorTest, InvalidGeometryAndPhysicsParametersThrowErrors) {
     );
 
     // Rule 3: Negative or zero time step dt violates temporal progression rules.
-    FluidProperties invalid_dt_fluid = {-0.01, 0.001};
+    double invalid_dt = -0.01;
     EXPECT_THROW(
         compute_trial_velocities(
-            valid_dims, invalid_dt_fluid,
+            valid_dims, valid_fluid, invalid_dt,
             buf.data(), buf.data(), buf.data(),
             buf.data(), buf.data(), buf.data(),
             valid_mask,
@@ -120,10 +123,23 @@ TEST(PredictorTest, InvalidGeometryAndPhysicsParametersThrowErrors) {
     );
 
     // Rule 4: Negative kinematic viscosity nu is physically impossible.
-    FluidProperties invalid_nu_fluid = {0.01, -0.001};
+    FluidProperties invalid_nu_fluid = {-0.01, 1000.0};
     EXPECT_THROW(
         compute_trial_velocities(
-            valid_dims, invalid_nu_fluid,
+            valid_dims, invalid_nu_fluid, valid_dt,
+            buf.data(), buf.data(), buf.data(),
+            buf.data(), buf.data(), buf.data(),
+            valid_mask,
+            out.data(), out.data(), out.data()
+        ),
+        std::invalid_argument
+    );
+
+    // Rule 5: Non-positive density rho violates continuum physics assumptions.
+    FluidProperties invalid_rho_fluid = {0.01, 0.0};
+    EXPECT_THROW(
+        compute_trial_velocities(
+            valid_dims, invalid_rho_fluid, valid_dt,
             buf.data(), buf.data(), buf.data(),
             buf.data(), buf.data(), buf.data(),
             valid_mask,
@@ -148,7 +164,8 @@ TEST(PredictorTest, UniformFlowExactEulerUpdate) {
     size_t nx = 5, ny = 5, nz = 5;
     size_t total_cells = nx * ny * nz;
     GridDimensions dims = {static_cast<int>(nx), static_cast<int>(ny), static_cast<int>(nz), 1.0, 1.0, 1.0};
-    FluidProperties fluid = {0.1, 0.01}; // dt = 0.1, nu = 0.01
+    FluidProperties fluid = {0.01, 1000.0};
+    double dt = 0.1;
 
     std::vector<double> u(total_cells, 2.0);
     std::vector<double> v(total_cells, 1.0);
@@ -167,14 +184,14 @@ TEST(PredictorTest, UniformFlowExactEulerUpdate) {
 
     // Execute the predictor kernel
     compute_trial_velocities(
-        dims, fluid,
+        dims, fluid, dt,
         u.data(), v.data(), w.data(),
         fx.data(), fy.data(), fz.data(),
         mask,
         u_star.data(), v_star.data(), w_star.data()
     );
 
-    // Check interior cells (since boundary cells are skipped by the mask/loop constraints)
+    // Check interior cells (since boundary cells are skipped by mask/stencil constraints)
     size_t ny_nz = ny * nz;
     size_t nz_val = nz;
     for (size_t i = 1; i < nx - 1; ++i) {
@@ -208,7 +225,8 @@ TEST(PredictorTest, MultiThreadingParallelExecutionCorrectness) {
     size_t nx = 15, ny = 15, nz = 15;
     size_t total_cells = nx * ny * nz;
     GridDimensions dims = {static_cast<int>(nx), static_cast<int>(ny), static_cast<int>(nz), 0.5, 0.5, 0.5};
-    FluidProperties fluid = {0.05, 0.02};
+    FluidProperties fluid = {0.02, 1000.0};
+    double dt = 0.05;
 
     std::vector<double> u(total_cells, 1.5);
     std::vector<double> v(total_cells, -0.5);
@@ -216,6 +234,7 @@ TEST(PredictorTest, MultiThreadingParallelExecutionCorrectness) {
     std::vector<double> fx(total_cells, 0.1);
     std::vector<double> fy(total_cells, 0.1);
     std::vector<double> fz(total_cells, 0.1);
+
     std::vector<int> mask(total_cells, 1);
 
     std::vector<double> u_star(total_cells, 0.0);
@@ -225,7 +244,7 @@ TEST(PredictorTest, MultiThreadingParallelExecutionCorrectness) {
     // Run kernel across multiple threads
     EXPECT_NO_THROW(
         compute_trial_velocities(
-            dims, fluid,
+            dims, fluid, dt,
             u.data(), v.data(), w.data(),
             fx.data(), fy.data(), fz.data(),
             mask,
@@ -265,7 +284,8 @@ TEST(PredictorTest, NonFiniteVelocityThrowsRuntimeError) {
     size_t nx = 5, ny = 5, nz = 5;
     size_t total_cells = nx * ny * nz;
     GridDimensions dims = {static_cast<int>(nx), static_cast<int>(ny), static_cast<int>(nz), 0.1, 0.1, 0.1};
-    FluidProperties fluid = {0.1, 0.01};
+    FluidProperties fluid = {0.01, 1000.0};
+    double dt = 0.1;
 
     std::vector<double> u(total_cells, 1.0);
     std::vector<double> v(total_cells, 1.0);
@@ -288,7 +308,7 @@ TEST(PredictorTest, NonFiniteVelocityThrowsRuntimeError) {
 
     EXPECT_THROW(
         compute_trial_velocities(
-            dims, fluid,
+            dims, fluid, dt,
             u.data(), v.data(), w.data(),
             fx.data(), fy.data(), fz.data(),
             mask,
@@ -310,7 +330,8 @@ TEST(PredictorTest, MaskProtectsNonFluidCellsFromModification) {
     size_t nx = 5, ny = 5, nz = 5;
     size_t total_cells = nx * ny * nz;
     GridDimensions dims = {static_cast<int>(nx), static_cast<int>(ny), static_cast<int>(nz), 1.0, 1.0, 1.0};
-    FluidProperties fluid = {0.1, 0.01};
+    FluidProperties fluid = {0.01, 1000.0};
+    double dt = 0.1;
 
     std::vector<double> u(total_cells, 1.0);
     std::vector<double> v(total_cells, 1.0);
@@ -347,19 +368,30 @@ TEST(PredictorTest, MaskProtectsNonFluidCellsFromModification) {
     std::vector<double> w_star(total_cells, 0.0);
 
     compute_trial_velocities(
-        dims, fluid,
+        dims, fluid, dt,
         u.data(), v.data(), w.data(),
         fx.data(), fy.data(), fz.data(),
         mask,
         u_star.data(), v_star.data(), w_star.data()
     );
 
-    // Assert that the pre-defined boundary and solid states remain untouched
-    EXPECT_EQ(u_star[solid_idx], 42.0);
-    EXPECT_EQ(v_star[solid_idx], 42.0);
-    EXPECT_EQ(w_star[solid_idx], 42.0);
+    // Assert that non-fluid cells (mask != 1) copy their baseline velocity directly
+    EXPECT_DOUBLE_EQ(u_star[solid_idx], 42.0);
+    EXPECT_DOUBLE_EQ(v_star[solid_idx], 42.0);
+    EXPECT_DOUBLE_EQ(w_star[solid_idx], 42.0);
 
-    EXPECT_EQ(u_star[dirichlet_idx], 99.0);
-    EXPECT_EQ(v_star[dirichlet_idx], 99.0);
-    EXPECT_EQ(w_star[dirichlet_idx], 99.0);
+    EXPECT_DOUBLE_EQ(u_star[dirichlet_idx], 99.0);
+    EXPECT_DOUBLE_EQ(v_star[dirichlet_idx], 99.0);
+    EXPECT_DOUBLE_EQ(w_star[dirichlet_idx], 99.0);
+
+    // Verify preservation across all non-fluid cells
+    for (size_t i = 0; i < total_cells; ++i) {
+        if (mask[i] != 1) {
+            EXPECT_DOUBLE_EQ(u_star[i], u[i]);
+            EXPECT_DOUBLE_EQ(v_star[i], v[i]);
+            EXPECT_DOUBLE_EQ(w_star[i], w[i]);
+        }
+    }
 }
+
+} // namespace ops
