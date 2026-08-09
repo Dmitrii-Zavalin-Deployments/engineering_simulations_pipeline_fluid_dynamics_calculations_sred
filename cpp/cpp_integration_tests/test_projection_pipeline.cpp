@@ -114,7 +114,7 @@ TEST_F(ProjectionPipelineTest, NonZeroDivergentFieldCorrection) {
     // We create a uniform 3D cubic domain [0, 1]^3 discretized with 32^3 cells.
     // Spatial mesh spacing Δx = 1.0 / 32 = 0.03125 m.
     // -----------------------------------------------------------------------------
-    GridDimensions dims{grid_resolution, grid_resolution, grid_resolution, 1.0 / grid_resolution};
+    GridDimensions dims{grid_resolution, grid_resolution, grid_resolution, 1.0 / grid_resolution, 1.0 / grid_resolution, 1.0 / grid_resolution};
     SolverConfig config;
     config.density = density;
 
