@@ -32,6 +32,9 @@
 #include "orchestrator.hpp"
 #include "field_schema.hpp"
 
+// Bring the orchestrator namespace into scope for test integration
+using namespace ops;
+
 // We define a test fixture for the Projection Pipeline to configure grid parameters,
 // fluid density, and temporal stepping characteristics prior to execution.
 class ProjectionPipelineTest : public ::testing::Test {
