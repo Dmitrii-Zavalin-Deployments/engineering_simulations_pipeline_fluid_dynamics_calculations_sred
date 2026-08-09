@@ -1,9 +1,9 @@
 #ifndef GRID_MATH_HPP
 #define GRID_MATH_HPP
-namespace ops {
 
 #include <tuple>
 
+namespace ops {
 namespace navier_stokes {
 
 /**
@@ -19,16 +19,18 @@ inline constexpr int get_flat_index(int i, int j, int k, int nx, int ny) {
  */
 inline constexpr std::tuple<int, int, int> get_coords_from_index(int index, int nx, int ny) {
     int xy_plane = nx * ny;
-    
     int k = index / xy_plane;
     int rem = index % xy_plane;
     int j = rem / nx;
     int i = rem % nx;
-    
     return {i, j, k};
 }
 
 } // namespace navier_stokes
+
+// Bring functions into ops namespace for transparent resolution
+using navier_stokes::get_flat_index;
+using navier_stokes::get_coords_from_index;
 
 } // namespace ops
 #endif // GRID_MATH_HPP
