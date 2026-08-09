@@ -8,7 +8,7 @@
 #include <vector>
 #include "forces.hpp"
 
-using namespace ops;
+using namespace navier_stokes_solver;
 
 // =========================================================================
 // NARRATIVE: Body Force Validation and Safety Guardrails

@@ -5,7 +5,7 @@
 #include <vector>
 #include <array>
 
-namespace ops {
+namespace navier_stokes_solver {
 
 /**
  * Validates and retrieves the 3-component body force vector (Fx, Fy, Fz).
@@ -13,6 +13,6 @@ namespace ops {
  */
 std::array<double, 3> validate_and_get_forces(const std::vector<double>& forces);
 
-} // namespace ops
+} // namespace navier_stokes_solver
 
 #endif // FORCES_HPP

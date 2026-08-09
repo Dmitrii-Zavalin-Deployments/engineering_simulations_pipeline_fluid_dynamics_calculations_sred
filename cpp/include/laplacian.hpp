@@ -3,7 +3,7 @@
 
 #include "base_operator.hpp"
 
-namespace ops {
+namespace navier_stokes_solver {
 
 /**
  * Computes the 3D discrete Laplacian field: ∇²f = ∂²f/∂x² + ∂²f/∂y² + ∂²f/∂z²
@@ -15,6 +15,6 @@ void compute_laplacian(
     double dx, double dy, double dz
 );
 
-} // namespace ops
+} // namespace navier_stokes_solver
 
 #endif // LAPLACIAN_HPP

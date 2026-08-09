@@ -5,7 +5,7 @@
 #include <stdexcept>
 #include <iostream>
 
-namespace ops {
+namespace navier_stokes_solver {
 
 class BaseOperator {
 public:
@@ -15,4 +15,4 @@ public:
     virtual void execute() = 0;
 };
 
-} // namespace ops
+} // namespace navier_stokes_solver

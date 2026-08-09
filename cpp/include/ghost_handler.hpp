@@ -3,7 +3,7 @@
 
 #include "base_operator.hpp"
 
-namespace ops {
+namespace navier_stokes_solver {
 
 /**
  * Synchronizes trial buffers (STAR, NEXT) with baseline foundation values
@@ -19,6 +19,6 @@ void sync_ghost_trial_buffers(
     size_t total_cells
 );
 
-} // namespace ops
+} // namespace navier_stokes_solver
 
 #endif // GHOST_HANDLER_HPP

@@ -12,7 +12,7 @@
 #include <stdexcept>
 #include "scaling.hpp"
 
-using namespace ops;
+using namespace navier_stokes_solver;
 
 class ScalingTest : public ::testing::Test {
 protected:

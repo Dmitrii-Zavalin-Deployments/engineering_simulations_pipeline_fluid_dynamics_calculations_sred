@@ -3,7 +3,7 @@
 
 #include "base_operator.hpp"
 
-namespace ops {
+namespace navier_stokes_solver {
 
 /**
  * Computes the scalar divergence field (∇ ⋅ v*) for the Pressure Poisson Equation (PPE)
@@ -16,6 +16,6 @@ void compute_divergence(
     double dx, double dy, double dz
 );
 
-} // namespace ops
+} // namespace navier_stokes_solver
 
 #endif // DIVERGENCE_HPP

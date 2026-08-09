@@ -7,7 +7,7 @@
 #include <iostream>
 #include <stdexcept>
 
-namespace ops {
+namespace navier_stokes_solver {
 
 void sync_ghost_trial_buffers(
     const double* u, const double* v, const double* w, const double* p,
@@ -30,4 +30,4 @@ void sync_ghost_trial_buffers(
     }
 }
 
-} // namespace ops
+} // namespace navier_stokes_solver

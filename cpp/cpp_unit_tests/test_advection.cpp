@@ -13,7 +13,7 @@
 #include <stdexcept>
 #include "advection.hpp"
 
-using namespace ops;
+using namespace navier_stokes_solver;
 
 class AdvectionTest : public ::testing::Test {
 protected:

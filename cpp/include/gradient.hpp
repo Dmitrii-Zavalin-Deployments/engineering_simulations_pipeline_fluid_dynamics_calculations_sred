@@ -3,7 +3,7 @@
 
 #include "base_operator.hpp"
 
-namespace ops {
+namespace navier_stokes_solver {
 
 /**
  * Computes the 3D gradient vector of a scalar field (e.g., pressure p):
@@ -16,6 +16,6 @@ void compute_gradient(
     double dx, double dy, double dz
 );
 
-} // namespace ops
+} // namespace navier_stokes_solver
 
 #endif // GRADIENT_HPP

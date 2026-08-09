@@ -7,7 +7,7 @@
 #include "grid_math.hpp"
 #include <stdexcept>
 
-namespace ops {
+namespace navier_stokes_solver {
 
 NavierStokesOrchestrator::NavierStokesOrchestrator(const GridDimensions& dims, const SolverConfig& config)
     : dims_(dims), config_(config), total_cells_(dims.nx * dims.ny * dims.nz) {
@@ -97,4 +97,4 @@ void NavierStokesOrchestrator::step(
     );
 }
 
-} // namespace ops
+} // namespace navier_stokes_solver

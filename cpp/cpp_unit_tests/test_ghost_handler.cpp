@@ -12,7 +12,7 @@
 #include <stdexcept>
 #include "ghost_handler.hpp"
 
-using namespace ops;
+using namespace navier_stokes_solver;
 
 class GhostHandlerTest : public ::testing::Test {
 protected:

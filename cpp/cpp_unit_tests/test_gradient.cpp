@@ -13,7 +13,7 @@
 #include <stdexcept>
 #include "gradient.hpp"
 
-using namespace ops;
+using namespace navier_stokes_solver;
 
 class GradientTest : public ::testing::Test {
 protected:

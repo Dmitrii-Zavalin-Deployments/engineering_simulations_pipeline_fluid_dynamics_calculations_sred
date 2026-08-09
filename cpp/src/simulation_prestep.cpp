@@ -11,7 +11,7 @@
 #include <omp.h>
 #endif
 
-namespace ops {
+namespace navier_stokes_solver {
 
 inline bool matches_location(int i, int j, int k, int nx, int ny, int nz, const std::string& location) {
     if (location == "x_min" && i == 0) return true;
@@ -66,4 +66,4 @@ void execute_pre_step(
     }
 }
 
-} // namespace ops
+} // namespace navier_stokes_solver

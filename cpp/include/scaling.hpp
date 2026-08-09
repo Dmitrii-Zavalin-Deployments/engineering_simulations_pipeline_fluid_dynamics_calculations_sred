@@ -3,7 +3,7 @@
 
 #include "base_operator.hpp"
 
-namespace ops {
+namespace navier_stokes_solver {
 
 /**
  * Returns the scaling factor (dt / rho) for the Predictor and Corrector Steps.
@@ -17,6 +17,6 @@ double get_dt_over_rho(double dt, double rho);
  */
 double get_rho_over_dt(double dt, double rho);
 
-} // namespace ops
+} // namespace navier_stokes_solver
 
 #endif // SCALING_HPP

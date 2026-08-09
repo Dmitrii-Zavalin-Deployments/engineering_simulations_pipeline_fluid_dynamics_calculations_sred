@@ -16,7 +16,7 @@
 #include <omp.h>
 #endif
 
-namespace ops {
+namespace navier_stokes_solver {
 
 namespace {
 
@@ -133,4 +133,4 @@ void compute_trial_velocities(
     }
 }
 
-} // namespace ops
+} // namespace navier_stokes_solver

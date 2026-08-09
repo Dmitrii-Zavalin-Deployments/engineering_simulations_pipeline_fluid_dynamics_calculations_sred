@@ -3,8 +3,7 @@
 
 #include <tuple>
 
-namespace ops {
-namespace navier_stokes {
+namespace navier_stokes_solver {
 
 /**
  * Computes a flat index from 3D coordinates. 
@@ -26,11 +25,6 @@ inline constexpr std::tuple<int, int, int> get_coords_from_index(int index, int 
     return {i, j, k};
 }
 
-} // namespace navier_stokes
+} // namespace navier_stokes_solver
 
-// Bring functions into ops namespace for transparent resolution
-using navier_stokes::get_flat_index;
-using navier_stokes::get_coords_from_index;
-
-} // namespace ops
 #endif // GRID_MATH_HPP

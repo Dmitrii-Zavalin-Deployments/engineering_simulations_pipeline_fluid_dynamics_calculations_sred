@@ -12,7 +12,7 @@
 #include <omp.h>
 #endif
 
-namespace ops {
+namespace navier_stokes_solver {
 
 namespace {
 // Local 3D row-major indexing helper
@@ -76,4 +76,4 @@ void compute_laplacian(
     }
 }
 
-} // namespace ops
+} // namespace navier_stokes_solver

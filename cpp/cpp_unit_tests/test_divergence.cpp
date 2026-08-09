@@ -13,7 +13,7 @@
 #include <stdexcept>
 #include "divergence.hpp"
 
-using namespace ops;
+using namespace navier_stokes_solver;
 
 class DivergenceTest : public ::testing::Test {
 protected:

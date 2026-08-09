@@ -3,7 +3,7 @@
 
 #include "base_operator.hpp"
 
-namespace ops {
+namespace navier_stokes_solver {
 
 /**
  * Computes the 3D advection term: (v ⋅ ∇) * field
@@ -16,6 +16,6 @@ void compute_advection(
     double dx, double dy, double dz
 );
 
-} // namespace ops
+} // namespace navier_stokes_solver
 
 #endif // ADVECTION_HPP

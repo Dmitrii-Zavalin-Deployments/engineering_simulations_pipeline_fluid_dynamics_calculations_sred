@@ -43,7 +43,7 @@
 #include "grid_math.hpp"
 
 using json = nlohmann::json;
-using namespace ops;
+using namespace navier_stokes_solver;
 
 class HydrostaticDecouplingTest : public ::testing::Test {
 protected:

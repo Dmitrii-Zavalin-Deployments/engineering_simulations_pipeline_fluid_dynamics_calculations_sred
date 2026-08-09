@@ -13,7 +13,7 @@
 #include <stdexcept>
 #include "predictor.hpp"
 
-namespace ops {
+namespace navier_stokes_solver {
 
 // ============================================================================
 // NARRATIVE SECTION 1: Input Validation and Contract Safety Guards
@@ -395,4 +395,4 @@ TEST(PredictorTest, MaskProtectsNonFluidCellsFromModification) {
     }
 }
 
-} // namespace ops
+} // namespace navier_stokes_solver

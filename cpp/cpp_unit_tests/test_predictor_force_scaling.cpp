@@ -8,7 +8,7 @@
 #include <cmath>
 #include "predictor.hpp"
 
-namespace ops {
+namespace navier_stokes_solver {
 
 TEST(PredictorForceScalingTest, VolumetricForceDensityScaling) {
     // 1. Grid Setup: Minimal 3x3x3 domain
@@ -63,4 +63,4 @@ TEST(PredictorForceScalingTest, VolumetricForceDensityScaling) {
     }
 }
 
-} // namespace ops
+} // namespace navier_stokes_solver

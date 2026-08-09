@@ -3,12 +3,9 @@
 
 #include <vector>
 #include <string>
+#include "orchestrator.hpp"
 
-namespace ops {
-    struct BoundaryCondition;
-}
-
-namespace ops {
+namespace navier_stokes_solver {
 
 // Core iterative solver (interior fluid cells only)
 void solve_poisson_red_black_parallel(
@@ -33,6 +30,6 @@ void apply_solid_neumann_pressure_parallel(
     int nx, int ny, int nz
 );
 
-} // namespace ops
+} // namespace navier_stokes_solver
 
 #endif // PRESSURE_POISSON_SOLVER_HPP

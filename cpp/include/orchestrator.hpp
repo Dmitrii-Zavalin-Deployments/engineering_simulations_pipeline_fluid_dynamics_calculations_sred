@@ -5,7 +5,7 @@
 #include <string>
 #include <cstddef>
 
-namespace ops {
+namespace navier_stokes_solver {
 
 struct GridDimensions {
     int nx;
@@ -43,7 +43,7 @@ struct SolverConfig {
     double density;
 };
 
-} // namespace ops
+} // namespace navier_stokes_solver
 
 #include "predictor.hpp"
 #include "simulation_prestep.hpp"
@@ -51,7 +51,7 @@ struct SolverConfig {
 #include "corrector.hpp"
 #include "ghost_handler.hpp"
 
-namespace ops {
+namespace navier_stokes_solver {
 
 class NavierStokesOrchestrator {
 public:
@@ -91,6 +91,6 @@ private:
     std::vector<double> rhs_;
 };
 
-} // namespace ops
+} // namespace navier_stokes_solver
 
 #endif // ORCHESTRATOR_HPP

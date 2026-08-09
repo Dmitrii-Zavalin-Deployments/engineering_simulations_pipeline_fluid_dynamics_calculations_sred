@@ -13,7 +13,7 @@
 #include <stdexcept>
 #include "laplacian.hpp"
 
-using namespace ops;
+using namespace navier_stokes_solver;
 
 class LaplacianTest : public ::testing::Test {
 protected:

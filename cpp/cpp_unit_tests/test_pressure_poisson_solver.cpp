@@ -15,7 +15,7 @@
 #include "pressure_poisson_solver.hpp"
 #include "orchestrator.hpp"
 
-using namespace ops;
+using namespace navier_stokes_solver;
 
 // ============================================================================
 // NARRATIVE SECTION 1: Neumann Pressure Boundary Conditions

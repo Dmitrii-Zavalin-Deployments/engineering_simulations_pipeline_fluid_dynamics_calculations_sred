@@ -4,11 +4,11 @@
 #include <vector>
 #include <string>
 
-namespace ops {
+namespace navier_stokes_solver {
     struct BoundaryCondition;
 }
 
-namespace ops {
+namespace navier_stokes_solver {
 
 /**
  * @brief Executes the Pre-Step static initialization phase.
@@ -24,6 +24,6 @@ void execute_pre_step(
     int nx, int ny, int nz
 );
 
-} // namespace ops
+} // namespace navier_stokes_solver
 
 #endif // SIMULATION_PRESTEP_HPP

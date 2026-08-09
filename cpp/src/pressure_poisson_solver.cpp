@@ -11,7 +11,7 @@
 #include <omp.h>
 #endif
 
-namespace ops {
+namespace navier_stokes_solver {
 
 void apply_neumann_pressure(
     std::vector<double>& p,
@@ -178,4 +178,4 @@ void solve_poisson_red_black_parallel(
     }
 }
 
-} // namespace ops
+} // namespace navier_stokes_solver

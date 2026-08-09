@@ -10,7 +10,7 @@
 #include <vector>
 #include "orchestrator.hpp"
 
-namespace ops {
+namespace navier_stokes_solver {
 
 struct FluidProperties {
     double nu;
@@ -32,6 +32,6 @@ void compute_trial_velocities(
     double* u_star, double* v_star, double* w_star
 );
 
-} // namespace ops
+} // namespace navier_stokes_solver
 
 #endif // PREDICTOR_HPP

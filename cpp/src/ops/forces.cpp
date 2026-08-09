@@ -8,7 +8,7 @@
 #include <stdexcept>
 #include <iostream>
 
-namespace ops {
+namespace navier_stokes_solver {
 
 std::array<double, 3> validate_and_get_forces(const std::vector<double>& forces) {
     // 1. Contract & Dimension Guard (Rule 8 equivalent)
@@ -30,4 +30,4 @@ std::array<double, 3> validate_and_get_forces(const std::vector<double>& forces)
     return {forces[0], forces[1], forces[2]};
 }
 
-} // namespace ops
+} // namespace navier_stokes_solver

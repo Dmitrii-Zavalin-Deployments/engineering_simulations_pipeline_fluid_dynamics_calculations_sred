@@ -48,7 +48,7 @@
 #include "orchestrator.hpp"
 
 using json = nlohmann::json;
-using namespace ops;
+using namespace navier_stokes_solver;
 
 class ProjectionPipelineTest : public ::testing::Test {
 protected:
