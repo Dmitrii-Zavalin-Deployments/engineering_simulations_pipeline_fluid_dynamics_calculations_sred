@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# @file forensic_audit.sh
-# @brief Forensic audit and automated repair script for C++ compilation errors
-#        regarding namespace resolution (get_flat_index) and incomplete types (BoundaryCondition).
+# @file src/debug/forensic_audit.sh
+# @brief Forensic audit and automated repair script for C++ compilation errors:
+#        1. Incomplete type usage of ops::BoundaryCondition in pressure_poisson_solver.hpp
+#        2. Namespace resolution for get_flat_index in corrector.cpp
 # ==============================================================================
 
 set -euo pipefail
@@ -14,31 +15,26 @@ gcc --version || true
 
 echo ""
 echo "=== 1. Diagnostic Grep & Cat for Root Causes ==="
-echo "Checking namespace wrappers in grid_math.hpp:"
-grep -n -C 5 "namespace" cpp/include/grid_math.hpp || true
+echo "Checking BoundaryCondition definition vs header inclusions:"
+grep -n -C 3 "BoundaryCondition" cpp/include/pressure_poisson_solver.hpp || true
 
-echo "Checking BoundaryCondition definition vs forward declaration in pressure_poisson_solver.hpp:"
-grep -n -C 5 "BoundaryCondition" cpp/include/pressure_poisson_solver.hpp || true
+echo "Checking namespace and get_flat_index scope in corrector.cpp:"
+grep -n -C 3 "get_flat_index" cpp/src/corrector.cpp || true
 
 echo ""
 echo "=== 2. Smoking-Gun Source Audits (cat -n) ==="
-echo "--- Auditing cpp/include/grid_math.hpp ---"
-cat -n cpp/include/grid_math.hpp
-
 echo "--- Auditing cpp/include/pressure_poisson_solver.hpp ---"
 cat -n cpp/include/pressure_poisson_solver.hpp
 
-echo "--- Auditing bindings.cpp flat index calls ---"
-grep -n -C 3 "get_flat_index" cpp/src/bindings.cpp || true
+echo "--- Auditing cpp/src/corrector.cpp ---"
+cat -n cpp/src/corrector.cpp
 
 echo ""
 echo "=== 3. Automated Repair Injections (Commented via # sed) ==="
-# sed -i 's/\bget_flat_index\b/ops::navier_stokes::get_flat_index/g' cpp/src/orchestrator.cpp
-# sed -i 's/\bget_flat_index\b/ops::navier_stokes::get_flat_index/g' cpp/src/pressure_poisson_solver.cpp
-# sed -i 's/\bget_flat_index\b/ops::navier_stokes::get_flat_index/g' cpp/src/simulation_prestep.cpp
-# sed -i 's/\bget_flat_index\b/ops::navier_stokes::get_flat_index/g' cpp/src/predictor.cpp
-# sed -i 's/\bget_flat_index\b/ops::navier_stokes::get_flat_index/g' cpp/src/corrector.cpp
-# sed -i 's/ops::get_flat_index/ops::navier_stokes::get_flat_index/g' cpp/src/bindings.cpp
-# sed -i 's/struct BoundaryCondition;/#include "boundary_condition.hpp"/' cpp/include/pressure_poisson_solver.hpp
+# Include orchestrator.hpp to supply full definition of BoundaryCondition
+# sed -i 's/struct BoundaryCondition;/#include "orchestrator.hpp"/g' cpp/include/pressure_poisson_solver.hpp
+
+# Qualify get_flat_index with ops:: in corrector.cpp
+# sed -i 's/\bget_flat_index\b/ops::get_flat_index/g' cpp/src/corrector.cpp
 
 echo "=== Forensic audit script completed successfully. ==="
