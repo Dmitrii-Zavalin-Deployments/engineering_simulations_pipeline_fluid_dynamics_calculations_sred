@@ -52,14 +52,14 @@ using namespace ops;
 class ProjectionPipelineTest : public ::testing::Test {
 protected:
     // Loads domain parameters, physical properties, and execution tolerances 
-    // from external JSON configuration files before each test run.
+    // from external JSON configuration files using the strict explicit paths.
     void SetUp() override {
-        std::ifstream config_stream("data/config.json");
-        ASSERT_TRUE(config_stream.is_open()) << "Failed to open data/config.json";
+        std::ifstream config_stream("cpp/cpp_integration_tests/data/config.json");
+        ASSERT_TRUE(config_stream.is_open()) << "Failed to open cpp/cpp_integration_tests/data/config.json";
         config_stream >> config_json_;
 
-        std::ifstream input_stream("data/navier_stokes_input.json");
-        ASSERT_TRUE(input_stream.is_open()) << "Failed to open data/navier_stokes_input.json";
+        std::ifstream input_stream("cpp/cpp_integration_tests/data/navier_stokes_input.json");
+        ASSERT_TRUE(input_stream.is_open()) << "Failed to open cpp/cpp_integration_tests/data/navier_stokes_input.json";
         input_stream >> input_json_;
     }
 
