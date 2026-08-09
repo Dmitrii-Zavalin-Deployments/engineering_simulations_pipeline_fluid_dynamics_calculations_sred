@@ -181,9 +181,9 @@ jobs:
             else
               echo "❌ Critical: Diagnostic script 'debug/forensic_audit_verification.sh' not found."
             fi
-            echo "============================================================"
-            echo "📉 RE-RUNNING FAILED TEST FOR FINAL SIGNAL"
-            xvfb-run --auto-servernum $TEST_COMMAND || true
+            # echo "============================================================"
+            # echo "📉 RE-RUNNING FAILED TEST FOR FINAL SIGNAL"
+            # xvfb-run --auto-servernum $TEST_COMMAND || true
             exit 1
           fi
       
