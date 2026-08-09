@@ -27,7 +27,7 @@
  * executes N = 100 consecutive time steps through the orchestrator, and verifies two core pillars:
  *     1. Dynamic Pressure Boundedness: Dynamic pressure p_dynamic remains strictly zero.
  *     2. Zero Spurious Currents: Velocity field infinity norm stays below machine precision (||u^n||_inf < 1e-14 m/s),
- *        which mathematically proves exact force-pressure balance without needing non-existent API hooks.
+ *          which mathematically proves exact force-pressure balance without needing non-existent API hooks.
  * ---------------------------------------------------------------------------------
  */
 
@@ -68,9 +68,9 @@ TEST_F(HydrostaticDecouplingTest, QuiescentFluidDeepGravityWell) {
     // -----------------------------------------------------------------------------
     // Step 1: Initialize grid dimensions, physical properties, and deep well parameters.
     // Spatial grid increments are derived as:
-    //     dx = (x_max - x_min) / nx
-    //     dy = (y_max - y_min) / ny
-    //     dz = (z_max - z_min) / nz
+    //      dx = (x_max - x_min) / nx
+    //      dy = (y_max - y_min) / ny
+    //      dz = (z_max - z_min) / nz
     // -----------------------------------------------------------------------------
     int nx = input_json_["grid"]["nx"];
     int ny = input_json_["grid"]["ny"];
@@ -84,7 +84,7 @@ TEST_F(HydrostaticDecouplingTest, QuiescentFluidDeepGravityWell) {
 
     double dx = (x_max - x_min) / nx;
     double dy = (y_max - y_min) / ny;
-    double dz = (z_max - z_min) / dz; // Note: dz parameter matching repository convention
+    double dz = (z_max - z_min) / nz; // Fixed: Divided by nz instead of uninitialized dz
 
     GridDimensions dims{nx, ny, nz, dx, dy, dz};
 
@@ -105,11 +105,11 @@ TEST_F(HydrostaticDecouplingTest, QuiescentFluidDeepGravityWell) {
 
     // -----------------------------------------------------------------------------
     // Step 2: Allocate vector fields and initialize with quiescent conditions:
-    //     u(x, y, z) = 0.0
-    //     v(x, y, z) = 0.0
-    //     w(x, y, z) = 0.0
-    //     p_dynamic(x, y, z) initialized to hydrostatic equilibrium profile:
-    //         p_hydro(y) = rho * |g_y| * (y_max - y)
+    //      u(x, y, z) = 0.0
+    //      v(x, y, z) = 0.0
+    //      w(x, y, z) = 0.0
+    //      p_dynamic(x, y, z) initialized to hydrostatic equilibrium profile:
+    //          p_hydro(y) = rho * |g_y| * (y_max - y)
     // -----------------------------------------------------------------------------
     size_t total_cells = static_cast<size_t>(nx) * ny * nz;
     std::vector<double> u(total_cells, 0.0);
