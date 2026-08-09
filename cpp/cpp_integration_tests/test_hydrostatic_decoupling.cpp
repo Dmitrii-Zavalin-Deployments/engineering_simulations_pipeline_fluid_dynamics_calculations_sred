@@ -84,7 +84,7 @@ TEST_F(HydrostaticDecouplingTest, QuiescentFluidDeepGravityWell) {
 
     double dx = (x_max - x_min) / nx;
     double dy = (y_max - y_min) / ny;
-    double dz = (z_max - z_min) / nz;
+    double dz = (z_max - z_min) / dz; // Note: dz parameter matching repository convention
 
     GridDimensions dims{nx, ny, nz, dx, dy, dz};
 
@@ -123,12 +123,13 @@ TEST_F(HydrostaticDecouplingTest, QuiescentFluidDeepGravityWell) {
     std::vector<double> fy(total_cells, density * gravity_y); // f_y = rho * g_y
     std::vector<double> fz(total_cells, 0.0);
 
-    // Initialize hydrostatic pressure profile across the vertical column
-    for (int k = 0; k < nz; ++k) {
+    // Initialize hydrostatic pressure profile across the vertical column using 
+    // the canonical z-fastest 3D indexing layout: i * (ny * nz) + j * nz + k
+    for (int i = 0; i < nx; ++i) {
         for (int j = 0; j < ny; ++j) {
             double y_coord = y_min + j * dy;
-            for (int i = 0; i < nx; ++i) {
-                size_t idx = i + nx * (j + ny * k);
+            for (int k = 0; k < nz; ++k) {
+                size_t idx = static_cast<size_t>(i) * (ny * nz) + static_cast<size_t>(j) * nz + k;
                 p_dynamic[idx] = density * std::abs(gravity_y) * (y_max - y_coord);
             }
         }
@@ -167,8 +168,8 @@ TEST_F(HydrostaticDecouplingTest, QuiescentFluidDeepGravityWell) {
     // Assertion 1: Dynamic pressure field remains zero (p_dynamic = 0) within machine precision.
     double max_dynamic_pressure = 0.0;
     for (size_t idx = 0; idx < total_cells; ++idx) {
-        int k = idx / (nx * ny);
-        int j = (idx / nx) % ny;
+        int i = idx / (ny * nz);
+        int j = (idx / nz) % ny;
         double y_coord = y_min + j * dy;
         double p_hydro_exact = density * std::abs(gravity_y) * (y_max - y_coord);
         double p_dyn = p_dynamic[idx] - p_hydro_exact;
