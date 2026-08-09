@@ -1,7 +1,15 @@
-#include "orchestrator.hpp"
+/**
+ * @file pressure_poisson_solver.cpp
+ * @brief Implementation of Step 3 Pressure Poisson Solver (Red-Black GS).
+ */
+
 #include "pressure_poisson_solver.hpp"
+#include "grid_math.hpp"
 #include <cmath>
+
+#ifdef _OPENMP
 #include <omp.h>
+#endif
 
 namespace ops {
 
@@ -14,27 +22,27 @@ void apply_neumann_pressure(
     for (int k = 0; k < nz; ++k) {
         for (int j = 0; j < ny; ++j) {
             for (int i = 0; i < nx; ++i) {
-                int idx = i + nx * (j + ny * k);
+                const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
 
                 if (location == "x_min" && i == 0) {
-                    p[idx] = p[1 + nx * (j + ny * k)];
+                    p[idx] = p[static_cast<size_t>(get_flat_index(1, j, k, nx, ny))];
                 } else if (location == "x_max" && i == nx - 1) {
-                    p[idx] = p[(nx - 2) + nx * (j + ny * k)];
+                    p[idx] = p[static_cast<size_t>(get_flat_index(nx - 2, j, k, nx, ny))];
                 } else if (location == "y_min" && j == 0) {
-                    p[idx] = p[i + nx * (1 + ny * k)];
+                    p[idx] = p[static_cast<size_t>(get_flat_index(i, 1, k, nx, ny))];
                 } else if (location == "y_max" && j == ny - 1) {
-                    p[idx] = p[i + nx * ((ny - 2) + ny * k)];
+                    p[idx] = p[static_cast<size_t>(get_flat_index(i, ny - 2, k, nx, ny))];
                 } else if (location == "z_min" && k == 0) {
-                    p[idx] = p[i + nx * (j + ny * 1)];
+                    p[idx] = p[static_cast<size_t>(get_flat_index(i, j, 1, nx, ny))];
                 } else if (location == "z_max" && k == nz - 1) {
-                    p[idx] = p[i + nx * (j + ny * (nz - 2))];
+                    p[idx] = p[static_cast<size_t>(get_flat_index(i, j, nz - 2, nx, ny))];
                 } else if (location == "wall") {
-                    if (i == 0) p[idx] = p[1 + nx * (j + ny * k)];
-                    else if (i == nx - 1) p[idx] = p[(nx - 2) + nx * (j + ny * k)];
-                    else if (j == 0) p[idx] = p[i + nx * (1 + ny * k)];
-                    else if (j == ny - 1) p[idx] = p[i + nx * ((ny - 2) + ny * k)];
-                    else if (k == 0) p[idx] = p[i + nx * (j + ny * 1)];
-                    else if (k == nz - 1) p[idx] = p[i + nx * (j + ny * (nz - 2))];
+                    if (i == 0)           p[idx] = p[static_cast<size_t>(get_flat_index(1, j, k, nx, ny))];
+                    else if (i == nx - 1) p[idx] = p[static_cast<size_t>(get_flat_index(nx - 2, j, k, nx, ny))];
+                    else if (j == 0)      p[idx] = p[static_cast<size_t>(get_flat_index(i, 1, k, nx, ny))];
+                    else if (j == ny - 1) p[idx] = p[static_cast<size_t>(get_flat_index(i, ny - 2, k, nx, ny))];
+                    else if (k == 0)      p[idx] = p[static_cast<size_t>(get_flat_index(i, j, 1, nx, ny))];
+                    else if (k == nz - 1) p[idx] = p[static_cast<size_t>(get_flat_index(i, j, nz - 2, nx, ny))];
                 }
             }
         }
@@ -50,15 +58,22 @@ void apply_solid_neumann_pressure_parallel(
     for (int k = 1; k < nz - 1; ++k) {
         for (int j = 1; j < ny - 1; ++j) {
             for (int i = 1; i < nx - 1; ++i) {
-                int idx = i + nx * (j + ny * k);
+                const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
                 if (mask[idx] != 0) continue; // Target internal solid cells only
 
-                double p_west  = p[(i - 1) + nx * (j + ny * k)];
-                double p_east  = p[(i + 1) + nx * (j + ny * k)];
-                double p_south = p[i + nx * ((j - 1) + ny * k)];
-                double p_north = p[i + nx * ((j + 1) + ny * k)];
-                double p_down  = p[i + nx * (j + ny * (k - 1))];
-                double p_up    = p[i + nx * (j + ny * (k + 1))];
+                const size_t idx_west  = static_cast<size_t>(get_flat_index(i - 1, j, k, nx, ny));
+                const size_t idx_east  = static_cast<size_t>(get_flat_index(i + 1, j, k, nx, ny));
+                const size_t idx_south = static_cast<size_t>(get_flat_index(i, j - 1, k, nx, ny));
+                const size_t idx_north = static_cast<size_t>(get_flat_index(i, j + 1, k, nx, ny));
+                const size_t idx_down  = static_cast<size_t>(get_flat_index(i, j, k - 1, nx, ny));
+                const size_t idx_up    = static_cast<size_t>(get_flat_index(i, j, k + 1, nx, ny));
+
+                const double p_west  = p[idx_west];
+                const double p_east  = p[idx_east];
+                const double p_south = p[idx_south];
+                const double p_north = p[idx_north];
+                const double p_down  = p[idx_down];
+                const double p_up    = p[idx_up];
 
                 p[idx] = (p_east + p_west + p_north + p_south + p_up + p_down) / 6.0;
             }
@@ -75,10 +90,10 @@ void solve_poisson_red_black_parallel(
     double dx, double dy, double dz,
     int max_iters, double tol) 
 {
-    double idx2 = 1.0 / (dx * dx);
-    double idy2 = 1.0 / (dy * dy);
-    double idz2 = 1.0 / (dz * dz);
-    double factor = 0.5 / (idx2 + idy2 + idz2);
+    const double idx2 = 1.0 / (dx * dx);
+    const double idy2 = 1.0 / (dy * dy);
+    const double idz2 = 1.0 / (dz * dz);
+    const double factor = 0.5 / (idx2 + idy2 + idz2);
 
     for (int iter = 0; iter < max_iters; ++iter) {
         
@@ -88,15 +103,23 @@ void solve_poisson_red_black_parallel(
             for (int j = 1; j < ny - 1; ++j) {
                 for (int i = 1; i < nx - 1; ++i) {
                     if ((i + j + k) % 2 != 0) continue;
-                    int idx = i + nx * (j + ny * k);
+                    
+                    const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
                     if (mask[idx] != 1) continue;
 
-                    double p_west  = p[(i - 1) + nx * (j + ny * k)];
-                    double p_east  = p[(i + 1) + nx * (j + ny * k)];
-                    double p_south = p[i + nx * ((j - 1) + ny * k)];
-                    double p_north = p[i + nx * ((j + 1) + ny * k)];
-                    double p_down  = p[i + nx * (j + ny * (k - 1))];
-                    double p_up    = p[i + nx * (j + ny * (k + 1))];
+                    const size_t idx_west  = static_cast<size_t>(get_flat_index(i - 1, j, k, nx, ny));
+                    const size_t idx_east  = static_cast<size_t>(get_flat_index(i + 1, j, k, nx, ny));
+                    const size_t idx_south = static_cast<size_t>(get_flat_index(i, j - 1, k, nx, ny));
+                    const size_t idx_north = static_cast<size_t>(get_flat_index(i, j + 1, k, nx, ny));
+                    const size_t idx_down  = static_cast<size_t>(get_flat_index(i, j, k - 1, nx, ny));
+                    const size_t idx_up    = static_cast<size_t>(get_flat_index(i, j, k + 1, nx, ny));
+
+                    const double p_west  = p[idx_west];
+                    const double p_east  = p[idx_east];
+                    const double p_south = p[idx_south];
+                    const double p_north = p[idx_north];
+                    const double p_down  = p[idx_down];
+                    const double p_up    = p[idx_up];
 
                     p[idx] = factor * (
                         (p_east + p_west) * idx2 +
@@ -114,15 +137,23 @@ void solve_poisson_red_black_parallel(
             for (int j = 1; j < ny - 1; ++j) {
                 for (int i = 1; i < nx - 1; ++i) {
                     if ((i + j + k) % 2 == 0) continue;
-                    int idx = i + nx * (j + ny * k);
+                    
+                    const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
                     if (mask[idx] != 1) continue;
 
-                    double p_west  = p[(i - 1) + nx * (j + ny * k)];
-                    double p_east  = p[(i + 1) + nx * (j + ny * k)];
-                    double p_south = p[i + nx * ((j - 1) + ny * k)];
-                    double p_north = p[i + nx * ((j + 1) + ny * k)];
-                    double p_down  = p[i + nx * (j + ny * (k - 1))];
-                    double p_up    = p[i + nx * (j + ny * (k + 1))];
+                    const size_t idx_west  = static_cast<size_t>(get_flat_index(i - 1, j, k, nx, ny));
+                    const size_t idx_east  = static_cast<size_t>(get_flat_index(i + 1, j, k, nx, ny));
+                    const size_t idx_south = static_cast<size_t>(get_flat_index(i, j - 1, k, nx, ny));
+                    const size_t idx_north = static_cast<size_t>(get_flat_index(i, j + 1, k, nx, ny));
+                    const size_t idx_down  = static_cast<size_t>(get_flat_index(i, j, k - 1, nx, ny));
+                    const size_t idx_up    = static_cast<size_t>(get_flat_index(i, j, k + 1, nx, ny));
+
+                    const double p_west  = p[idx_west];
+                    const double p_east  = p[idx_east];
+                    const double p_south = p[idx_south];
+                    const double p_north = p[idx_north];
+                    const double p_down  = p[idx_down];
+                    const double p_up    = p[idx_up];
 
                     p[idx] = factor * (
                         (p_east + p_west) * idx2 +

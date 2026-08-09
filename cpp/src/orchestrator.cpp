@@ -1,4 +1,10 @@
+/**
+ * @file orchestrator.cpp
+ * @brief Implementation of the Navier-Stokes Time-Stepping Orchestrator.
+ */
+
 #include "orchestrator.hpp"
+#include "grid_math.hpp"
 #include <stdexcept>
 
 namespace ops {
@@ -43,12 +49,20 @@ void NavierStokesOrchestrator::step(
     for (int k = 0; k < dims_.nz; ++k) {
         for (int j = 0; j < dims_.ny; ++j) {
             for (int i = 0; i < dims_.nx; ++i) {
-                int idx = i + dims_.nx * (j + dims_.ny * k);
+                const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, dims_.nx, dims_.ny));
                 if (mask[idx] == 1) {
                     // Central difference divergence of u* / dx, v* / dy, w* / dz
-                    double dudx = (u_star_[i + 1 + dims_.nx * (j + dims_.ny * k)] - u_star_[i - 1 + dims_.nx * (j + dims_.ny * k)]) / (2.0 * dims_.dx);
-                    double dvdy = (v_star_[i + dims_.nx * (j + 1 + dims_.ny * k)] - v_star_[i + dims_.nx * (j - 1 + dims_.ny * k)]) / (2.0 * dims_.dy);
-                    double dwdz = (w_star_[i + dims_.nx * (j + dims_.ny * (k + 1))] - w_star_[i + dims_.nx * (j + dims_.ny * (k - 1))]) / (2.0 * dims_.dz);
+                    const size_t idx_east  = static_cast<size_t>(get_flat_index(i + 1, j, k, dims_.nx, dims_.ny));
+                    const size_t idx_west  = static_cast<size_t>(get_flat_index(i - 1, j, k, dims_.nx, dims_.ny));
+                    const size_t idx_north = static_cast<size_t>(get_flat_index(i, j + 1, k, dims_.nx, dims_.ny));
+                    const size_t idx_south = static_cast<size_t>(get_flat_index(i, j - 1, k, dims_.nx, dims_.ny));
+                    const size_t idx_up    = static_cast<size_t>(get_flat_index(i, j, k + 1, dims_.nx, dims_.ny));
+                    const size_t idx_down  = static_cast<size_t>(get_flat_index(i, j, k - 1, dims_.nx, dims_.ny));
+
+                    double dudx = (u_star_[idx_east]  - u_star_[idx_west])  / (2.0 * dims_.dx);
+                    double dvdy = (v_star_[idx_north] - v_star_[idx_south]) / (2.0 * dims_.dy);
+                    double dwdz = (w_star_[idx_up]    - w_star_[idx_down])  / (2.0 * dims_.dz);
+
                     rhs_[idx] = scale * (dudx + dvdy + dwdz);
                 } else {
                     rhs_[idx] = 0.0;

@@ -6,6 +6,7 @@
 #include "predictor.hpp"
 #include "advection.hpp"
 #include "laplacian.hpp"
+#include "grid_math.hpp"
 #include <stdexcept>
 #include <cmath>
 #include <vector>
@@ -18,10 +19,6 @@
 namespace ops {
 
 namespace {
-
-inline size_t get_index(int i, int j, int k, int ny, int nz) {
-    return static_cast<size_t>(i) * (ny * nz) + static_cast<size_t>(j) * nz + k;
-}
 
 void validate_inputs(
     const GridDimensions& dims,
@@ -112,7 +109,7 @@ void compute_trial_velocities(
     for (int i = 0; i < Nx_int; ++i) {
         for (int j = 0; j < Ny_int; ++j) {
             for (int k = 0; k < Nz_int; ++k) {
-                const size_t idx = get_index(i, j, k, Ny_int, Nz_int);
+                const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, Nx_int, Ny_int));
 
                 if (mask[idx] != 1) continue; // Skip non-fluid cells (boundaries and solids)
 

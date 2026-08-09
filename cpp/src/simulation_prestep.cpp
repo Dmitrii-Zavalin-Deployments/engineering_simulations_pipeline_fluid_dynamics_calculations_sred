@@ -1,6 +1,15 @@
+/**
+ * @file simulation_prestep.cpp
+ * @brief Implementation of Pre-Step Boundary & Initial Condition Setup.
+ */
+
 #include "orchestrator.hpp"
 #include "simulation_prestep.hpp"
+#include "grid_math.hpp"
+
+#ifdef _OPENMP
 #include <omp.h>
+#endif
 
 namespace ops {
 
@@ -37,7 +46,7 @@ void execute_pre_step(
         for (int k = 0; k < nz; ++k) {
             for (int j = 0; j < ny; ++j) {
                 for (int i = 0; i < nx; ++i) {
-                    int idx = i + nx * (j + ny * k);
+                    const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
 
                     // Check if current cell matches the target boundary location
                     if (!matches_location(i, j, k, nx, ny, nz, bc.location)) {

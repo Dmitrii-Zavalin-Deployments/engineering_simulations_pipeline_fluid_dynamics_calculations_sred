@@ -38,7 +38,9 @@
 #include <cmath>
 #include <algorithm>
 #include <limits>
+#include <tuple>
 #include "orchestrator.hpp"
+#include "grid_math.hpp"
 
 using json = nlohmann::json;
 using namespace ops;
@@ -84,7 +86,7 @@ TEST_F(HydrostaticDecouplingTest, QuiescentFluidDeepGravityWell) {
 
     double dx = (x_max - x_min) / nx;
     double dy = (y_max - y_min) / ny;
-    double dz = (z_max - z_min) / nz; // Fixed: Divided by nz instead of uninitialized dz
+    double dz = (z_max - z_min) / nz;
 
     GridDimensions dims{nx, ny, nz, dx, dy, dz};
 
@@ -120,16 +122,14 @@ TEST_F(HydrostaticDecouplingTest, QuiescentFluidDeepGravityWell) {
     // External force vector configured with uniform downward gravity g = (0, -9.81, 0)
     double gravity_y = -9.81;
     std::vector<double> fx(total_cells, 0.0);
-    std::vector<double> fy(total_cells, 0.0); // Dynamic force is zero in hydrostatic balance // f_y = rho * g_y
+    std::vector<double> fy(total_cells, 0.0); // Dynamic force is zero in hydrostatic balance
     std::vector<double> fz(total_cells, 0.0);
 
-    // Initialize hydrostatic pressure profile across the vertical column using 
-    // the canonical z-fastest 3D indexing layout: i * (ny * nz) + j * nz + k
-    for (int i = 0; i < nx; ++i) {
+    // Initialize hydrostatic pressure profile using repository SSoT grid math indexing (X-fastest layout)
+    for (int k = 0; k < nz; ++k) {
         for (int j = 0; j < ny; ++j) {
-            double y_coord = y_min + j * dy;
-            for (int k = 0; k < nz; ++k) {
-                size_t idx = static_cast<size_t>(i) * (ny * nz) + static_cast<size_t>(j) * nz + k;
+            for (int i = 0; i < nx; ++i) {
+                size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
                 p_dynamic[idx] = 0.0;
             }
         }
@@ -168,8 +168,7 @@ TEST_F(HydrostaticDecouplingTest, QuiescentFluidDeepGravityWell) {
     // Assertion 1: Dynamic pressure field remains zero (p_dynamic = 0) within machine precision.
     double max_dynamic_pressure = 0.0;
     for (size_t idx = 0; idx < total_cells; ++idx) {
-        int i = idx / (ny * nz);
-        int j = (idx / nz) % ny;
+        auto [i, j, k] = get_coords_from_index(static_cast<int>(idx), nx, ny);
         double y_coord = y_min + j * dy;
         double p_hydro_exact = density * std::abs(gravity_y) * (y_max - y_coord);
         double p_dyn = p_dynamic[idx];

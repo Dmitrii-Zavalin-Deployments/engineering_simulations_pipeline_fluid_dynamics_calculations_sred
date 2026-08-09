@@ -1,9 +1,15 @@
+/**
+ * @file pybind_wrapper.cpp
+ * @brief Pybind11 Python bindings for the 3D Navier-Stokes C++ Orchestrator.
+ */
+
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 #include <pybind11/stl.h>
 #include <vector>
 #include <memory>
 #include "orchestrator.hpp"
+#include "grid_math.hpp"
 
 namespace py = pybind11;
 
@@ -39,10 +45,10 @@ public:
         auto r_fy = fy.unchecked<3>();
         auto r_fz = fz.unchecked<3>();
 
-        size_t nx = dims_.nx;
-        size_t ny = dims_.ny;
-        size_t nz = dims_.nz;
-        size_t total_cells = nx * ny * nz;
+        int nx = dims_.nx;
+        int ny = dims_.ny;
+        int nz = dims_.nz;
+        size_t total_cells = static_cast<size_t>(nx) * ny * nz;
 
         // Flatten NumPy arrays to std::vector for seamless Orchestrator integration
         std::vector<double> u(total_cells);
@@ -54,13 +60,10 @@ public:
         std::vector<double> fy_vec(total_cells);
         std::vector<double> fz_vec(total_cells);
 
-        size_t ny_nz = ny * nz;
-        size_t nz_val = nz;
-
-        for (size_t i = 0; i < nx; ++i) {
-            for (size_t j = 0; j < ny; ++j) {
-                for (size_t k = 0; k < nz; ++k) {
-                    size_t idx = i * ny_nz + j * nz_val + k;
+        for (int k = 0; k < nz; ++k) {
+            for (int j = 0; j < ny; ++j) {
+                for (int i = 0; i < nx; ++i) {
+                    size_t idx = static_cast<size_t>(ops::get_flat_index(i, j, k, nx, ny));
                     u[idx] = r_fields(0, i, j, k);
                     v[idx] = r_fields(1, i, j, k);
                     w[idx] = r_fields(2, i, j, k);
@@ -78,10 +81,10 @@ public:
         orchestrator_->step(dt, mu, fx_vec, fy_vec, fz_vec, mask_vec, bc_list, u, v, w, p);
 
         // Copy modified fields back into the mutable Python NumPy array in-place
-        for (size_t i = 0; i < nx; ++i) {
-            for (size_t j = 0; j < ny; ++j) {
-                for (size_t k = 0; k < nz; ++k) {
-                    size_t idx = i * ny_nz + j * nz_val + k;
+        for (int k = 0; k < nz; ++k) {
+            for (int j = 0; j < ny; ++j) {
+                for (int i = 0; i < nx; ++i) {
+                    size_t idx = static_cast<size_t>(ops::get_flat_index(i, j, k, nx, ny));
                     r_fields(0, i, j, k) = u[idx];
                     r_fields(1, i, j, k) = v[idx];
                     r_fields(2, i, j, k) = w[idx];
