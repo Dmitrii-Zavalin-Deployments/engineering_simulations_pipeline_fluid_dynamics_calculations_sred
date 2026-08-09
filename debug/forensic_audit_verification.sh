@@ -2,46 +2,34 @@
 set -e
 
 echo "========================================================================="
-echo "=== FORENSIC AUDIT: FluidProperties Struct & Predictor Interface ==="
+echo "=== FORENSIC AUDIT: compute_trial_velocities Signature Mismatch ==="
 echo "========================================================================="
 
-echo "[1] Locating FluidProperties definition across repository headers..."
-grep -rn "struct FluidProperties" cpp/ || true
+echo "[1] Searching for compute_trial_velocities declarations and definitions..."
+grep -rn "compute_trial_velocities" cpp/ || true
 
 echo ""
-echo "[2] Smoking-Gun Source Audit: Header file defining FluidProperties"
-HEADER_FILE=$(grep -rl "struct FluidProperties" cpp/ | head -n 1)
-if [ -n "$HEADER_FILE" ]; then
-    echo "Found definition in: $HEADER_FILE"
-    cat -n "$HEADER_FILE" | grep -A 12 "struct FluidProperties"
+echo "[2] Smoking-Gun Source Audit: cpp/include/predictor.hpp"
+if [ -f cpp/include/predictor.hpp ]; then
+    cat -n cpp/include/predictor.hpp | sed -n '20,38p'
 else
-    echo "WARNING: Could not locate FluidProperties definition."
+    echo "WARNING: predictor.hpp not found."
 fi
 
 echo ""
-echo "[3] Smoking-Gun Source Audit: cpp/src/predictor.cpp (Lines 110-125)"
-if [ -f cpp/src/predictor.cpp ]; then
-    cat -n cpp/src/predictor.cpp | sed -n '110,125p'
-else
-    echo "WARNING: cpp/src/predictor.cpp not found."
-fi
-
-echo ""
-echo "[4] Smoking-Gun Source Audit: Orchestrator invocation of predictor"
+echo "[3] Smoking-Gun Source Audit: cpp/src/orchestrator.cpp"
 if [ -f cpp/src/orchestrator.cpp ]; then
-    grep -n -C 5 "compute_trial_velocities" cpp/src/orchestrator.cpp || true
+    cat -n cpp/src/orchestrator.cpp | sed -n '25,45p'
+else
+    echo "WARNING: orchestrator.cpp not found."
 fi
 
 echo ""
 echo "========================================================================="
 echo "=== AUTOMATED REPAIR TEMPLATES (COMMENTED INJECTIONS) ==="
 echo "========================================================================="
-# Option A: Revert predictor.cpp force terms back to raw fx/fy/fz (if forces are acceleration vectors)
-# sed -i 's/fx\[idx\] \/ fluid.density/fx\[idx\]/g' cpp/src/predictor.cpp
-# sed -i 's/fy\[idx\] \/ fluid.density/fy\[idx\]/g' cpp/src/predictor.cpp
-# sed -i 's/fz\[idx\] \/ fluid.density/fz\[idx\]/g' cpp/src/predictor.cpp
-
-# Option B: Add density field directly to FluidProperties struct if needed by interface contract
-# sed -i '/struct FluidProperties {/a \    double density = 1000.0;' cpp/src/predictor.hpp
+# Option A: Re-order predictor.hpp so double dt follows fluid consistently
+# sed -i 's/const FluidProperties& fluid,/const FluidProperties& fluid, double dt,/g' cpp/include/predictor.hpp
+# sed -i '/const std::vector<int>& mask,/ { N; /double dt,/d }' cpp/include/predictor.hpp
 
 echo "=== FORENSIC AUDIT COMPLETE ==="

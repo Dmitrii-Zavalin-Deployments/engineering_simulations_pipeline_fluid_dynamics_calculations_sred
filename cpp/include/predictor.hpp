@@ -25,10 +25,10 @@ struct FluidProperties {
 void compute_trial_velocities(
     const GridDimensions& dims,
     const FluidProperties& fluid,
+    double dt,
     const double* u, const double* v, const double* w,
     const double* fx, const double* fy, const double* fz,
     const std::vector<int>& mask,
-    double dt,
     double* u_star, double* v_star, double* w_star
 );
 
