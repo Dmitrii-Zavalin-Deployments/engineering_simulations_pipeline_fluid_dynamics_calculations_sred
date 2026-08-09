@@ -4,36 +4,36 @@
  * 
  * LITERATE TESTING NARRATIVE & MATHEMATICAL DERIVATION:
  * ---------------------------------------------------------------------------------
- * The Helmholtz-Hodge Decomposition Theorem states that any smooth vector field $\mathbf{u}$
+ * The Helmholtz-Hodge Decomposition Theorem states that any smooth vector field u
  * defined on a bounded domain can be uniquely decomposed into a divergence-free (solenoidal) 
- * component $\mathbf{u}_{\text{sol}}$ and an irrotational (curl-free) component $\nabla \phi$:
+ * component u_sol and an irrotational (curl-free) component grad phi:
  * 
- *     $$\mathbf{u} = \mathbf{u}_{\text{sol}} + \nabla \phi, \quad \text{where } \nabla \cdot \mathbf{u}_{\text{sol}} = 0$$
+ *     u = u_sol + grad phi,  where  div u_sol = 0
  * 
  * In incompressible Navier-Stokes solvers, Chorin's fractional-step projection method uses 
- * this theorem to enforce mass conservation ($\nabla \cdot \mathbf{u} = 0$) at each time step.
+ * this theorem to enforce mass conservation (div u = 0) at each time step.
  * 
  * The physical time step proceeds through four sequential mathematical stages:
  * 
  * Stage 1 (Predictor Step):
- *     Compute an intermediate non-solenoidal velocity field $\mathbf{u}^*$ by advancing advection,
+ *     Compute an intermediate non-solenoidal velocity field u* by advancing advection,
  *     viscous diffusion, and body forces without the pressure gradient:
- *         $$\frac{\mathbf{u}^* - \mathbf{u}^n}{\Delta t} = -(\mathbf{u}^n \cdot \nabla)\mathbf{u}^n + \nu \nabla^2 \mathbf{u}^n + \mathbf{f}$$
+ *         (u* - u^n) / Δt = -(u^n · ∇)u^n + ν ∇^2 u^n + f
  * 
  * Stage 2 (Pressure Poisson Equation Formulation & Solve):
  *     Taking the divergence of the corrector equation yields the scalar Poisson equation:
- *         $$\nabla \cdot \mathbf{u}^{n+1} = \nabla \cdot \mathbf{u}^* - \frac{\Delta t}{\rho} \nabla^2 p^{n+1}$$
+ *         div u^(n+1) = div u* - (Δt / ρ) ∇^2 p^(n+1)
  *     
- *     Enforcing the solenoidal constraint $\nabla \cdot \mathbf{u}^{n+1} = 0$ produces:
- *         $$\nabla^2 p^{n+1} = \frac{\rho}{\Delta t} \nabla \cdot \mathbf{u}^*$$
+ *     Enforcing the solenoidal constraint div u^(n+1) = 0 produces:
+ *         ∇^2 p^(n+1) = (ρ / Δt) div u*
  * 
  * Stage 3 (Corrector Step):
  *     Subtract the pressure gradient from the trial velocity field to project it onto the 
  *     divergence-free subspace:
- *         $$\mathbf{u}^{n+1} = \mathbf{u}^* - \frac{\Delta t}{\rho} \nabla p^{n+1}$$
+ *         u^(n+1) = u* - (Δt / ρ) grad p^(n+1)
  * 
  * Stage 4 (State Update & Mass Balance Verification):
- *     Verify that $\max |\nabla \cdot \mathbf{u}^{n+1}| < \epsilon$ and update state buffers.
+ *     Verify that max |div u^(n+1)| < ε and update state buffers.
  * ---------------------------------------------------------------------------------
  */
 
@@ -49,8 +49,7 @@ using namespace ops;
 class ProjectionPipelineTest : public ::testing::Test {
 protected:
     // We define physical dynamic parameters and grid configuration for the integration domain.
-    // Domain density $\rho = 1.0 \text{ kg/m}^3$, dynamic viscosity $\mu = 0.01 \text{ Pa}\cdot\text{s}$, 
-    // time step $\Delta t = 0.001 \text{ s}$.
+    // Domain density ρ = 1.0 kg/m^3, dynamic viscosity μ = 0.01 Pa·s, time step Δt = 0.001 s.
     void SetUp() override {
         density = 1.0; 
         dt = 0.001;    
@@ -58,11 +57,11 @@ protected:
         grid_resolution = 32;
     }
 
-    // Evaluates the discrete interior divergence $\nabla \cdot \mathbf{u}$ using 
+    // Evaluates the discrete interior divergence div u using 
     // second-order central spatial differences:
-    //     $(\nabla \cdot \mathbf{u})_{i,j,k} = \frac{u_{i+1,j,k} - u_{i-1,j,k}}{2\Delta x} 
-    //                                        + \frac{v_{i,j+1,k} - v_{i,j-1,k}}{2\Delta y} 
-    //                                        + \frac{w_{i,j,k+1} - w_{i,j,k-1}}{2\Delta z}$
+    //     (div u)_(i,j,k) = (u_(i+1,j,k) - u_(i-1,j,k)) / (2 Δx) 
+    //                     + (v_(i,j+1,k) - v_(i,j-1,k)) / (2 Δy) 
+    //                     + (w_(i,j,k+1) - w_(i,j,k-1)) / (2 Δz)
     double ComputeMaxDivergence(
         const std::vector<double>& u,
         const std::vector<double>& v,
@@ -91,7 +90,7 @@ protected:
                     double dv_dy = (v[idx_py] - v[idx_ny]) * inv_2dx;
                     double dw_dz = (w[idx_pz] - w[idx_nz]) * inv_2dx;
 
-                    // Absolute divergence: $|\nabla \cdot \mathbf{u}| = |\partial u/\partial x + \partial v/\partial y + \partial w/\partial z|$
+                    // Absolute divergence: |div u| = |∂u/∂x + ∂v/∂y + ∂w/∂z|
                     double div = std::abs(du_dx + dv_dy + dw_dz);
                     max_div = std::max(max_div, div);
                 }
@@ -112,8 +111,8 @@ protected:
 TEST_F(ProjectionPipelineTest, NonZeroDivergentFieldCorrection) {
     // -----------------------------------------------------------------------------
     // Step 1: Instantiate domain geometry and solver configuration.
-    // We create a uniform 3D cubic domain $[0, 1]^3$ discretized with $32^3$ cells.
-    // Spatial mesh spacing $\Delta x = 1.0 / 32 = 0.03125 \text{ m}$.
+    // We create a uniform 3D cubic domain [0, 1]^3 discretized with 32^3 cells.
+    // Spatial mesh spacing Δx = 1.0 / 32 = 0.03125 m.
     // -----------------------------------------------------------------------------
     GridDimensions dims{grid_resolution, grid_resolution, grid_resolution, 1.0 / grid_resolution};
     SolverConfig config;
@@ -123,7 +122,7 @@ TEST_F(ProjectionPipelineTest, NonZeroDivergentFieldCorrection) {
 
     // -----------------------------------------------------------------------------
     // Step 2: Allocate dynamic vector buffers for field components.
-    // Total cells $N = 32^3 = 32,768$ cells.
+    // Total cells N = 32^3 = 32,768 cells.
     // -----------------------------------------------------------------------------
     size_t total_cells = static_cast<size_t>(grid_resolution) * grid_resolution * grid_resolution;
     std::vector<double> u(total_cells, 0.0);
@@ -137,17 +136,17 @@ TEST_F(ProjectionPipelineTest, NonZeroDivergentFieldCorrection) {
     std::vector<BoundaryCondition> bc_list;
 
     // We initialize the velocity field using an analytical vector field:
-    //     $u(x, y, z) = x$
-    //     $v(x, y, z) = -y + x^2$
-    //     $w(x, y, z) = 0$
+    //     u(x, y, z) = x
+    //     v(x, y, z) = -y + x^2
+    //     w(x, y, z) = 0
     //
     // Analytical Divergence Calculation:
-    //     $\nabla \cdot \mathbf{u}^0 = \frac{\partial u}{\partial x} + \frac{\partial v}{\partial y} + \frac{\partial w}{\partial z}$
-    //                                 $= \frac{\partial}{\partial x}(x) + \frac{\partial}{\partial y}(-y + x^2) + 0$
-    //                                 $= 1 - 1 + 0 = 0$ (only along $x = 0$)
+    //     div u^0 = ∂u/∂x + ∂v/∂y + ∂w/∂z
+    //             = ∂/∂x (x) + ∂/∂y (-y + x^2) + 0
+    //             = 1 - 1 + 0 = 0  (only along x = 0)
     //
-    // For $x > 0$:
-    //     $\nabla \cdot \mathbf{u}^0 = 2x \neq 0$
+    // For x > 0:
+    //     div u^0 = 2x ≠ 0
     //
     // This provides a controllable, non-zero divergent velocity field across the interior.
     double dx = dims.dx;
@@ -164,15 +163,15 @@ TEST_F(ProjectionPipelineTest, NonZeroDivergentFieldCorrection) {
         }
     }
 
-    // Preserve baseline copies of $\mathbf{u}^0$ for state update validation
+    // Preserve baseline copies of u^0 for state update validation
     std::vector<double> u0 = u;
     std::vector<double> v0 = v;
 
     // Verify baseline state: Ensure the unprojected initial field possesses significant non-zero divergence.
-    // We expect $\max |\nabla \cdot \mathbf{u}^0| > 10^{-4}$.
+    // We expect max |div u^0| > 10^-4.
     double initial_max_div = ComputeMaxDivergence(u, v, w, dims);
     ASSERT_GT(initial_max_div, 1e-4) 
-        << "Pre-condition validation failed: Input vector field $\\mathbf{u}^0$ must exhibit non-zero divergence.";
+        << "Pre-condition validation failed: Input vector field u^0 must exhibit non-zero divergence.";
 
     // -----------------------------------------------------------------------------
     // Step 3: Execute full projection pipeline step via Orchestrator API.
@@ -182,23 +181,23 @@ TEST_F(ProjectionPipelineTest, NonZeroDivergentFieldCorrection) {
 
     // -----------------------------------------------------------------------------
     // Assertion 1: Verify Non-Trivial Pressure Poisson Solver Execution.
-    // Because $\nabla \cdot \mathbf{u}^* \neq 0$, the Poisson source term 
-    // $b = \frac{\rho}{\Delta t}\nabla \cdot \mathbf{u}^*$ is non-zero, requiring 
-    // the Poisson solver to generate a non-trivial pressure scalar field $p^{n+1}$.
-    //     $$\max |p^{n+1}| > 0$$
+    // Because div u* ≠ 0, the Poisson source term 
+    // b = (ρ / Δt) div u* is non-zero, requiring 
+    // the Poisson solver to generate a non-trivial pressure scalar field p^(n+1).
+    //     max |p^(n+1)| > 0
     // -----------------------------------------------------------------------------
     double max_pressure = 0.0;
     for (double p_val : p) {
         max_pressure = std::max(max_pressure, std::abs(p_val));
     }
     EXPECT_GT(max_pressure, 0.0) 
-        << "Assertion 1 Failed: Pressure Poisson solver returned zero pressure everywhere (p^{n+1} = 0).";
+        << "Assertion 1 Failed: Pressure Poisson solver returned zero pressure everywhere (p^(n+1) = 0).";
 
     // -----------------------------------------------------------------------------
     // Assertion 2: Divergence Reduction & Mass Conservation.
-    // Subtracting the gradient of calculated pressure ($\mathbf{u}^{n+1} = \mathbf{u}^* - \frac{\Delta t}{\rho}\nabla p^{n+1}$)
+    // Subtracting the gradient of calculated pressure (u^(n+1) = u* - (Δt / ρ) grad p^(n+1))
     // projects velocity onto the solenoidal manifold, strictly reducing divergence:
-    //     $$\max |\nabla \cdot \mathbf{u}^{n+1}| < \max |\nabla \cdot \mathbf{u}^0|$$
+    //     max |div u^(n+1)| < max |div u^0|
     // -----------------------------------------------------------------------------
     double final_max_div = ComputeMaxDivergence(u, v, w, dims);
     EXPECT_LT(final_max_div, initial_max_div)
@@ -206,8 +205,8 @@ TEST_F(ProjectionPipelineTest, NonZeroDivergentFieldCorrection) {
 
     // -----------------------------------------------------------------------------
     // Assertion 3: Strict Solenoidal Numerical Threshold.
-    // The post-correction velocity field $\mathbf{u}^{n+1}$ must satisfy mass conservation
-    // within strict numerical tolerances ($\max |\nabla \cdot \mathbf{u}^{n+1}| < 10^{-4}$).
+    // The post-correction velocity field u^(n+1) must satisfy mass conservation
+    // within strict numerical tolerances (max |div u^(n+1)| < 10^-4).
     // -----------------------------------------------------------------------------
     EXPECT_LT(final_max_div, 1e-4)
         << "Assertion 3 Failed: Post-correction velocity field fails strict solenoidal tolerance threshold (< 10^-4).";
@@ -215,7 +214,7 @@ TEST_F(ProjectionPipelineTest, NonZeroDivergentFieldCorrection) {
     // -----------------------------------------------------------------------------
     // Assertion 4: Non-Trivial Field Correction State Update.
     // Confirm that the projection operator actively modified the velocity vector components
-    // ($\|\mathbf{u}^{n+1} - \mathbf{u}^0\|_{\infty} > 0$), proving that projection non-trivially
+    // (||u^(n+1) - u^0||_∞ > 0), proving that projection non-trivially
     // shifted the initial vector field onto the solenoidal subspace.
     // -----------------------------------------------------------------------------
     double max_field_change = 0.0;
