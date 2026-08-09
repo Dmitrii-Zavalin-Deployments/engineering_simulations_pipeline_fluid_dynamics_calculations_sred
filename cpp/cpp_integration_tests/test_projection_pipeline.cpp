@@ -156,7 +156,7 @@ TEST_F(ProjectionPipelineTest, NonZeroDivergentFieldCorrection) {
                 size_t idx = i + grid_resolution * (j + grid_resolution * k);
                 double x = i * dx;
                 double y = j * dx;
-                u[idx] = x;
+                u[idx] = x * x;
                 v[idx] = -y + (x * x);
                 w[idx] = 0.0;
             }
