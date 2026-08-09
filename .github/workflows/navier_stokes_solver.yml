@@ -61,7 +61,7 @@ jobs:
           echo "🚀 Compiling and executing native C++ kernel unit tests with coverage..."
           mkdir -p build/tests
 
-          # Dynamically find all C++ implementation files except bindings.cpp for standalone tests
+          # Dynamically find all C++ implementation files (including ops/) except bindings.cpp for standalone tests
           CPP_SOURCES=$(find cpp/src -name "*.cpp" ! -name "bindings.cpp")
 
           # 1. Compile standalone C++ unit tests dynamically
@@ -74,7 +74,7 @@ jobs:
             -lpthread \
             -o build/tests/cpp_unit_tests
 
-          # Dynamically find ALL C++ implementation files (including bindings.cpp) for the Python module
+          # Dynamically find ALL C++ implementation files (including bindings.cpp and ops/) for the Python module
           ALL_CPP_SOURCES=$(find cpp/src -name "*.cpp")
 
           # 2. Compile bindings and all core sources into the Python shared module with coverage
