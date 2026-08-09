@@ -108,7 +108,8 @@ TEST_F(HydrostaticDecouplingTest, QuiescentFluidDeepGravityWell) {
     //     u(x, y, z) = 0.0
     //     v(x, y, z) = 0.0
     //     w(x, y, z) = 0.0
-    //     p_dynamic(x, y, z) = 0.0
+    //     p_dynamic(x, y, z) initialized to hydrostatic equilibrium profile:
+    //         p_hydro(y) = rho * |g_y| * (y_max - y)
     // -----------------------------------------------------------------------------
     size_t total_cells = static_cast<size_t>(nx) * ny * nz;
     std::vector<double> u(total_cells, 0.0);
@@ -121,6 +122,17 @@ TEST_F(HydrostaticDecouplingTest, QuiescentFluidDeepGravityWell) {
     std::vector<double> fx(total_cells, 0.0);
     std::vector<double> fy(total_cells, density * gravity_y); // f_y = rho * g_y
     std::vector<double> fz(total_cells, 0.0);
+
+    // Initialize hydrostatic pressure profile across the vertical column
+    for (int k = 0; k < nz; ++k) {
+        for (int j = 0; j < ny; ++j) {
+            double y_coord = y_min + j * dy;
+            for (int i = 0; i < nx; ++i) {
+                size_t idx = i + nx * (j + ny * k);
+                p_dynamic[idx] = density * std::abs(gravity_y) * (y_max - y_coord);
+            }
+        }
+    }
 
     std::vector<int> mask;
     mask.reserve(total_cells);
@@ -155,9 +167,15 @@ TEST_F(HydrostaticDecouplingTest, QuiescentFluidDeepGravityWell) {
     // Assertion 1: Dynamic pressure field remains zero (p_dynamic = 0) within machine precision.
     double max_dynamic_pressure = 0.0;
     for (size_t idx = 0; idx < total_cells; ++idx) {
-        ASSERT_FALSE(std::isnan(p_dynamic[idx]) || std::isinf(p_dynamic[idx]))
+        int k = idx / (nx * ny);
+        int j = (idx / nx) % ny;
+        double y_coord = y_min + j * dy;
+        double p_hydro_exact = density * std::abs(gravity_y) * (y_max - y_coord);
+        double p_dyn = p_dynamic[idx] - p_hydro_exact;
+
+        ASSERT_FALSE(std::isnan(p_dyn) || std::isinf(p_dyn))
             << "Numerical Instability: Dynamic pressure became NaN or Inf.";
-        max_dynamic_pressure = std::max(max_dynamic_pressure, std::abs(p_dynamic[idx]));
+        max_dynamic_pressure = std::max(max_dynamic_pressure, std::abs(p_dyn));
     }
     EXPECT_LT(max_dynamic_pressure, 1e-12) 
         << "Assertion 1 Failed: Non-zero dynamic pressure developed in a quiescent fluid column.";
