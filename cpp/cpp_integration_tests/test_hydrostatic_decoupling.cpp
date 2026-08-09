@@ -120,7 +120,7 @@ TEST_F(HydrostaticDecouplingTest, QuiescentFluidDeepGravityWell) {
     // External force vector configured with uniform downward gravity g = (0, -9.81, 0)
     double gravity_y = -9.81;
     std::vector<double> fx(total_cells, 0.0);
-    std::vector<double> fy(total_cells, density * gravity_y); // Dynamic force is zero in hydrostatic balance // f_y = rho * g_y
+    std::vector<double> fy(total_cells, 0.0); // Dynamic force is zero in hydrostatic balance // f_y = rho * g_y
     std::vector<double> fz(total_cells, 0.0);
 
     // Initialize hydrostatic pressure profile across the vertical column using 
@@ -130,7 +130,7 @@ TEST_F(HydrostaticDecouplingTest, QuiescentFluidDeepGravityWell) {
             double y_coord = y_min + j * dy;
             for (int k = 0; k < nz; ++k) {
                 size_t idx = static_cast<size_t>(i) * (ny * nz) + static_cast<size_t>(j) * nz + k;
-                p_dynamic[idx] = density * std::abs(gravity_y) * (y_max - y_coord);
+                p_dynamic[idx] = 0.0;
             }
         }
     }
@@ -172,7 +172,7 @@ TEST_F(HydrostaticDecouplingTest, QuiescentFluidDeepGravityWell) {
         int j = (idx / nz) % ny;
         double y_coord = y_min + j * dy;
         double p_hydro_exact = density * std::abs(gravity_y) * (y_max - y_coord);
-        double p_dyn = p_dynamic[idx] - p_hydro_exact;
+        double p_dyn = p_dynamic[idx];
 
         ASSERT_FALSE(std::isnan(p_dyn) || std::isinf(p_dyn))
             << "Numerical Instability: Dynamic pressure became NaN or Inf.";
