@@ -1,40 +1,32 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # File: src/debug/forensic_audit.sh
-# Purpose: Post-test forensic audit script for missing header errors 
-#          (nlohmann/json.hpp) during C++ unit/integration test compilation.
+# Purpose: Post-test forensic audit script for missing data/config.json path 
+#          issues during native C++ integration test execution.
 # ==============================================================================
 set -euo pipefail
 
 echo "========================================================================"
-echo "🔍 STAGE 1: SYSTEM ENVIRONMENT & HEADER DIAGNOSTICS"
+echo "🔍 STAGE 1: FILE EXISTENCE & WORKING DIRECTORY DIAGNOSTICS"
 echo "========================================================================"
 
-echo "---> Searching for nlohmann/json.hpp across system directories:"
-find /usr /opt /home/runner -name "json.hpp" 2>/dev/null || echo "⚠️ nlohmann/json.hpp not found in filesystem."
+echo "---> Searching for config.json across repository:"
+find . -name "config.json" || echo "⚠️ config.json not found in repository."
 
-echo -e "\n---> Checking installed system packages for nlohmann-json:"
-if command -v dpkg >/dev/null 2>&1; then
-    dpkg -l | grep -i nlohmann || echo "⚠️ nlohmann-json package is not installed via apt."
-fi
+echo -e "\n---> Checking current working directory and contents:"
+pwd
+ls -la
 
-echo -e "\n---> Auditing active CI workflow files for build step triggers:"
-grep -rn "Compiling and executing native" .github/workflows/ || echo "⚠️ Exact trigger string not found in .github/workflows/"
+echo -e "\n---> Inspecting build/tests directory contents:"
+ls -la build/tests/ || echo "⚠️ build/tests directory does not exist."
 
 echo "========================================================================"
 echo "📄 STAGE 2: SMOKING-GUN SOURCE AUDITS (cat -n)"
 echo "========================================================================"
 
-echo "---> Auditing Integration Test CMake configuration:"
-if [ -f "cpp/cpp_integration_tests/CMakeLists.txt" ]; then
-    cat -n cpp/cpp_integration_tests/CMakeLists.txt
-else
-    echo "⚠️ File cpp/cpp_integration_tests/CMakeLists.txt not found!"
-fi
-
-echo -e "\n---> Auditing test_projection_pipeline.cpp include headers (lines 35-55):"
+echo "---> Auditing test_projection_pipeline.cpp file opening lines (45-65):"
 if [ -f "cpp/cpp_integration_tests/test_projection_pipeline.cpp" ]; then
-    sed -n '35,55p' cpp/cpp_integration_tests/test_projection_pipeline.cpp | cat -n
+    sed -n '45,65p' cpp/cpp_integration_tests/test_projection_pipeline.cpp | cat -n
 else
     echo "⚠️ File cpp/cpp_integration_tests/test_projection_pipeline.cpp not found!"
 fi
@@ -45,25 +37,14 @@ echo "========================================================================"
 echo "# Run or uncomment one of the following sed commands to repair the root cause:"
 
 # ------------------------------------------------------------------------------
-# REPAIR OPTION A: Add system package installation step to GitHub Actions workflow
+# REPAIR OPTION A: Copy data folder into build/tests/ in workflow compilation step
 # ------------------------------------------------------------------------------
-# sed -i '/run: echo "🚀 Compiling/i \      - name: Install nlohmann-json3-dev\n        run: sudo apt-get update && sudo apt-get install -y nlohmann-json3-dev' .github/workflows/*.yml
+# sed -i '/g++.*integration_tests/a \          cp -r cpp/cpp_integration_tests/data build/tests/' .github/workflows/navier_stokes_solver.yml
 
 # ------------------------------------------------------------------------------
-# REPAIR OPTION B: Inject CMake FetchContent into CMakeLists.txt (Self-contained)
+# REPAIR OPTION B: Update path in test_projection_pipeline.cpp to search cpp/cpp_integration_tests/data/
 # ------------------------------------------------------------------------------
-# sed -i '/find_package(GTest REQUIRED)/i \
-# include(FetchContent)\n\
-# FetchContent_Declare(\n\
-#     nlohmann_json\n\
-#     URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz\n\
-# )\n\
-# FetchContent_MakeAvailable(nlohmann_json)\n' cpp/cpp_integration_tests/CMakeLists.txt
-
-# ------------------------------------------------------------------------------
-# REPAIR OPTION C: Fallback to single-header curl download directly in build step
-# ------------------------------------------------------------------------------
-# sed -i '/run: echo "🚀 Compiling/i \      - name: Fetch nlohmann/json.hpp\n        run: sudo mkdir -p /usr/include/nlohmann && sudo curl -sSL https://github.com/nlohmann/json/releases/download/v3.11.3/json.hpp -o /usr/include/nlohmann/json.hpp' .github/workflows/*.yml
+# sed -i 's|"data/config.json"|"cpp/cpp_integration_tests/data/config.json"|g' cpp/cpp_integration_tests/test_projection_pipeline.cpp
+# sed -i 's|"data/navier_stokes_input.json"|"cpp/cpp_integration_tests/data/navier_stokes_input.json"|g' cpp/cpp_integration_tests/test_projection_pipeline.cpp
 
 echo -e "\nForensic audit script execution complete."
-exit 1
