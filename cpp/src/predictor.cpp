@@ -26,6 +26,7 @@ inline size_t get_index(int i, int j, int k, int ny, int nz) {
 void validate_inputs(
     const GridDimensions& dims,
     const FluidProperties& fluid,
+    double dt,
     const double* u, const double* v, const double* w,
     const double* fx, const double* fy, const double* fz,
     const std::vector<int>& mask,
@@ -44,11 +45,14 @@ void validate_inputs(
     if (dims.dx <= 0.0 || dims.dy <= 0.0 || dims.dz <= 0.0) {
         throw std::invalid_argument("GEOMETRY ERROR: Grid spacing (dx, dy, dz) must be strictly positive.");
     }
-    if (fluid.dt <= 0.0) {
+    if (dt <= 0.0) {
         throw std::invalid_argument("TEMPORAL ERROR: Time step dt must be strictly positive.");
     }
     if (fluid.nu < 0.0) {
         throw std::invalid_argument("PHYSICS ERROR: Kinematic viscosity nu cannot be negative.");
+    }
+    if (fluid.density <= 0.0) {
+        throw std::invalid_argument("PHYSICS ERROR: Fluid density must be strictly positive.");
     }
 }
 
@@ -57,12 +61,13 @@ void validate_inputs(
 void compute_trial_velocities(
     const GridDimensions& dims,
     const FluidProperties& fluid,
+    double dt,
     const double* u, const double* v, const double* w,
     const double* fx, const double* fy, const double* fz,
     const std::vector<int>& mask,
     double* u_star, double* v_star, double* w_star
 ) {
-    validate_inputs(dims, fluid, u, v, w, fx, fy, fz, mask, u_star, v_star, w_star);
+    validate_inputs(dims, fluid, dt, u, v, w, fx, fy, fz, mask, u_star, v_star, w_star);
 
     const size_t nx = dims.nx;
     const size_t ny = dims.ny;
@@ -111,9 +116,9 @@ void compute_trial_velocities(
 
                 if (mask[idx] != 1) continue; // Skip non-fluid cells (boundaries and solids)
 
-                double u_t = u[idx] + fluid.dt * (-adv_u[idx] + fluid.nu * lap_u[idx] + fx[idx] / fluid.density);
-                double v_t = v[idx] + fluid.dt * (-adv_v[idx] + fluid.nu * lap_v[idx] + fy[idx] / fluid.density);
-                double w_t = w[idx] + fluid.dt * (-adv_w[idx] + fluid.nu * lap_w[idx] + fz[idx] / fluid.density);
+                double u_t = u[idx] + dt * (-adv_u[idx] + fluid.nu * lap_u[idx] + fx[idx] / fluid.density);
+                double v_t = v[idx] + dt * (-adv_v[idx] + fluid.nu * lap_v[idx] + fy[idx] / fluid.density);
+                double w_t = w[idx] + dt * (-adv_w[idx] + fluid.nu * lap_w[idx] + fz[idx] / fluid.density);
 
                 if (!std::isfinite(u_t) || !std::isfinite(v_t) || !std::isfinite(w_t)) {
                     has_non_finite = true;

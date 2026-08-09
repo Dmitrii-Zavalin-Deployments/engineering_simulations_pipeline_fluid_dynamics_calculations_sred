@@ -28,9 +28,9 @@ void NavierStokesOrchestrator::step(
     execute_pre_step(u, v, w, p, mask, bc_list, dims_.nx, dims_.ny, dims_.nz);
 
     // 2. PREDICTOR STEP: Compute trial velocities (u*, v*, w*) for active fluid cells (mask == 1)
-    FluidProperties fluid{dt, mu / config_.density};
+    FluidProperties fluid{mu / config_.density, config_.density};
     compute_trial_velocities(
-        dims_, fluid,
+        dims_, fluid, dt,
         u.data(), v.data(), w.data(),
         fx.data(), fy.data(), fz.data(),
         mask,
