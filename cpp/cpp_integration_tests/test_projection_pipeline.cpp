@@ -51,9 +51,13 @@ protected:
 // Scenario 1.1: Arbitrary Non-Zero Divergent Field Correction
 TEST_F(ProjectionPipelineTest, NonZeroDivergentFieldCorrection) {
     // -----------------------------------------------------------------------------
-    // Step 1: Initialize the Navier-Stokes Orchestrator with a controlled domain configuration.
+    // Step 1: Initialize grid dimensions and configuration structures for NavierStokesOrchestrator.
     // -----------------------------------------------------------------------------
-    Orchestrator orchestrator(grid_resolution, grid_resolution, grid_resolution, density);
+    GridDimensions dims{grid_resolution, grid_resolution, grid_resolution, 1.0 / grid_resolution};
+    SolverConfig config;
+    config.density = density;
+
+    NavierStokesOrchestrator orchestrator(dims, config);
 
     // -----------------------------------------------------------------------------
     // Step 2: Construct an initial velocity field explicitly containing non-zero divergence.
