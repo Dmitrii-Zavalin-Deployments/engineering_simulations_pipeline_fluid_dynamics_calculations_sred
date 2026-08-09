@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.14)
 project(NavierStokesIntegrationTests)
+if(EXISTS "/usr/share/miniconda")
+    list(APPEND CMAKE_PREFIX_PATH "/usr/share/miniconda")
+endif()
 
 find_package(GTest REQUIRED)
 find_package(Threads REQUIRED)
