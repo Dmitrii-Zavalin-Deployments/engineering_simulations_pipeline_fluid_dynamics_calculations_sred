@@ -5,10 +5,9 @@
 #include <string>
 
 namespace navier_stokes_solver {
-    struct BoundaryCondition;
-}
 
-namespace navier_stokes_solver {
+// Forward declaration of BoundaryCondition (defined in orchestrator.hpp)
+struct BoundaryCondition;
 
 /**
  * @brief Executes the Pre-Step static initialization phase.

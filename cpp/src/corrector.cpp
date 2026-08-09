@@ -10,6 +10,7 @@
 #include <omp.h>
 #endif
 
+namespace navier_stokes_solver {
 void solve_corrector_parallel(
     std::vector<double>& u,
     std::vector<double>& v,
@@ -67,3 +68,4 @@ void solve_corrector_parallel(
         }
     }
 }
+} // namespace navier_stokes_solver

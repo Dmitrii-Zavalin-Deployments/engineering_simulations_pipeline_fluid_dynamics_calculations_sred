@@ -5,6 +5,12 @@
 #include <string>
 #include <cstddef>
 
+#include "predictor.hpp"
+#include "simulation_prestep.hpp"
+#include "pressure_poisson_solver.hpp"
+#include "corrector.hpp"
+#include "ghost_handler.hpp"
+
 namespace navier_stokes_solver {
 
 struct GridDimensions {
@@ -42,16 +48,6 @@ struct SolverConfig {
     double poisson_tolerance;
     double density;
 };
-
-} // namespace navier_stokes_solver
-
-#include "predictor.hpp"
-#include "simulation_prestep.hpp"
-#include "pressure_poisson_solver.hpp"
-#include "corrector.hpp"
-#include "ghost_handler.hpp"
-
-namespace navier_stokes_solver {
 
 class NavierStokesOrchestrator {
 public:
