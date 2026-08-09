@@ -157,7 +157,7 @@ TEST(PredictorTest, InvalidGeometryAndPhysicsParametersThrowErrors) {
 // must evaluate precisely to zero:
 //      $\nabla u = 0, \quad \nabla^2 u = 0$
 // Therefore, the explicit Forward-Euler trial velocity update simplifies directly to:
-//      $u^* = u^n + \Delta t \cdot f_x$
+//      $u^* = u^n + \Delta t \cdot \frac{f_x}{\rho}$
 // ============================================================================
 
 TEST(PredictorTest, UniformFlowExactEulerUpdate) {
@@ -199,12 +199,13 @@ TEST(PredictorTest, UniformFlowExactEulerUpdate) {
             for (size_t k = 1; k < nz - 1; ++k) {
                 size_t idx = i * ny_nz + j * nz_val + k;
 
-                // Expected calculation: u_star = u + dt * (0 + 0 + fx) = 2.0 + 0.1 * 0.5 = 2.05
-                EXPECT_NEAR(u_star[idx], 2.05, 1e-12);
-                // Expected calculation: v_star = 1.0 + 0.1 * (-0.2) = 0.98
-                EXPECT_NEAR(v_star[idx], 0.98, 1e-12);
-                // Expected calculation: w_star = 0.5 + 0.1 * (0.1) = 0.51
-                EXPECT_NEAR(w_star[idx], 0.51, 1e-12);
+                // Expected calculation accounting for density scaling (rho = 1000.0):
+                // u_star = u + dt * (fx / rho) = 2.0 + 0.1 * (0.5 / 1000.0) = 2.00005
+                EXPECT_NEAR(u_star[idx], 2.00005, 1e-12);
+                // v_star = 1.0 + 0.1 * (-0.2 / 1000.0) = 0.99998
+                EXPECT_NEAR(v_star[idx], 0.99998, 1e-12);
+                // w_star = 0.5 + 0.1 * (0.1 / 1000.0) = 0.50001
+                EXPECT_NEAR(w_star[idx], 0.50001, 1e-12);
             }
         }
     }
@@ -261,8 +262,8 @@ TEST(PredictorTest, MultiThreadingParallelExecutionCorrectness) {
                 size_t idx = i * ny_nz + j * nz_val + k;
 
                 // With uniform flow, advection and Laplacian are zero. 
-                // Expected u_star = 1.5 + 0.05 * 0.1 = 1.505
-                EXPECT_NEAR(u_star[idx], 1.505, 1e-12);
+                // Expected u_star = 1.5 + dt * (fx / rho) = 1.5 + 0.05 * (0.1 / 1000.0) = 1.500005
+                EXPECT_NEAR(u_star[idx], 1.500005, 1e-12);
                 // Ensure no thread produced non-finite artifacts
                 EXPECT_TRUE(std::isfinite(u_star[idx]));
                 EXPECT_TRUE(std::isfinite(v_star[idx]));
