@@ -111,9 +111,9 @@ void compute_trial_velocities(
 
                 if (mask[idx] != 1) continue; // Skip non-fluid cells (boundaries and solids)
 
-                double u_t = u[idx] + fluid.dt * (-adv_u[idx] + fluid.nu * lap_u[idx] + fx[idx]);
-                double v_t = v[idx] + fluid.dt * (-adv_v[idx] + fluid.nu * lap_v[idx] + fy[idx]);
-                double w_t = w[idx] + fluid.dt * (-adv_w[idx] + fluid.nu * lap_w[idx] + fz[idx]);
+                double u_t = u[idx] + fluid.dt * (-adv_u[idx] + fluid.nu * lap_u[idx] + fx[idx] / fluid.density);
+                double v_t = v[idx] + fluid.dt * (-adv_v[idx] + fluid.nu * lap_v[idx] + fy[idx] / fluid.density);
+                double w_t = w[idx] + fluid.dt * (-adv_w[idx] + fluid.nu * lap_w[idx] + fz[idx] / fluid.density);
 
                 if (!std::isfinite(u_t) || !std::isfinite(v_t) || !std::isfinite(w_t)) {
                     has_non_finite = true;
