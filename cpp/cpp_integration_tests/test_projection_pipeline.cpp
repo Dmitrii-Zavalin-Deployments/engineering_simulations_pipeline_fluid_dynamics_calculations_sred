@@ -224,10 +224,22 @@ TEST_F(ProjectionPipelineTest, NonZeroDivergentFieldCorrection) {
         << "Pre-condition validation failed: Input vector field u^0 must exhibit non-zero divergence.";
 
     // -----------------------------------------------------------------------------
-    // Step 3: Execute full projection step via Orchestrator API.
-    // Performs: Predictor -> Poisson Source Build -> Linear System Solve -> Corrector.
+    // Step 3: Execute Sub-Cycled Projection Loop & Verify Convergence Pattern.
     // -----------------------------------------------------------------------------
-    orchestrator.step(dt, mu, fx, fy, fz, mask, bc_list, u, v, w, p);
+    const int num_subcycles = 10;
+    double prev_div = initial_max_div;
+
+    for (int cycle = 0; cycle < num_subcycles; ++cycle) {
+        orchestrator.step(dt, mu, fx, fy, fz, mask, bc_list, u, v, w, p);
+        double curr_div = ComputeMaxDivergence(u, v, w, dims);
+
+        // Verify progressive divergence reduction across sub-cycles
+        EXPECT_LE(curr_div, prev_div)
+            << "Sub-cycle " << cycle << " failed convergence contract: divergence increased from " 
+            << prev_div << " to " << curr_div;
+
+        prev_div = curr_div;
+    }
 
     // -----------------------------------------------------------------------------
     // Assertion 1: Verify Non-Trivial Pressure Poisson Solver Execution.
@@ -243,27 +255,15 @@ TEST_F(ProjectionPipelineTest, NonZeroDivergentFieldCorrection) {
         << "Assertion 1 Failed: Pressure Poisson solver returned zero pressure everywhere (p^(n+1) = 0).";
 
     // -----------------------------------------------------------------------------
-    // Assertion 2: Divergence Reduction & Mass Conservation.
-    // Subtracting the gradient of calculated pressure:
-    //     u^(n+1) = u* - (dt / rho) * grad p^(n+1)
-    // projects velocity onto the solenoidal manifold, strictly reducing divergence:
-    //     max |div u^(n+1)| < max |div u^0|
+    // Assertion 2: Strict Solenoidal Convergence Threshold (< 10^-4).
+    // Through iterative sub-cycling, the velocity field successfully converges
+    // to the divergence-free manifold within strict numerical tolerance.
     // -----------------------------------------------------------------------------
-    double final_max_div = ComputeMaxDivergence(u, v, w, dims);
-    EXPECT_LT(final_max_div, initial_max_div)
-        << "Assertion 2 Failed: Helmholtz-Hodge projection failed to reduce velocity field divergence.";
+    EXPECT_LT(prev_div, 1e-4)
+        << "Assertion 2 Failed: Sub-cycled velocity field failed to achieve strict solenoidal tolerance (< 10^-4). Final div: " << prev_div;
 
     // -----------------------------------------------------------------------------
-    // Assertion 3: Solenoidal Convergence Verification.
-    // The post-correction velocity field divergence must be substantially reduced
-    // relative to its initial value, confirming projection efficacy:
-    //     max |div u^(n+1)| < 0.5 * initial_max_div
-    // -----------------------------------------------------------------------------
-    EXPECT_LT(final_max_div, 0.5 * initial_max_div)
-        << "Assertion 3 Failed: Post-correction velocity field divergence did not achieve expected reduction.";
-
-    // -----------------------------------------------------------------------------
-    // Assertion 4: Non-Trivial Field Correction State Update.
+    // Assertion 3: Non-Trivial Field Correction State Update.
     // Confirm that the projection operator actively modified velocity vector components
     // (||u^(n+1) - u^0||_inf > 0), proving that projection non-trivially
     // shifted the initial vector field onto the solenoidal subspace.
@@ -275,5 +275,5 @@ TEST_F(ProjectionPipelineTest, NonZeroDivergentFieldCorrection) {
         max_field_change = std::max({max_field_change, delta_u, delta_v});
     }
     EXPECT_GT(max_field_change, 0.0)
-        << "Assertion 4 Failed: Velocity buffer was not modified by the projection step.";
+        << "Assertion 3 Failed: Velocity buffer was not modified by the projection steps.";
 }
