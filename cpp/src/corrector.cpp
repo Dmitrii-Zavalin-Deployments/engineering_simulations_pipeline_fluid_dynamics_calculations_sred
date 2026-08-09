@@ -34,18 +34,18 @@ void solve_corrector_parallel(
         for (int j = 1; j < ny - 1; ++j) {
             for (int i = 1; i < nx - 1; ++i) {
                 
-                const size_t idx_cell = static_cast<size_t>(navier_stokes_solver::get_flat_index(i, j, k, nx, ny));
+                const size_t idx_cell = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
                 
                 // Skip solid cells (mask == 0) and wall boundaries (mask == -1)
                 if (mask[idx_cell] != 1) continue;
 
                 // Compute neighbor indices via unified grid_math SSoT
-                const size_t idx_west  = static_cast<size_t>(navier_stokes_solver::get_flat_index(i - 1, j, k, nx, ny));
-                const size_t idx_east  = static_cast<size_t>(navier_stokes_solver::get_flat_index(i + 1, j, k, nx, ny));
-                const size_t idx_south = static_cast<size_t>(navier_stokes_solver::get_flat_index(i, j - 1, k, nx, ny));
-                const size_t idx_north = static_cast<size_t>(navier_stokes_solver::get_flat_index(i, j + 1, k, nx, ny));
-                const size_t idx_down  = static_cast<size_t>(navier_stokes_solver::get_flat_index(i, j, k - 1, nx, ny));
-                const size_t idx_up    = static_cast<size_t>(navier_stokes_solver::get_flat_index(i, j, k + 1, nx, ny));
+                const size_t idx_west  = static_cast<size_t>(get_flat_index(i - 1, j, k, nx, ny));
+                const size_t idx_east  = static_cast<size_t>(get_flat_index(i + 1, j, k, nx, ny));
+                const size_t idx_south = static_cast<size_t>(get_flat_index(i, j - 1, k, nx, ny));
+                const size_t idx_north = static_cast<size_t>(get_flat_index(i, j + 1, k, nx, ny));
+                const size_t idx_down  = static_cast<size_t>(get_flat_index(i, j, k - 1, nx, ny));
+                const size_t idx_up    = static_cast<size_t>(get_flat_index(i, j, k + 1, nx, ny));
 
                 // Compute central pressure gradients: dp/dx, dp/dy, dp/dz
                 const double p_west  = p[idx_west];

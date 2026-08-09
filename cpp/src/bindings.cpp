@@ -63,7 +63,7 @@ public:
         for (int k = 0; k < nz; ++k) {
             for (int j = 0; j < ny; ++j) {
                 for (int i = 0; i < nx; ++i) {
-                    size_t idx = static_cast<size_t>(navier_stokes_solver::get_flat_index(i, j, k, nx, ny));
+                    size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
                     u[idx] = r_fields(0, i, j, k);
                     v[idx] = r_fields(1, i, j, k);
                     w[idx] = r_fields(2, i, j, k);
@@ -84,7 +84,7 @@ public:
         for (int k = 0; k < nz; ++k) {
             for (int j = 0; j < ny; ++j) {
                 for (int i = 0; i < nx; ++i) {
-                    size_t idx = static_cast<size_t>(navier_stokes_solver::get_flat_index(i, j, k, nx, ny));
+                    size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
                     r_fields(0, i, j, k) = u[idx];
                     r_fields(1, i, j, k) = v[idx];
                     r_fields(2, i, j, k) = w[idx];
