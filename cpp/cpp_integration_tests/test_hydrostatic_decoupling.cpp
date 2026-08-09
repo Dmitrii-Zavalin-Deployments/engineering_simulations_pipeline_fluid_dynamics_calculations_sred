@@ -120,7 +120,7 @@ TEST_F(HydrostaticDecouplingTest, QuiescentFluidDeepGravityWell) {
     // External force vector configured with uniform downward gravity g = (0, -9.81, 0)
     double gravity_y = -9.81;
     std::vector<double> fx(total_cells, 0.0);
-    std::vector<double> fy(total_cells, 0.0); // Dynamic force is zero in hydrostatic balance // f_y = rho * g_y
+    std::vector<double> fy(total_cells, density * gravity_y); // Dynamic force is zero in hydrostatic balance // f_y = rho * g_y
     std::vector<double> fz(total_cells, 0.0);
 
     // Initialize hydrostatic pressure profile across the vertical column using 
