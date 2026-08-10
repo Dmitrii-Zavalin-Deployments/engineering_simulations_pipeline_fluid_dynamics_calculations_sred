@@ -1,0 +1,2115 @@
+📄 List of files to be merged:
+-------------------------------------------
+• __init__.py
+• step4/io_archivist.py
+• step4/__init__.py
+• step4/generate_previews.py
+• step4/orchestrate_step4.py
+• common/solver_config.py
+• common/archive_service.py
+• common/elasticity.py
+• common/solver_input.py
+• common/base_container.py
+• common/solver_state.py
+• common/simulation_context.py
+• main.py
+• step1/__init__.py
+• step1/orchestrate_step1.py
+• step1/helpers.py
+• step2/__init__.py
+• step2/orchestrate_step2.py
+• step3/__init__.py
+-------------------------------------------
+
+========== START OF FILE: __init__.py ==========
+# src/__init__.py
+
+"""
+Navier-Stokes Solver Core.
+"""
+
+# REMOVE THIS LINE:
+# from src.main import run_solver
+# __all__ = ["run_solver"]
+
+# Keep it empty or only export essential, non-cyclic components.========== END OF FILE: __init__.py ==========
+
+========== START OF FILE: step4/io_archivist.py ==========
+# src/step4/io_archivist.py
+
+import logging
+from pathlib import Path
+
+import h5py
+import numpy as np
+
+from src.common.field_schema import FI
+
+# Rule 7: Granular Traceability for IO Finalization
+logger = logging.getLogger("Solver.Step4.Archivist")
+
+def save_snapshot(state) -> None:
+    """
+    Exports the physical 3D domain state to HDF5, stripping ghost cells.
+    
+    Compliance:
+    - Rule 4 (SSoT): Accesses grid and state data from authorized sub-containers.
+    - Rule 8 (Law of Singular Access): Coordinates computed locally to avoid 'God Object' properties.
+    - Rule 9 (Hybrid Memory): Direct Foundation slicing via [1:-1] Ghost Stripping.
+    """
+    output_dir = Path("output")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Rule 5: Explicit derivation of state properties (Filename SSoT)
+    filename = output_dir / f"snapshot_{state.iteration:04d}.h5"
+    
+    # Retrieve physical dimensions (N) from the authorized Grid container
+    nx, ny, nz = state.grid.nx, state.grid.ny, state.grid.nz
+    
+    # Compute physical coordinate meshes (N) on-the-fly (Rule 8 compliance)
+    x = np.linspace(state.grid.x_min, state.grid.x_max, nx)
+    y = np.linspace(state.grid.y_min, state.grid.y_max, ny)
+    z = np.linspace(state.grid.z_min, state.grid.z_max, nz)
+    
+    # Access the contiguous Foundation buffer (N+2) via FieldManager (Rule 9)
+    # The 'data' buffer is a 1D flat array of shape ( (nx+2)*(ny+2)*(nz+2), num_fields )
+    data = state.fields.data 
+
+    try:
+        with h5py.File(filename, 'w') as h5f:
+            # Helper for clean slicing: Reshape flat buffer to 3D and strip ghost layers [1:-1]
+            # This ensures HDF5[0,0,0] matches the first physical cell (not the ghost cell).
+            def get_physical_3d(field_id: FI):
+                full_3d = data[:, field_id].reshape(nx+2, ny+2, nz+2)
+                return full_3d[1:-1, 1:-1, 1:-1]
+
+            # Physical Fields: Direct, schema-locked slicing and ghost stripping
+            h5f.create_dataset("vx", data=get_physical_3d(FI.VX))
+            h5f.create_dataset("vy", data=get_physical_3d(FI.VY))
+            h5f.create_dataset("vz", data=get_physical_3d(FI.VZ))
+            h5f.create_dataset("p",  data=get_physical_3d(FI.P))
+            
+            # Spatial metadata: Using computed physical arrays (N size)
+            h5f.create_dataset('x', data=x)
+            h5f.create_dataset('y', data=y)
+            h5f.create_dataset('z', data=z)
+            
+            # Grid mask: Stripped of ghost cells to match field shapes
+            # If state.mask.mask is already physical size, no slicing is needed.
+            # Otherwise, apply [1:-1, 1:-1, 1:-1] as per the field logic.
+            h5f.create_dataset('mask', data=state.mask.mask)
+            
+            # Global Metadata: Explicit attribution for solver state traceability
+            h5f.attrs['time'] = state.time
+            h5f.attrs['iteration'] = state.iteration
+            h5f.attrs['dx'] = (state.grid.x_max - state.grid.x_min) / (nx - 1 if nx > 1 else 1)
+            h5f.attrs['dy'] = (state.grid.y_max - state.grid.y_min) / (ny - 1 if ny > 1 else 1)
+            h5f.attrs['dz'] = (state.grid.z_max - state.grid.z_min) / (nz - 1 if nz > 1 else 1)
+            
+        # Update manifest via the state object for archival tracking
+        state.manifest.saved_snapshots.append(str(filename))
+        logger.info(f"ARCHIVIST [Success]: Snapshot {state.iteration} saved to {filename}")
+
+    except Exception as e:
+        logger.error(f"ARCHIVIST [Critical Failure]: Could not write {filename} | Error: {e!s}")
+        raise========== END OF FILE: step4/io_archivist.py ==========
+
+========== START OF FILE: step4/__init__.py ==========
+# src/step4/__init__.py
+
+"""
+Step 5: Archivist Package.
+
+This package manages the serialization of the simulation state to disk.
+Compliance:
+- Rule 8 (API Minimalism): Exposes only the primary orchestration entry point.
+- Rule 4 (SSoT): Internal modules are isolated to prevent bypass of state 
+  validation and configuration rules.
+"""
+
+from src.step4.orchestrate_step4 import orchestrate_step4
+
+# We restrict the public interface to the orchestrator.
+# The internal io_archivist is shielded from direct external access 
+# to ensure all I/O operations respect the state's lifecycle.
+__all__ = ["orchestrate_step4"]========== END OF FILE: step4/__init__.py ==========
+
+========== START OF FILE: step4/generate_previews.py ==========
+from pathlib import Path
+
+
+def generate_pipeline_previews(
+    output_dir: str = "data/testing-input-output",
+) -> None:
+  """Generates 3 diagnostic field snapshot images for the Navier-Stokes README preview table:
+
+  1. initial_field_setup.png: Taylor-Green vortex velocity magnitude & streamlines at t=0
+  2. ppe_solver_state.png: Pressure Poisson Equation correction field
+  3. velocity_vorticity_slice.png: Final divergence-free vorticity contour slice
+  """
+  import matplotlib.pyplot as plt
+  import numpy as np
+
+  output_path = Path(output_dir)
+  output_path.mkdir(parents=True, exist_ok=True)
+
+  # Spatial discretization grid
+  resolution = 128
+  x = np.linspace(-np.pi, np.pi, resolution)
+  y = np.linspace(-np.pi, np.pi, resolution)
+  X, Y = np.meshgrid(x, y)
+
+  # -------------------------------------------------------------------------
+  # 1. Initial Field Setup (Analytical Taylor-Green Velocity Setup)
+  # -------------------------------------------------------------------------
+  u_0 = np.sin(X) * np.cos(Y)
+  v_0 = -np.cos(X) * np.sin(Y)
+  speed_0 = np.sqrt(u_0**2 + v_0**2)
+
+  fig, ax = plt.subplots(figsize=(5, 4.5), dpi=200)
+  contour1 = ax.contourf(X, Y, speed_0, levels=30, cmap="viridis")
+  ax.streamplot(
+      x,
+      y,
+      u_0,
+      v_0,
+      color="white",
+      density=0.8,
+      linewidth=0.7,
+      arrowsize=0.7,
+  )
+  cbar1 = fig.colorbar(contour1, ax=ax)
+  cbar1.set_label(r"$| \mathbf{u} |$ Velocity Magnitude", fontsize=9)
+  ax.set_title(
+      r"1. Initial Field Setup ($t=0$)", fontsize=10, fontweight="bold"
+  )
+  ax.set_xlabel("X Domain")
+  ax.set_ylabel("Y Domain")
+  fig.tight_layout()
+  fig.savefig(
+      output_path / "initial_field_setup.png",
+      bbox_inches="tight",
+      facecolor="white",
+  )
+  plt.close(fig)
+
+  # -------------------------------------------------------------------------
+  # 2. PPE Solver State (Pressure Poisson Distribution)
+  # -------------------------------------------------------------------------
+  # Analytical pressure field: p(x, y) = -1/4 * (cos(2x) + cos(2y))
+  p_field = -0.25 * (np.cos(2 * X) + np.cos(2 * Y))
+
+  fig, ax = plt.subplots(figsize=(5, 4.5), dpi=200)
+  contour2 = ax.contourf(X, Y, p_field, levels=30, cmap="coolwarm")
+  cbar2 = fig.colorbar(contour2, ax=ax)
+  cbar2.set_label(r"Pressure $p$ / Correction Field", fontsize=9)
+  ax.set_title(
+      r"2. PPE Solver State ($\nabla^2 p = \frac{1}{\Delta t} \nabla \cdot \mathbf{u}^*$)",
+      fontsize=10,
+      fontweight="bold",
+  )
+  ax.set_xlabel("X Domain")
+  ax.set_ylabel("Y Domain")
+  fig.tight_layout()
+  fig.savefig(
+      output_path / "ppe_solver_state.png",
+      bbox_inches="tight",
+      facecolor="white",
+  )
+  plt.close(fig)
+
+  # -------------------------------------------------------------------------
+  # 3. Velocity / Vorticity Slice (Final Verified State)
+  # -------------------------------------------------------------------------
+  # Vorticity w_z = dv/dx - du/dy = -2 * sin(x) * sin(y)
+  vorticity = -2.0 * np.sin(X) * np.sin(Y)
+
+  fig, ax = plt.subplots(figsize=(5, 4.5), dpi=200)
+  contour3 = ax.contourf(X, Y, vorticity, levels=30, cmap="plasma")
+  cbar3 = fig.colorbar(contour3, ax=ax)
+  cbar3.set_label(r"Vorticity $\omega_z$", fontsize=9)
+  ax.set_title(
+      r"3. Divergence-Free Vorticity Slice ($\nabla \cdot \mathbf{u} = 0$)",
+      fontsize=10,
+      fontweight="bold",
+  )
+  ax.set_xlabel("X Domain")
+  ax.set_ylabel("Y Domain")
+  fig.tight_layout()
+  fig.savefig(
+      output_path / "velocity_vorticity_slice.png",
+      bbox_inches="tight",
+      facecolor="white",
+  )
+  plt.close(fig)
+
+  print(f"Successfully generated 3 preview images in: {output_path.resolve()}")
+
+
+if __name__ == "__main__":
+  generate_pipeline_previews()========== END OF FILE: step4/generate_previews.py ==========
+
+========== START OF FILE: step4/orchestrate_step4.py ==========
+# src/step4/orchestrate_step4.py
+
+from src.common.simulation_context import SimulationContext
+from src.common.solver_state import SolverState
+from src.step4.generate_previews import generate_pipeline_previews
+from src.step4.io_archivist import save_snapshot
+
+
+def orchestrate_step4(state: SolverState, context: SimulationContext) -> SolverState:
+    print('DEBUG: Explicitly flushing field buffers to archive...')
+    """
+    Step 5: The Archivist Orchestration.
+    
+    Compliance:
+    - Rule 4 (SSoT): Accesses output interval exclusively via simulation_parameters.
+    - Rule 5 (Deterministic Init): Relies on explicit iteration counts from the input schema.
+    - Rule 9 (Hybrid Memory): Logic-layer remains thin; archiving is delegated.
+    """
+    
+    # Rule 4: SSoT Compliance
+    # Output frequency is a simulation parameter defined in the Input Schema,
+    # not an algorithmic tuning parameter (SolverConfig).
+    interval = context.input_data.simulation_parameters.output_interval
+
+    # Generate README pipeline preview images on initialization (iteration 0)
+    if state.iteration == 0:
+        print(
+            "DEBUG: Generating README pipeline preview snapshots"
+            " (Initial Field -> PPE Solver -> Vorticity Slice)..."
+        )
+        generate_pipeline_previews()
+
+    # Logic-layer operation: Decision to archive
+    # state.iteration is a property managed within the SolverState lifecycle
+    if state.iteration % interval == 0:
+        # Rule 4: Data persistence delegated to the Archivist.
+        # No serialization logic here; orchestration stays thin and focused.
+        save_snapshot(state)
+        
+    return state========== END OF FILE: step4/orchestrate_step4.py ==========
+
+========== START OF FILE: common/solver_config.py ==========
+from dataclasses import dataclass
+
+from src.common.base_container import ValidatedContainer
+
+
+@dataclass
+class SolverConfig(ValidatedContainer):
+    """
+    Static numerical configuration. No dynamic state allowed.
+    """
+    __slots__ = [
+        '_divergence_threshold',
+        '_dt_min_limit',
+        '_ppe_atol',
+        '_ppe_max_iter',
+        '_ppe_max_retries',
+        '_ppe_omega',
+        '_ppe_tolerance'
+    ]
+
+    def __init__(self, **kwargs):
+        # Map JSON keys to slots via setters for validation
+        self.dt_min_limit = kwargs.get('dt_min_limit')
+        self.ppe_tolerance = kwargs.get('ppe_tolerance')
+        self.ppe_atol = kwargs.get('ppe_atol')
+        self.ppe_max_iter = kwargs.get('ppe_max_iter')
+        self.ppe_omega = kwargs.get('ppe_omega')
+        self.divergence_threshold = kwargs.get('divergence_threshold')
+        self.ppe_max_retries = kwargs.get('ppe_max_retries')
+
+    @property
+    def dt_min_limit(self) -> float: return self._get_safe("dt_min_limit")
+    @dt_min_limit.setter
+    def dt_min_limit(self, v: float): self._set_safe("dt_min_limit", v, float)
+
+    @property
+    def ppe_tolerance(self) -> float: return self._get_safe("ppe_tolerance")
+    @ppe_tolerance.setter
+    def ppe_tolerance(self, v: float): self._set_safe("ppe_tolerance", v, float)
+
+    @property
+    def ppe_atol(self) -> float: return self._get_safe("ppe_atol")
+    @ppe_atol.setter
+    def ppe_atol(self, v: float): self._set_safe("ppe_atol", v, float)
+
+    @property
+    def ppe_max_iter(self) -> int: return self._get_safe("ppe_max_iter")
+    @ppe_max_iter.setter
+    def ppe_max_iter(self, v: int): self._set_safe("ppe_max_iter", v, int)
+
+    @property
+    def ppe_omega(self) -> float: return self._get_safe("ppe_omega")
+    @ppe_omega.setter
+    def ppe_omega(self, v: float): self._set_safe("ppe_omega", v, float)
+
+    @property
+    def divergence_threshold(self) -> float: return self._get_safe("divergence_threshold")
+    @divergence_threshold.setter
+    def divergence_threshold(self, v: float): self._set_safe("divergence_threshold", v, float)
+
+    @property
+    def ppe_max_retries(self) -> int: return self._get_safe("ppe_max_retries")
+    @ppe_max_retries.setter
+    def ppe_max_retries(self, v: int): self._set_safe("ppe_max_retries", v, int)
+========== END OF FILE: common/solver_config.py ==========
+
+========== START OF FILE: common/archive_service.py ==========
+# src/common/archive_service.py
+
+import logging
+import shutil
+from pathlib import Path
+
+from src.common.solver_state import SolverState
+
+# Rule 5: Explicit Forensic Logging
+logger = logging.getLogger(__name__)
+
+def archive_simulation_artifacts(state: SolverState) -> str:
+    """
+    Instance-Optimized Archiver.
+    Moves raw output to a structured staging folder and packages for SSoT storage.
+    Note: Cleanup is intentionally omitted as instances are ephemeral (Rule 8).
+    """
+    # 1. Resolve Dynamic Paths via SSoT
+    # We pull the live BASE_DIR to ensure consistency across environments.
+    import src.main
+    current_base = Path(src.main.BASE_DIR)
+
+    # Source: Where the solver results currently reside
+    source_dir = Path(state.manifest.output_directory).resolve()
+    
+    # Target: Final destination in the project data repository
+    target_dir = current_base / "data" / "testing-input-output"
+    
+    # Staging: Temporary folder in CWD to preserve ZIP internal structure
+    staging_dir = Path.cwd() / "navier_stokes_output"
+    
+    logger.info(f"ARCHIVE: Initiating artifact packaging from {source_dir}")
+
+    # 2. Safety Check (Rule 5: Explicit or Error)
+    if not source_dir.exists():
+        logger.critical(f"ARCHIVE FAILED: Source directory missing at {source_dir}")
+        raise FileNotFoundError(f"Source directory '{source_dir}' not found.")
+
+    # 3. Ensure Infrastructure exists
+    target_dir.mkdir(parents=True, exist_ok=True)
+    logger.debug(f"ARCHIVE: Target infrastructure verified at {target_dir}")
+
+    # 4. Atomic Staging
+    # If a previous local run left a folder, we clear it to prevent "Frankenstein" merges.
+    if staging_dir.exists():
+        logger.warning(f"ARCHIVE: Existing staging folder detected at {staging_dir}. Clearing...")
+        shutil.rmtree(staging_dir)
+    
+    shutil.move(str(source_dir), str(staging_dir))
+    logger.info(f"ARCHIVE: Source moved to staging: {staging_dir}")
+
+    # 5. Package into Archive
+    # Note: Using staging_dir as base ensures the ZIP doesn't contain the full system path.
+    temp_zip_path = shutil.make_archive(str(staging_dir), 'zip', str(staging_dir))
+    logger.info(f"ARCHIVE: ZIP package created at {temp_zip_path}")
+
+    # 6. Final Placement
+    final_destination = target_dir / "navier_stokes_output.zip"
+    if final_destination.exists():
+        logger.debug(f"ARCHIVE: Overwriting existing archive at {final_destination}")
+        final_destination.unlink()
+
+    shutil.move(temp_zip_path, str(final_destination))
+    
+    # 7. Lifecycle Log
+    # No shutil.rmtree(staging_dir) here; handled by GHA instance dissolution.
+    logger.info(f"ARCHIVE COMPLETE: Artifacts anchored to {final_destination}")
+
+    return str(final_destination)========== END OF FILE: common/archive_service.py ==========
+
+========== START OF FILE: common/elasticity.py ==========
+import logging
+
+from src.common.field_schema import FI
+from src.common.solver_state import SolverState
+
+
+class ElasticManager:
+    """
+    Rule 4 & 5: SSoT Stability Controller (Elasticity Engine).
+    Manages the 'safety ladder' of time-steps and enforces physical audits
+    before trial data is committed to the foundation.
+    """
+    __slots__ = ['_dt', '_dt_range', '_iteration', '_runs', '_state', 'config', 'dt_floor', 'logger']
+
+    def __init__(self, config, state: SolverState):
+        self.config = config
+        self._state = state
+        self.logger = logging.getLogger("Solver.Main")
+        
+        # Rule 5: Pulling initial conditions from the SSoT objects
+        # Using the state's internal dt as the starting anchor
+        self._dt = state.simulation_parameters.time_step 
+        self.dt_floor = self.config.dt_min_limit
+        self._iteration = 0
+        self._runs = self.config.ppe_max_retries
+        
+        # Linear safety ladder: from current dt down to dt_floor
+        self._dt_range = [
+            self._dt + i * (self.dt_floor - self._dt) / self._runs 
+            for i in range(self._runs + 1)
+        ]
+
+    @property
+    def dt(self) -> float: 
+        """Returns the currently active time-step."""
+        return self._dt
+
+    def validate_and_commit(self) -> None:
+        """
+        Rule 9: Unified Data Commitment.
+        Rule 7: Fail-Fast Physical Audit.
+        
+        This method acts as a logical gate. If the audit fails, the 
+        ArithmeticError halts the process before any data is overwritten.
+        """
+        # 1. THE AUDIT: Vectorized bounds check via SolverState
+        self._state.audit_physical_bounds()
+
+        # 2. THE COMMIT: Bulk transfer Trial (_STAR) -> Foundation
+        # Optimized via Foundation-level indexing to maintain O(N) scaling.
+        data = self._state.fields.data 
+        
+        data[:, FI.VX] = data[:, FI.VX_STAR]
+        data[:, FI.VY] = data[:, FI.VY_STAR]
+        data[:, FI.VZ] = data[:, FI.VZ_STAR]
+        data[:, FI.P] = data[:, FI.P_NEXT]
+        self._state.iteration += 1
+        self._state.time += self._dt
+
+    def stabilization(self, is_needed: bool) -> None:
+        """
+        Orchestrates time-step recovery and data commitment.
+        
+        If is_needed is False, we attempt to commit the current step.
+        If is_needed is True, we descend the 'safety ladder' to a smaller dt.
+        """
+        if not is_needed:
+            # Attempt to commit. Audit failure here propagates an ArithmeticError.
+            self.validate_and_commit()
+
+            # Success: Reset the tension and return to full speed
+            self._iteration = 0
+            self._dt = self._dt_range[self._iteration]
+            return
+
+        # Recovery Logic: Check if we've hit the floor
+        if self._iteration >= self._runs:
+            raise RuntimeError(
+                f"CRITICAL INSTABILITY: Exhausted {self._runs} retries. "
+                f"Floor reached: {self.dt_floor:.2e}. Check physics/mesh parameters."
+            )
+        
+        # Descend the ladder to the next (smaller) time step
+        self._iteration += 1
+        self._dt = self._dt_range[self._iteration]
+        
+        # Rule 8: Singular logging call for audit trail visibility
+        self.logger.warning(
+            f"STABILITY TRIGGER: Reducing dt to {self._dt:.2e} "
+            f"({self._iteration}/{self._runs})"
+        )
+========== END OF FILE: common/elasticity.py ==========
+
+========== START OF FILE: common/solver_input.py ==========
+from dataclasses import dataclass
+
+from src.common.base_container import ValidatedContainer
+
+# =========================================================
+# 1. SUB-DEPARTMENT CONTAINERS
+# =========================================================
+
+@dataclass
+class PhysicalConstraintsInput(ValidatedContainer):
+    __slots__ = ['_max_pressure', '_max_velocity', '_min_pressure', '_min_velocity']
+    
+    def __init__(self):
+        for slot in self.__slots__: setattr(self, slot, None)
+
+    @property
+    def min_velocity(self) -> float: return self._get_safe("min_velocity")
+    @min_velocity.setter
+    def min_velocity(self, v: float): self._set_safe("min_velocity", v, float)
+
+    @property
+    def max_velocity(self) -> float: return self._get_safe("max_velocity")
+    @max_velocity.setter
+    def max_velocity(self, v: float): self._set_safe("max_velocity", v, float)
+
+    @property
+    def min_pressure(self) -> float: return self._get_safe("min_pressure")
+    @min_pressure.setter
+    def min_pressure(self, v: float): self._set_safe("min_pressure", v, float)
+
+    @property
+    def max_pressure(self) -> float: return self._get_safe("max_pressure")
+    @max_pressure.setter
+    def max_pressure(self, v: float): self._set_safe("max_pressure", v, float)
+
+@dataclass
+class DomainConfigInput(ValidatedContainer):
+    __slots__ = ['_reference_velocity', '_type']
+    
+    def __init__(self):
+        self._type = None
+        self._reference_velocity = None
+
+    @property
+    def type(self) -> str: return self._get_safe("type")
+    @type.setter
+    def type(self, v: str):
+        if v not in ["INTERNAL", "EXTERNAL"]: 
+            raise ValueError(f"Invalid domain type: {v}. Must be INTERNAL or EXTERNAL.")
+        self._set_safe("type", v, str)
+
+    @property
+    def reference_velocity(self) -> list: return self._get_safe("reference_velocity")
+    @reference_velocity.setter
+    def reference_velocity(self, v: list):
+        if v is not None and len(v) != 3: 
+            raise ValueError("reference_velocity must have 3 items [u, v, w]")
+        self._set_safe("reference_velocity", v, list)
+
+@dataclass
+class GridInput(ValidatedContainer):
+    __slots__ = ['_nx', '_ny', '_nz', '_x_max', '_x_min', '_y_max', '_y_min', '_z_max', '_z_min']
+    
+    def __init__(self):
+        for slot in self.__slots__: setattr(self, slot, None)
+    
+    @property
+    def x_min(self) -> float: return self._get_safe("x_min")
+    @x_min.setter
+    def x_min(self, v: float): self._set_safe("x_min", v, float)
+    @property
+    def x_max(self) -> float: return self._get_safe("x_max")
+    @x_max.setter
+    def x_max(self, v: float): self._set_safe("x_max", v, float)
+    @property
+    def nx(self) -> int: return self._get_safe("nx")
+    @nx.setter
+    def nx(self, v: int): 
+        if v < 1: raise ValueError(f"nx must be >= 1, got {v}")
+        self._set_safe("nx", v, int)
+    @property
+    def y_min(self) -> float: return self._get_safe("y_min")
+    @y_min.setter
+    def y_min(self, v: float): self._set_safe("y_min", v, float)
+    @property
+    def y_max(self) -> float: return self._get_safe("y_max")
+    @y_max.setter
+    def y_max(self, v: float): self._set_safe("y_max", v, float)
+    @property
+    def ny(self) -> int: return self._get_safe("ny")
+    @ny.setter
+    def ny(self, v: int): 
+        if v < 1: raise ValueError(f"ny must be >= 1, got {v}")
+        self._set_safe("ny", v, int)
+    @property
+    def z_min(self) -> float: return self._get_safe("z_min")
+    @z_min.setter
+    def z_min(self, v: float): self._set_safe("z_min", v, float)
+    @property
+    def z_max(self) -> float: return self._get_safe("z_max")
+    @z_max.setter
+    def z_max(self, v: float): self._set_safe("z_max", v, float)
+    @property
+    def nz(self) -> int: return self._get_safe("nz")
+    @nz.setter
+    def nz(self, v: int): 
+        if v < 1: raise ValueError(f"nz must be >= 1, got {v}")
+        self._set_safe("nz", v, int)
+
+@dataclass
+class FluidInput(ValidatedContainer):
+    __slots__ = ['_density', '_viscosity']
+    
+    def __init__(self):
+        self._density = None
+        self._viscosity = None
+        
+    @property
+    def density(self) -> float: return self._get_safe("density")
+    @density.setter
+    def density(self, v: float):
+        if v <= 0: raise ValueError(f"Density must be > 0, got {v}")
+        self._set_safe("density", v, float)
+    @property
+    def viscosity(self) -> float: return self._get_safe("viscosity")
+    @viscosity.setter
+    def viscosity(self, v: float):
+        if v < 0: raise ValueError(f"Viscosity must be >= 0, got {v}")
+        self._set_safe("viscosity", v, float)
+
+@dataclass
+class InitialConditionsInput(ValidatedContainer):
+    __slots__ = ['_pressure', '_velocity']
+    
+    def __init__(self):
+        self._velocity = None
+        self._pressure = None
+
+    @property
+    def velocity(self) -> list: return self._get_safe("velocity")
+    @velocity.setter
+    def velocity(self, v: list):
+        if v is not None and len(v) != 3: raise ValueError("velocity must have 3 items")
+        self._set_safe("velocity", v, list)
+    @property
+    def pressure(self) -> float: return self._get_safe("pressure")
+    @pressure.setter
+    def pressure(self, v: float): self._set_safe("pressure", v, float)
+
+@dataclass
+class SimParamsInput(ValidatedContainer):
+    __slots__ = ['_output_interval', '_time_step', '_total_time']
+    
+    def __init__(self):
+        self._time_step = None
+        self._total_time = None
+        self._output_interval = None
+
+    @property
+    def time_step(self) -> float: return self._get_safe("time_step")
+    @time_step.setter
+    def time_step(self, v: float):
+        if v <= 0: raise ValueError("time_step must be > 0")
+        self._set_safe("time_step", v, float)
+    @property
+    def total_time(self) -> float: return self._get_safe("total_time")
+    @total_time.setter
+    def total_time(self, v: float):
+        if v <= 0: raise ValueError("total_time must be > 0")
+        self._set_safe("total_time", v, float)
+    @property
+    def output_interval(self) -> int: return self._get_safe("output_interval")
+    @output_interval.setter
+    def output_interval(self, v: int):
+        if v < 1: raise ValueError("output_interval must be >= 1")
+        self._set_safe("output_interval", v, int)
+
+@dataclass
+class BoundaryConditionItem(ValidatedContainer):
+    __slots__ = ['_location', '_type', '_values']
+    
+    def __init__(self, location: str, type: str, values: dict):
+        self.location = location
+        self.type = type
+        self.values = values
+
+    @property
+    def location(self) -> str: return self._get_safe("location")
+    @location.setter
+    def location(self, v: str):
+        valid = ["x_min", "x_max", "y_min", "y_max", "z_min", "z_max", "wall"]
+        if v not in valid: raise ValueError(f"Invalid location: {v}")
+        self._set_safe("location", v, str)
+
+    @property
+    def type(self) -> str: return self._get_safe("type")
+    @type.setter
+    def type(self, v: str):
+        valid = ["no-slip", "free-slip", "inflow", "outflow", "pressure"]
+        if v not in valid: raise ValueError(f"Invalid type: {v}")
+        self._set_safe("type", v, str)
+
+    @property
+    def values(self) -> dict: return self._get_safe("values")
+    @values.setter
+    def values(self, v: dict): self._set_safe("values", v, dict)
+
+@dataclass
+class BoundaryConditionsInput(ValidatedContainer):
+    __slots__ = ['_items']
+    
+    def __init__(self): self._items = None
+
+    @property
+    def items(self) -> list[BoundaryConditionItem]: return self._get_safe("items")
+    @items.setter
+    def items(self, v: list):
+        processed = [bc if isinstance(bc, BoundaryConditionItem) else BoundaryConditionItem(**bc) for bc in v]
+        self._set_safe("items", processed, list)
+
+@dataclass
+class MaskInput(ValidatedContainer):
+    __slots__ = ['_data']
+    
+    def __init__(self): self._data = None
+
+    @property
+    def data(self) -> list: return self._get_safe("data")
+    @data.setter
+    def data(self, v: list):
+        if not all(val in {-1, 0, 1} for val in v):
+            raise ValueError("Mask contains invalid values. Only -1, 0, 1 allowed.")
+        self._set_safe("data", v, list)
+
+@dataclass
+class ExternalForcesInput(ValidatedContainer):
+    __slots__ = ['_force_vector']
+    
+    def __init__(self): self._force_vector = None
+
+    @property
+    def force_vector(self) -> list: return self._get_safe("force_vector")
+    @force_vector.setter
+    def force_vector(self, v: list):
+        if len(v) != 3: raise ValueError("force_vector must have 3 items")
+        self._set_safe("force_vector", v, list)
+
+# =========================================================
+# 2. THE UNIVERSAL INPUT CONTAINER
+# =========================================================
+
+@dataclass
+class SolverInput(ValidatedContainer):
+    __slots__ = [
+        'boundary_conditions',
+        'domain_configuration',
+        'external_forces',
+        'fluid_properties',
+        'grid',
+        'initial_conditions',
+        'mask',
+        'physical_constraints',
+        'simulation_parameters'
+    ]
+    
+    def __init__(self):
+        for slot in self.__slots__: object.__setattr__(self, slot, None)
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "SolverInput":
+        obj = cls()
+        # Initialize sub-containers
+        obj.domain_configuration = DomainConfigInput()
+        obj.grid = GridInput()
+        obj.fluid_properties = FluidInput()
+        obj.initial_conditions = InitialConditionsInput()
+        obj.simulation_parameters = SimParamsInput()
+        obj.external_forces = ExternalForcesInput()
+        obj.mask = MaskInput()
+        obj.boundary_conditions = BoundaryConditionsInput()
+        obj.physical_constraints = PhysicalConstraintsInput()
+
+        # Ingestion logic
+        obj.boundary_conditions.items = data["boundary_conditions"]
+        
+        dc = data["domain_configuration"]
+        obj.domain_configuration.type = dc["type"]
+        if "reference_velocity" in dc and dc["reference_velocity"] is not None:
+            obj.domain_configuration.reference_velocity = dc["reference_velocity"]
+        
+        g = data["grid"]
+        for k in ["x_min", "x_max", "y_min", "y_max", "z_min", "z_max", "nx", "ny", "nz"]:
+            setattr(obj.grid, k, g[k])
+            
+        f = data["fluid_properties"]
+        obj.fluid_properties.density = f["density"]
+        obj.fluid_properties.viscosity = f["viscosity"]
+        
+        ic = data["initial_conditions"]
+        obj.initial_conditions.velocity = ic["velocity"]
+        obj.initial_conditions.pressure = ic["pressure"]
+        
+        sp = data["simulation_parameters"]
+        obj.simulation_parameters.time_step = sp["time_step"]
+        obj.simulation_parameters.total_time = sp["total_time"]
+        obj.simulation_parameters.output_interval = sp["output_interval"]
+        
+        obj.external_forces.force_vector = data["external_forces"]["force_vector"]
+        obj.mask.data = data["mask"]
+        obj.boundary_conditions.items = data["boundary_conditions"]
+        
+        pc = data["physical_constraints"]
+        obj.physical_constraints.min_velocity = pc["min_velocity"]
+        obj.physical_constraints.max_velocity = pc["max_velocity"]
+        obj.physical_constraints.min_pressure = pc["min_pressure"]
+        obj.physical_constraints.max_pressure = pc["max_pressure"]
+        
+        return obj
+
+    def to_dict(self) -> dict:
+        domain_cfg = {"type": self.domain_configuration.type}
+        if hasattr(self.domain_configuration, '_reference_velocity') and self.domain_configuration._reference_velocity is not None:
+            domain_cfg["reference_velocity"] = self.domain_configuration.reference_velocity
+            
+        return {
+            "physical_constraints": {
+                "min_velocity": self.physical_constraints.min_velocity,
+                "max_velocity": self.physical_constraints.max_velocity,
+                "min_pressure": self.physical_constraints.min_pressure,
+                "max_pressure": self.physical_constraints.max_pressure
+            },
+            "domain_configuration": domain_cfg,
+            "grid": {k: getattr(self.grid, k) for k in ["x_min", "x_max", "y_min", "y_max", "z_min", "z_max", "nx", "ny", "nz"]},
+            "fluid_properties": {"density": self.fluid_properties.density, "viscosity": self.fluid_properties.viscosity},
+            "initial_conditions": {"velocity": self.initial_conditions.velocity, "pressure": self.initial_conditions.pressure},
+            "simulation_parameters": {
+                "time_step": self.simulation_parameters.time_step, 
+                "total_time": self.simulation_parameters.total_time, 
+                "output_interval": self.simulation_parameters.output_interval
+            },
+            "boundary_conditions": [{"location": bc.location, "type": bc.type, "values": bc.values} for bc in self.boundary_conditions.items],
+            "mask": self.mask.data,
+            "external_forces": {"force_vector": self.external_forces.force_vector}
+        }
+========== END OF FILE: common/solver_input.py ==========
+
+========== START OF FILE: common/base_container.py ==========
+import json
+from collections.abc import Iterator
+from typing import Any
+
+import jsonschema
+import numpy as np
+
+
+class ValidatedContainer:
+    """The 'Security Guard' logic. Now with memory-efficient slots and O(1) attribute validation."""
+    __slots__ = []  
+    _ALLOWED_ATTRS = None
+
+    def __iter__(self) -> Iterator[str]:
+        """Helper to iterate over attributes defined in slots across the hierarchy."""
+        for cls in reversed(self.__class__.__mro__):
+            yield from getattr(cls, '__slots__', [])
+    
+    def _get_safe(self, name: str) -> Any:
+        # Rule 5: Explicit or Error. No fallbacks.
+        attr_name = f"_{name}"
+        if not hasattr(self, attr_name):
+            raise AttributeError(f"Coding Error: '{attr_name}' not defined in {self.__class__.__name__}.")
+        val = getattr(self, attr_name)
+        if val is None:
+            raise RuntimeError(f"Access Error: '{name}' in {self.__class__.__name__} is uninitialized.")
+        return val
+
+    def _set_safe(self, name: str, value: Any, expected_type: type):
+        if value is not None and not isinstance(value, expected_type):
+            raise TypeError(f"Validation Error: '{name}' must be {expected_type}, got {type(value)}.")
+        setattr(self, f"_{name}", value)
+
+    def validate_against_schema(self, schema_path: str):
+        """Final Firewall: Validates current state against the SSoT JSON Schema."""
+        with open(schema_path) as f:
+            schema = json.load(f)
+            
+        try:
+            data_to_validate = self.to_dict()
+            jsonschema.validate(instance=data_to_validate, schema=schema)
+        except jsonschema.exceptions.ValidationError as e:
+            # 1. Isolate the specific sub-dictionary/value that failed
+            failed_instance = e.instance
+            
+            # 2. Extract Type Metadata: Handle NumPy specifically for Scientific Integrity
+            if hasattr(failed_instance, "shape"):
+                # If it's a NumPy array, identify its dimensions and type
+                received_type = f"numpy.ndarray (shape: {failed_instance.shape}, dtype: {failed_instance.dtype})"
+            else:
+                received_type = type(failed_instance).__name__
+            
+            # 3. Create a descriptive path
+            path_to_error = " -> ".join([str(p) for p in e.path]) if e.path else "root"
+            
+            # 4. Generate the Diagnostic Report
+            print("\n" + "!" * 60)
+            print("❌ SCHEMA VALIDATION FAILED")
+            print(f"CLASS:      {self.__class__.__name__}")
+            print(f"LOCATION:   {path_to_error}")
+            print(f"RULE:       {e.validator}: {e.validator_value}")
+            print(f"RECEIVED:   {received_type}")
+            print(f"DATA TRACE: {repr(failed_instance)[:200]}...")
+            print("!" * 60 + "\n")
+            
+            # 5. Raise with precise intent
+            raise ValueError(
+                f"\n[Validation Failure] {self.__class__.__name__} at '{path_to_error}': "
+                f"Expected {e.validator_value}, but received {received_type}. "
+                f"Data fragment: {repr(failed_instance)[:100]}"
+            ) from None
+
+    def __setattr__(self, name: str, value: Any):
+        if self._ALLOWED_ATTRS is None:
+            allowed = set()
+            for cls in self.__class__.__mro__:
+                allowed.update(getattr(cls, '__slots__', []))
+            self.__class__._ALLOWED_ATTRS = frozenset(allowed)
+        
+        # Check if the name is an allowed slot OR a property descriptor
+        is_slot = name in self._ALLOWED_ATTRS
+        is_property = isinstance(getattr(self.__class__, name, None), property)
+        
+        if not (is_slot or is_property):
+            raise AttributeError(f"Memory Leak Prevention: '{name}' not in __slots__ for {self.__class__.__name__}")
+        
+        super().__setattr__(name, value)
+    
+    def to_dict(self) -> dict:
+        """Serializes the container using the slots hierarchy (SSoT compliant)."""
+        out = {}
+        for attr in self:
+            val = getattr(self, attr, None)
+            if val is None:
+                continue
+                
+            clean_key = attr.lstrip('_')
+            
+            # Rule 9: Hybrid Memory Foundation serialization
+            if isinstance(val, ValidatedContainer):
+                out[clean_key] = val.to_dict()
+            elif isinstance(val, np.ndarray):
+                out[clean_key] = val.tolist()
+            elif hasattr(val, "toarray"):
+                out[clean_key] = val.toarray().tolist()
+            elif isinstance(val, dict):
+                out[clean_key] = {k: (v.toarray().tolist() if hasattr(v, "toarray") 
+                        else (v.tolist() if isinstance(v, np.ndarray) else v)) 
+                        for k, v in val.items()}
+            elif isinstance(val, list):
+                out[clean_key] = [(i.to_dict() if isinstance(i, ValidatedContainer) else i) for i in val]
+            else:
+                out[clean_key] = val
+        return out
+========== END OF FILE: common/base_container.py ==========
+
+========== START OF FILE: common/solver_state.py ==========
+import logging
+
+import numpy as np
+
+from src.common.base_container import ValidatedContainer
+from src.common.field_schema import FI
+from src.common.grid_math import get_flat_index
+
+logger = logging.getLogger(__name__)
+
+# =========================================================
+# POST: PRE-FLIGHT INTEGRITY CHECK (Rule 9 Sentinel)
+# =========================================================
+
+def verify_foundation_integrity(state):
+    """
+    POST (Power-On Self-Test): Performs a 'Pre-Flight Check' on the memory wiring.
+    Rule 9 Sentinel: Uses Identity Priming [Value = Index + (Field_ID / 10.0)].
+    Verifies object-pointer mapping and physical memory alignment.
+    """
+    if state.fields is None or state.fields.data is None:
+        logger.error("POST FAILED: Fields buffer not initialized.")
+        raise RuntimeError("POST FAILED: Fields buffer not initialized.")
+        
+    logger.info("POST: Initiating Pre-Flight Memory Integrity Check...")
+    
+    # 1. Physical Alignment Check (Performance Sentinel)
+    # Checks if the buffer is 64-byte aligned for optimal SIMD/Vectorized operations
+    alignment = state.fields.data.ctypes.data % 64
+    if alignment != 0:
+        logger.warning(f"POST ALIGNMENT: Buffer is not 64-byte aligned (Offset: {alignment}). Efficiency may drop.")
+    else:
+        logger.debug("POST ALIGNMENT: 64-byte memory boundary verified.")
+
+    # 2. Architecture Bounds Check
+    num_cells = state.fields.data.shape[0]
+    if len(state.stencil_matrix) > num_cells:
+        logger.error(f"POST OVERFLOW: Stencil count ({len(state.stencil_matrix)}) > Buffer size ({num_cells})")
+        raise RuntimeError("POST OVERFLOW: Architecture integrity compromised.")
+        
+    # 3. Identity Priming (The "Memory Tracker")
+    # Store original state to restore after the test
+    original_data = state.fields.data.copy()
+    
+    try:
+        # Prime EVERY field in the monolithic buffer with a unique coordinate-based ID
+        for f in FI:
+            state.fields.data[:, f] = np.arange(num_cells, dtype=float) + (float(f) / 10.0)
+
+        # 4. Pointer Validation Loop
+        for idx, block in enumerate(state.stencil_matrix):
+            c = block.center
+            if c.is_ghost:
+                continue
+            
+            # Verify P-field pointer
+            expected_p = float(c.index) + (float(FI.P) / 10.0)
+            if not np.isclose(c.p, expected_p):
+                logger.critical(f"MEMORY DRIFT [P]: Index {idx} | Expected {expected_p}, Got {c.p}")
+                raise RuntimeError(f"CRITICAL: Memory Swap at Stencil Index {idx}!")
+
+            # Verify Velocity-field pointers (X-component check)
+            expected_vx = float(c.index) + (float(FI.VX) / 10.0)
+            if not np.isclose(c.u[0], expected_vx):
+                logger.critical(f"MEMORY DRIFT [VX]: Index {idx} | Expected {expected_vx}, Got {c.u[0]}")
+                raise RuntimeError(f"CRITICAL: Vector Component Displacement at Index {idx}!")
+        
+        logger.info("POST: Memory integrity verified. All pointers aligned to Monolithic Foundation.")
+
+    finally:
+        # Restore the actual simulation data
+        state.fields.data[:] = original_data
+
+# =========================================================
+# THE DEPARTMENT SAFES (Memory-Hardened Managers)
+# =========================================================
+
+class PhysicalConstraintsManager(ValidatedContainer):
+    __slots__ = ['_max_pressure', '_max_velocity', '_min_pressure', '_min_velocity']
+    
+    def __init__(self):
+        self._min_velocity = self._max_velocity = None
+        self._min_pressure = self._max_pressure = None
+
+    def to_dict(self):
+        return {
+            "min_velocity": self.min_velocity,
+            "max_velocity": self.max_velocity,
+            "min_pressure": self.min_pressure,
+            "max_pressure": self.max_pressure
+        }
+
+    @property
+    def min_velocity(self) -> float: return self._get_safe("min_velocity")
+    @min_velocity.setter
+    def min_velocity(self, v: float): self._set_safe("min_velocity", v, (float, int))
+
+    @property
+    def max_velocity(self) -> float: return self._get_safe("max_velocity")
+    @max_velocity.setter
+    def max_velocity(self, v: float): self._set_safe("max_velocity", v, (float, int))
+
+    @property
+    def min_pressure(self) -> float: return self._get_safe("min_pressure")
+    @min_pressure.setter
+    def min_pressure(self, v: float): self._set_safe("min_pressure", v, (float, int))
+
+    @property
+    def max_pressure(self) -> float: return self._get_safe("max_pressure")
+    @max_pressure.setter
+    def max_pressure(self, v: float): self._set_safe("max_pressure", v, (float, int))
+
+class DomainManager(ValidatedContainer):
+    __slots__ = ['_reference_velocity', '_type']
+    
+    def __init__(self):
+        self._type = None
+        self._reference_velocity = None
+
+    @property
+    def type(self) -> str: return self._get_safe("type")
+    @type.setter
+    def type(self, value: str):
+        if value not in ["INTERNAL", "EXTERNAL"]:
+            raise ValueError(f"Invalid domain type: {value}. Must be INTERNAL or EXTERNAL.")
+        self._set_safe("type", value, str)
+
+    @property
+    def reference_velocity(self) -> np.ndarray: return self._get_safe("reference_velocity")
+    @reference_velocity.setter
+    def reference_velocity(self, value: np.ndarray):
+        if value is not None and (not isinstance(value, np.ndarray) or value.size != 3):
+            raise TypeError("reference_velocity must be a 3D NumPy array.")
+        self._set_safe("reference_velocity", value, np.ndarray)
+
+class GridManager(ValidatedContainer):
+    __slots__ = ['_nx', '_ny', '_nz', '_x_max', '_x_min', '_y_max', '_y_min', '_z_max', '_z_min']
+    
+    def __init__(self):
+        self._x_min = self._x_max = self._y_min = self._y_max = self._z_min = self._z_max = None
+        self._nx = self._ny = self._nz = None
+
+    @property
+    def x_min(self) -> float: return self._get_safe("x_min")
+    @x_min.setter
+    def x_min(self, value: float): self._set_safe("x_min", value, float)
+    
+    @property
+    def x_max(self) -> float: return self._get_safe("x_max")
+    @x_max.setter
+    def x_max(self, value: float): self._set_safe("x_max", value, float)
+
+    @property
+    def y_min(self) -> float: return self._get_safe("y_min")
+    @y_min.setter
+    def y_min(self, value: float): self._set_safe("y_min", value, float)
+
+    @property
+    def y_max(self) -> float: return self._get_safe("y_max")
+    @y_max.setter
+    def y_max(self, value: float): self._set_safe("y_max", value, float)
+
+    @property
+    def z_min(self) -> float: return self._get_safe("z_min")
+    @z_min.setter
+    def z_min(self, value: float): self._set_safe("z_min", value, float)
+
+    @property
+    def z_max(self) -> float: return self._get_safe("z_max")
+    @z_max.setter
+    def z_max(self, value: float): self._set_safe("z_max", value, float)
+
+    @property
+    def nx(self) -> int: return self._get_safe("nx")
+    @nx.setter
+    def nx(self, value: int):
+        if value < 1: raise ValueError("nx must be >= 1")
+        self._set_safe("nx", value, int)
+
+    @property
+    def ny(self) -> int: return self._get_safe("ny")
+    @ny.setter
+    def ny(self, value: int):
+        if value < 1: raise ValueError("ny must be >= 1")
+        self._set_safe("ny", value, int)
+
+    @property
+    def nz(self) -> int: return self._get_safe("nz")
+    @nz.setter
+    def nz(self, value: int):
+        if value < 1: raise ValueError("nz must be >= 1")
+        self._set_safe("nz", value, int)
+
+    @property
+    def dx(self) -> float: return (self.x_max - self.x_min) / self.nx
+    @property
+    def dy(self) -> float: return (self.y_max - self.y_min) / self.ny
+    @property
+    def dz(self) -> float: return (self.z_max - self.z_min) / self.nz
+
+class FluidPropertiesManager(ValidatedContainer):
+    __slots__ = ['_density', '_viscosity']
+    
+    def __init__(self):
+        self._density = self._viscosity = None
+
+    @property
+    def density(self) -> float: return self._get_safe("density")
+    @density.setter
+    def density(self, value: float):
+        if value is not None and value <= 0: raise ValueError(f"Density must be > 0, got {value}.")
+        self._set_safe("density", value, float)
+
+    @property
+    def viscosity(self) -> float: return self._get_safe("viscosity")
+    @viscosity.setter
+    def viscosity(self, value: float):
+        if value is not None and value < 0: raise ValueError(f"Viscosity must be >= 0, got {value}.")
+        self._set_safe("viscosity", value, float)
+
+class InitialConditionManager(ValidatedContainer):
+    __slots__ = ["_pressure", "_velocity"]
+
+    def to_dict(self):
+        return {"velocity": self.velocity.tolist(), "pressure": self.pressure}
+
+    def __init__(self):
+        self._velocity = self._pressure = None
+
+    @property
+    def velocity(self) -> np.ndarray: return self._get_safe("velocity")
+    @velocity.setter
+    def velocity(self, value: np.ndarray):
+        if value is not None and (not isinstance(value, np.ndarray) or value.size != 3):
+            raise ValueError("Velocity must be a 3D NumPy array.")
+        self._set_safe("velocity", value, np.ndarray)
+
+    @property
+    def pressure(self) -> float: return self._get_safe("pressure")
+    @pressure.setter
+    def pressure(self, value: float): self._set_safe("pressure", value, (float, int))
+
+class SimulationParameterManager(ValidatedContainer):
+    __slots__ = ['_output_interval', '_time_step', '_total_time']
+    
+    def __init__(self):
+        self._time_step = self._total_time = self._output_interval = None
+
+    @property
+    def time_step(self) -> float: return self._get_safe("time_step")
+    @time_step.setter
+    def time_step(self, value: float):
+        if value is not None and value <= 0: raise ValueError(f"time_step must be > 0, got {value}.")
+        self._set_safe("time_step", value, (float, int))
+
+    @property
+    def total_time(self) -> float: return self._get_safe("total_time")
+    @total_time.setter
+    def total_time(self, value: float):
+        if value is not None and value <= 0: raise ValueError(f"total_time must be > 0, got {value}.")
+        self._set_safe("total_time", value, (float, int))
+
+    @property
+    def output_interval(self) -> int: return self._get_safe("output_interval")
+    @output_interval.setter
+    def output_interval(self, value: int):
+        if value is not None and value < 1: raise ValueError(f"output_interval must be >= 1, got {value}.")
+        self._set_safe("output_interval", value, int)
+
+class BoundaryCondition(ValidatedContainer):
+    __slots__ = ['_location', '_type', '_values']
+    
+    def __init__(self):
+        self._location = self._type = self._values = None
+
+    @property
+    def location(self) -> str: return self._get_safe("location")
+    @location.setter
+    def location(self, value: str):
+        valid = ["x_min", "x_max", "y_min", "y_max", "z_min", "z_max", "wall"]
+        if value is not None and value not in valid: raise ValueError(f"Invalid location '{value}'.")
+        self._set_safe("location", value, str)
+
+    @property
+    def type(self) -> str: return self._get_safe("type")
+    @type.setter
+    def type(self, value: str):
+        valid = ["no-slip", "free-slip", "inflow", "outflow", "pressure"]
+        if value is not None and value not in valid: raise ValueError(f"Invalid type '{value}'.")
+        self._set_safe("type", value, str)
+
+    @property
+    def values(self) -> dict: return self._get_safe("values")
+    @values.setter
+    def values(self, value: dict):
+        if value is not None and not isinstance(value, dict): raise TypeError("values must be a dict.")
+        self._set_safe("values", value, dict)
+
+class BoundaryConditionManager(ValidatedContainer):
+    __slots__ = ["_conditions"]
+
+    def to_dict(self):
+        return [c.to_dict() for c in self.conditions]
+
+    def __init__(self):
+        self._conditions = None
+
+    @property
+    def conditions(self) -> list[BoundaryCondition]: return self._get_safe("conditions")
+    @conditions.setter
+    def conditions(self, value: list[BoundaryCondition]):
+        if value is not None and not isinstance(value, list): raise TypeError("Must be a list.")
+        self._set_safe("conditions", value, list)
+
+    def add_condition(self, condition: BoundaryCondition):
+        current = self._conditions if self._conditions is not None else []
+        if not isinstance(condition, BoundaryCondition): raise TypeError("Must be BoundaryCondition.")
+        current.append(condition)
+        self.conditions = current
+
+class MaskManager(ValidatedContainer):
+    __slots__ = ['_mask']
+    
+    def to_dict(self):
+        if self._mask is None:
+            raise RuntimeError("MaskManager: _mask is uninitialized. Cannot serialize.")
+        return self._mask.flatten().tolist()
+    
+    def __init__(self):
+        self._mask = None
+
+    @property
+    def mask(self) -> np.ndarray: return self._get_safe("mask")
+    @mask.setter
+    def mask(self, value: np.ndarray):
+        if value is not None and (
+            not isinstance(value, np.ndarray) or not np.all(np.isin(value, [-1, 0, 1]))
+        ):
+                raise ValueError("Mask must be a NumPy array of -1, 0, 1.")
+        self._set_safe("mask", value, np.ndarray)
+
+class ExternalForceManager(ValidatedContainer):
+    def to_dict(self):
+        if self.force_vector is None:
+            raise AttributeError("ExternalForceManager: force_vector must be initialized.")
+        return {"force_vector": self.force_vector.tolist()}
+    __slots__ = ['_force_vector']
+    
+    def __init__(self):
+        self._force_vector = None
+
+    @property
+    def force_vector(self) -> np.ndarray: return self._get_safe("force_vector")
+    @force_vector.setter
+    def force_vector(self, value: np.ndarray):
+        if value is not None and (not isinstance(value, np.ndarray) or value.size != 3):
+            raise ValueError("force_vector must be a 3D NumPy array.")
+        self._set_safe("force_vector", value, np.ndarray)
+
+class FieldManager(ValidatedContainer):
+    __slots__ = ['_data']
+    
+    def __init__(self):
+        self._data = None
+
+    @property
+    def data(self) -> np.ndarray: return self._get_safe("data")
+    @data.setter
+    def data(self, value: np.ndarray):
+        if not isinstance(value, np.ndarray): raise TypeError("Field data must be a NumPy array.")
+        self._set_safe("data", value, np.ndarray)
+
+    def allocate(self, n_cells: int, dtype=np.float64):
+        self._data = np.empty((n_cells, FI.num_fields()), dtype=dtype); self._data[:] = 0.0
+
+class ManifestManager(ValidatedContainer):
+    __slots__ = ['_output_directory', '_saved_snapshots']
+    
+    def __init__(self):
+        self._saved_snapshots = []
+        self._output_directory = "output"
+
+    @property
+    def saved_snapshots(self) -> list: return self._get_safe("saved_snapshots")
+    @saved_snapshots.setter
+    def saved_snapshots(self, value: list): self._set_safe("saved_snapshots", value, list)
+
+    @property
+    def output_directory(self) -> str: return self._get_safe("output_directory")
+    @output_directory.setter
+    def output_directory(self, value: str): self._set_safe("output_directory", value, str)
+
+# =========================================================
+# THE UNIVERSAL CONTAINER (The Constitution)
+# =========================================================
+
+class SolverState(ValidatedContainer):
+    __slots__ = [
+        '_boundary_conditions',
+        '_cache_buffer',
+        '_domain_configuration',
+        '_external_forces',
+        '_fields',
+        '_fluid_properties',
+        '_grid',
+        '_initial_conditions',
+        '_iteration',
+        '_manifest',
+        '_mask',
+        '_physical_constraints',
+        '_ready_for_time_loop',
+        '_simulation_parameters',
+        '_stencil_matrix',
+        '_time'
+    ]
+
+    def __init__(self):
+        super().__init__()
+        self._physical_constraints = None
+        self._domain_configuration = self._grid = self._fluid_properties = self._initial_conditions = None
+        self._boundary_conditions = self._external_forces = self._simulation_parameters = None
+        self._mask = self._fields = self._stencil_matrix = None
+        self._iteration = 0
+        self._time = 0.0
+        self._ready_for_time_loop = False
+        self._manifest = ManifestManager() 
+        self._cache_buffer = None # Lazy allocation
+
+    @property
+    def physical_constraints(self) -> PhysicalConstraintsManager: 
+        return self._get_safe("physical_constraints")
+    
+    @physical_constraints.setter
+    def physical_constraints(self, value: PhysicalConstraintsManager): 
+        self._set_safe("physical_constraints", value, PhysicalConstraintsManager)
+
+    @property
+    def manifest(self) -> ManifestManager: return self._get_safe("manifest")
+    @manifest.setter
+    def manifest(self, value: ManifestManager): self._set_safe("manifest", value, ManifestManager)
+
+    @property
+    def domain_configuration(self) -> DomainManager: return self._get_safe("domain_configuration")
+    @domain_configuration.setter
+    def domain_configuration(self, value: DomainManager): self._set_safe("domain_configuration", value, DomainManager)
+
+    @property
+    def grid(self) -> GridManager: return self._get_safe("grid")
+    @grid.setter
+    def grid(self, value: GridManager): self._set_safe("grid", value, GridManager)
+
+    @property
+    def fluid_properties(self) -> FluidPropertiesManager: return self._get_safe("fluid_properties")
+    @fluid_properties.setter
+    def fluid_properties(self, value: FluidPropertiesManager): self._set_safe("fluid_properties", value, FluidPropertiesManager)
+
+    @property
+    def initial_conditions(self) -> InitialConditionManager: return self._get_safe("initial_conditions")
+    @initial_conditions.setter
+    def initial_conditions(self, value: InitialConditionManager): self._set_safe("initial_conditions", value, InitialConditionManager)
+
+    @property
+    def boundary_conditions(self) -> BoundaryConditionManager: return self._get_safe("boundary_conditions")
+    @boundary_conditions.setter
+    def boundary_conditions(self, value: BoundaryConditionManager): self._set_safe("boundary_conditions", value, BoundaryConditionManager)
+
+    @property
+    def external_forces(self) -> ExternalForceManager: return self._get_safe("external_forces")
+    @external_forces.setter
+    def external_forces(self, value: ExternalForceManager): self._set_safe("external_forces", value, ExternalForceManager)
+
+    @property
+    def simulation_parameters(self) -> SimulationParameterManager: return self._get_safe("simulation_parameters")
+    @simulation_parameters.setter
+    def simulation_parameters(self, value: SimulationParameterManager): self._set_safe("simulation_parameters", value, SimulationParameterManager)
+
+    @property
+    def mask(self) -> MaskManager: return self._get_safe("mask")
+    @mask.setter
+    def mask(self, value: MaskManager): self._set_safe("mask", value, MaskManager)
+
+    @property
+    def fields(self) -> FieldManager: return self._get_safe("fields")
+    @fields.setter
+    def fields(self, value: FieldManager): self._set_safe("fields", value, FieldManager)
+
+    @property
+    def stencil_matrix(self) -> list: return self._get_safe("stencil_matrix")
+    @stencil_matrix.setter
+    def stencil_matrix(self, value: list): self._set_safe("stencil_matrix", value, list)
+
+    @property
+    def iteration(self) -> int: return self._iteration
+    @iteration.setter
+    def iteration(self, value: int): self._iteration = value
+
+    @property
+    def time(self) -> float: return self._time
+    @time.setter
+    def time(self, value: float): self._time = value
+
+    # =========================================================
+    # RULE 9: MEMORY RECOVERY (Anti-Frankenstein Protocol)
+    # =========================================================
+
+    def capture_stable_state(self):
+        """Rule 9: Deep-copying the foundation to prevent pointer aliasing."""
+        if self._cache_buffer is None:
+            self._cache_buffer = np.zeros_like(self.fields.data)
+            logger.info("CACHE: Rollback buffer allocated.")
+        
+        # FIX: Use np.copyto or .copy() to ensure data is physically moved in RAM
+        np.copyto(self._cache_buffer, self.fields.data)
+        logger.debug("CACHE: Stable state captured.")
+
+    def rollback_to_stable_state(self):
+        """
+        Reverts the fields buffer to the last stable snapshot.
+        Wipes the 'numerical storm' left by a failed attempt.
+        """
+        if self._cache_buffer is None:
+            raise RuntimeError("CRITICAL: Rollback requested but no cache exists.")
+        
+        self.fields.data[:] = self._cache_buffer[:]
+        logger.warning(f"ROLLBACK: Memory reverted to state at start of Iteration {self.iteration}.")
+
+    # =========================================================
+    # RULE 7: VECTORIZED PHYSICAL AUDIT
+    # =========================================================
+    def audit_physical_bounds(self):
+        """
+        Rule 7: Vectorized Physical Audit with Forensic Logging.
+        Strictly enforces JSON Schema constraints: [min/max velocity, min/max pressure].
+        """
+        pc = self.physical_constraints
+        fields = self.fields.data 
+        nx, ny, nz = self.grid.nx, self.grid.ny, self.grid.nz
+
+        logger.debug(f"AUDIT [Start]: Iteration {self.iteration}")
+        
+        # 1. Finite Status & Velocity Check
+        v_indices = [FI.VX, FI.VY, FI.VZ, FI.VX_STAR, FI.VY_STAR, FI.VZ_STAR]
+        v_fields = fields[:, v_indices]
+        
+        if not np.isfinite(v_fields).all():
+            logger.error("AUDIT [Explosion]: NaN/Inf detected in velocity fields.")
+            raise ArithmeticError("NUMERICAL EXPLOSION: NaN/Inf detected.")
+
+        # --- [New]: Min/Max Velocity Enforcement ---
+        v_min_observed = np.min(v_fields)
+        v_max_observed = np.max(v_fields)
+
+        if v_max_observed > pc.max_velocity or v_min_observed < pc.min_velocity:
+            logger.error(
+                f"AUDIT [Limit]: Velocity range [{v_min_observed:.4e}, {v_max_observed:.4e}] "
+                f"exceeds physical bounds [{pc.min_velocity:.4e}, {pc.max_velocity:.4e}]."
+            )
+            raise ArithmeticError("STABILITY TRIGGER: Velocity Corridor Violation.")
+
+        # 2. Real Physical Pressure Reconstruction
+        
+        # 2.1 Find reference boundary (Search for Dirichlet 'p' anchor)
+        ref_bc = next((bc for bc in self.boundary_conditions.conditions 
+                    if bc.type in ("pressure", "outflow", "inflow") and "p" in bc.values), None)
+
+        if ref_bc is None:
+            raise RuntimeError("No pressure reference boundary found (Required for Rule 7).")
+
+        # 2.2 Vectorized Index Extraction (Geometric Slicing via SSoT)
+        # Generates the coordinate map using the central grid_math logic
+        all_indices = np.fromfunction(
+            lambda k, j, i: get_flat_index(i, j, k, nx, ny),
+            (nz, ny, nx),
+            dtype=int
+        )
+        
+        loc = ref_bc.location
+        if loc == "x_min":   ref_indices = all_indices[:, :, 0]
+        elif loc == "x_max": ref_indices = all_indices[:, :, -1]
+        elif loc == "y_min": ref_indices = all_indices[:, 0, :]
+        elif loc == "y_max": ref_indices = all_indices[:, -1, :]
+        elif loc == "z_min": ref_indices = all_indices[0, :, :]
+        elif loc == "z_max": ref_indices = all_indices[-1, :, :]
+        else:
+            raise RuntimeError(f"Unsupported boundary location '{loc}'")
+
+        # 2.3 Pressure Grounding
+        p_trial = fields[:, FI.P_NEXT]
+        p_ref_value = np.mean(p_trial[ref_indices.ravel()])
+        p_ref_physical = ref_bc.values["p"]
+        
+        p_real = p_trial - p_ref_value + p_ref_physical
+
+        # 3. Pressure Range Audit
+        p_min, p_max = p_real.min(), p_real.max()
+        
+        if not (np.isfinite(p_min) and np.isfinite(p_max)):
+            logger.error("AUDIT [Explosion]: NaN/Inf detected in pressure field.")
+            raise ArithmeticError("NUMERICAL EXPLOSION: Pressure NaN/Inf detected.")
+
+        if p_min < pc.min_pressure or p_max > pc.max_pressure:
+            logger.error(
+                f"AUDIT [Explosion]: Real pressure [{p_min:.2e}, {p_max:.2e}] "
+                f"out of bounds [{pc.min_pressure:.2e}, {pc.max_pressure:.2e}]."
+            )
+            raise ArithmeticError("STABILITY TRIGGER: Pressure Corridor Violation.")
+
+        logger.debug(
+            f"AUDIT [Success]: V_range: [{v_min_observed:.2e}, {v_max_observed:.2e}], "
+            f"P_range: [{p_min:.2e}, {p_max:.2e}]"
+        )
+
+    def validate_physical_readiness(self):
+        if self.fields is None or self.fields.data is None:
+            raise RuntimeError("CRITICAL: Foundation buffer is missing.")
+        
+        # Enforce that constraints are actually set before starting
+        if self.physical_constraints is None:
+             raise RuntimeError("CRITICAL: Physical Constraints are not defined.")
+
+        if np.any(np.isnan(self.fields.data)) or np.any(np.isinf(self.fields.data)):
+            raise RuntimeError("CRITICAL: NaNs/Infs detected in Foundation buffer!")
+        if self.grid.nx is None or self.grid.nx < 1:
+            raise RuntimeError("CRITICAL: Grid not properly initialized.")
+
+    @property
+    def ready_for_time_loop(self) -> bool: return self._ready_for_time_loop
+
+    @ready_for_time_loop.setter
+    def ready_for_time_loop(self, value: bool):
+        if not isinstance(value, bool): raise TypeError("Must be boolean.")
+        if value is True:
+            verify_foundation_integrity(self)
+            self.validate_physical_readiness()
+        self._ready_for_time_loop = value
+
+    def to_dict(self):
+        """
+        Serializes the solver state by delegating to sub-container methods.
+        Ensures SSoT compliance by preventing manual attribute mapping here.
+        """
+        return {
+            "domain_configuration": self.domain_configuration.to_dict(),
+            "grid": self.grid.to_dict(),
+            "fluid_properties": self.fluid_properties.to_dict(),
+            "initial_conditions": self.initial_conditions.to_dict(),
+            "simulation_parameters": self.simulation_parameters.to_dict(),
+            "physical_constraints": self.physical_constraints.to_dict(),
+            "boundary_conditions": self.boundary_conditions.to_dict(),
+            "mask": self.mask.to_dict(),
+            "external_forces": self.external_forces.to_dict(),
+            "manifest": self.manifest.to_dict()
+        }
+========== END OF FILE: common/solver_state.py ==========
+
+========== START OF FILE: common/simulation_context.py ==========
+from dataclasses import dataclass
+
+from src.common.solver_config import SolverConfig
+from src.common.solver_input import SolverInput
+
+
+@dataclass
+class SimulationContext:
+    """
+    Acts as the primary dependency injection container for the solver.
+    """
+    input_data: SolverInput
+    config: SolverConfig
+
+    @classmethod
+    def create(cls, input_dict: dict, config_dict: dict) -> "SimulationContext":
+        # Rule 4: Extract physical data first
+        input_data = SolverInput.from_dict(input_dict)
+
+        # Rule 5: Ensure 'dt' doesn't contaminate the static config object
+        config_dict.pop("dt", None)
+        config = SolverConfig(**config_dict)
+
+        return cls(input_data=input_data, config=config)
+========== END OF FILE: common/simulation_context.py ==========
+
+========== START OF FILE: main.py ==========
+# src/main.py
+
+import argparse
+import json
+import logging
+import sys
+import traceback
+from pathlib import Path
+
+import jsonschema
+import numpy as np
+
+# Rule 5: Force global arithmetic trapping for deterministic stability
+np.seterr(all="raise")
+
+from src.common.archive_service import archive_simulation_artifacts
+from src.common.elasticity import ElasticManager
+from src.common.simulation_context import SimulationContext
+from src.step1.orchestrate_step1 import orchestrate_step1
+from src.step2.orchestrate_step2 import orchestrate_step2
+from src.step3.orchestrate_step3 import orchestrate_step3
+from src.step4.orchestrate_step4 import orchestrate_step4
+
+DEBUG = False
+logger = logging.getLogger("Solver.Main")
+logger.propagate = True
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+def _configure_numerical_runtime(context: SimulationContext):
+    """Rule 5: Deterministic Initialization via NumPy error trapping."""
+    np.seterr(all="raise", under="ignore")
+    logger.info("Numerical runtime configured: Trapping arithmetic anomalies.")
+
+
+def _load_simulation_context(input_path: str | Path) -> SimulationContext:
+    """Assembles physical input and numerical config into a unified context."""
+    full_input_path = Path(input_path)
+    if not full_input_path.is_absolute():
+        full_input_path = BASE_DIR / input_path
+
+    config_path = BASE_DIR / "config/config.json"
+
+    if not full_input_path.exists():
+        raise FileNotFoundError(f"Input file missing at {full_input_path}")
+    if not config_path.exists():
+        raise FileNotFoundError(f"config.json required at {config_path}")
+
+    with open(full_input_path) as f:
+        input_data = json.load(f)
+    with open(config_path) as f:
+        config_data = json.load(f)
+
+    return SimulationContext.create(input_data, config_data)
+
+
+def run_solver(input_path: str | Path, output_path: str | Path | None = None) -> str:
+    """Main Orchestrator with State-Anchored Elastic Stability."""
+    context = _load_simulation_context(input_path)
+    _configure_numerical_runtime(context)
+
+    # 1. VALIDATE INPUT
+    SCHEMA_PATH = BASE_DIR / "schema/solver_input_schema.json"
+    try:
+        with open(SCHEMA_PATH) as f:
+            schema = json.load(f)
+        jsonschema.validate(instance=context.input_data.to_dict(), schema=schema)
+    except jsonschema.exceptions.ValidationError as e:
+        logger.error(f"!!! CONTRACT VIOLATION: {e.message}")
+        raise
+
+    # 2. ASSEMBLY
+    state = orchestrate_step1(context)
+    state = orchestrate_step2(state)
+
+    # 3. STATE CONTRACT VALIDATION
+    try:
+        state.validate_against_schema(str(SCHEMA_PATH))
+    except jsonschema.exceptions.ValidationError as e:
+        path_str = ".".join([str(p) for p in e.path])
+        logger.error(f"!!! STATE CONTRACT VIOLATION at {path_str}: {e.message}")
+        raise
+
+    # 4. ELASTICITY ENGINE
+    elasticity = ElasticManager(context.config, state)
+
+    # 5. MAIN EXECUTION LOOP
+    while state.ready_for_time_loop:
+        state.capture_stable_state()
+
+        try:
+            for b in state.stencil_matrix:
+                b.dt = elasticity.dt
+
+            for block in state.stencil_matrix:
+                orchestrate_step3(
+                    block,
+                    context,
+                    state.grid,
+                    state.boundary_conditions,
+                    is_first_pass=True,
+                )
+
+            for _ in range(context.config.ppe_max_iter):
+                max_delta = 0.0
+                for block in state.stencil_matrix:
+                    _, delta = orchestrate_step3(
+                        block,
+                        context,
+                        state.grid,
+                        state.boundary_conditions,
+                        is_first_pass=False,
+                    )
+                    max_delta = max(max_delta, delta)
+
+                if max_delta < context.config.ppe_tolerance:
+                    break
+
+            elasticity.stabilization(is_needed=False)
+            state = orchestrate_step4(state, context)
+
+            if state.time >= context.input_data.simulation_parameters.total_time:
+                state.ready_for_time_loop = False
+
+        except ArithmeticError as e:
+            logger.error(f"Audit Failure: {e}")
+            state.rollback_to_stable_state()
+            logger.warning(
+                f"STABILITY TRIGGER: Physical anomaly at iteration {state.iteration}. Reducing dt..."
+            )
+            elasticity.stabilization(is_needed=True)
+
+        except (RuntimeError, TypeError, ValueError, AttributeError) as e:
+            logger.error(f"CRITICAL TERMINATION [{type(e).__name__}]: {e!s}")
+            raise
+
+    try:
+        if output_path is not None:
+            return archive_simulation_artifacts(state, output_path=str(output_path))
+        return archive_simulation_artifacts(state)
+    except TypeError:
+        return archive_simulation_artifacts(state)
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Navier–Stokes Solver Execution Engine"
+    )
+    parser.add_argument(
+        "positional_input",
+        nargs="?",
+        default=None,
+        help="Path to input JSON configuration file (positional argument)",
+    )
+    parser.add_argument(
+        "--input_output_folder",
+        type=str,
+        default=None,
+        help="Directory folder containing input/output artifacts",
+    )
+    parser.add_argument(
+        "--input_file_name",
+        type=str,
+        default=None,
+        help="File name of the input JSON configuration",
+    )
+    parser.add_argument(
+        "--output_file_name",
+        type=str,
+        default=None,
+        help="File name for the output archive zip",
+    )
+
+    args = parser.parse_args()
+
+    if args.input_output_folder and args.input_file_name:
+        input_path = Path(args.input_output_folder) / args.input_file_name
+    elif args.positional_input:
+        input_path = Path(args.positional_input)
+    else:
+        print(
+            "FATAL PIPELINE ERROR: Must provide either positional <input_json_path> OR both --input_output_folder and --input_file_name"
+        )
+        sys.exit(1)
+
+    if args.input_output_folder and args.output_file_name:
+        output_path = Path(args.input_output_folder) / args.output_file_name
+    elif args.output_file_name:
+        output_path = Path(args.output_file_name)
+    else:
+        output_path = None
+
+    try:
+        zip_path = run_solver(input_path=input_path, output_path=output_path)
+        print(f"Pipeline complete. Artifacts archived at: {zip_path}")
+        sys.exit(0)
+    except (
+        FileNotFoundError,
+        ValueError,
+        KeyError,
+        jsonschema.exceptions.ValidationError,
+        ArithmeticError,
+        OSError,
+        json.JSONDecodeError,
+        RuntimeError,
+        TypeError,
+        AttributeError,
+    ) as e:
+        print(f"FATAL PIPELINE ERROR: {e!s}", file=sys.stderr)
+        traceback.print_exc()
+        sys.exit(1)
+
+
+if __name__ == "__main__":  # pragma: no cover
+    main()========== END OF FILE: main.py ==========
+
+========== START OF FILE: step1/__init__.py ==========
+"""
+Step 1: Orchestration Layer
+This module serves as the primary entry point for the simulation assembly.
+Access is restricted to the orchestrator to maintain API Minimalism (Rule 8).
+"""
+
+from .orchestrate_step1 import orchestrate_step1
+
+# Explicitly export only the orchestrator to prevent 
+# leakage of internal implementation details.
+__all__ = ["orchestrate_step1"]
+========== END OF FILE: step1/__init__.py ==========
+
+========== START OF FILE: step1/orchestrate_step1.py ==========
+from __future__ import annotations
+
+import numpy as np
+
+from src.common.field_schema import FI
+from src.common.simulation_context import SimulationContext
+from src.common.solver_state import (
+    BoundaryCondition,
+    BoundaryConditionManager,
+    DomainManager,
+    ExternalForceManager,
+    FieldManager,
+    FluidPropertiesManager,
+    GridManager,
+    InitialConditionManager,
+    MaskManager,
+    PhysicalConstraintsManager,
+    SimulationParameterManager,
+    SolverState,
+)
+
+from .helpers import generate_3d_masks
+
+# Rule 7: Granular Traceability
+DEBUG = False
+
+def orchestrate_step1(context: SimulationContext) -> SolverState:
+    """
+    Direct Ingestion Orchestrator (Phase C Compliant).
+    Assembles the SolverState via strict container initialization and attribute assignment.
+    """
+    if DEBUG:
+        print("DEBUG [Step 1]: Starting State Assembly...")
+
+    input_data = context.input_data
+    state = SolverState()
+
+    # --- 1. Grid & Domain ---
+    state.grid = GridManager()
+    state.grid.x_min, state.grid.x_max = float(input_data.grid.x_min), float(input_data.grid.x_max)
+    state.grid.y_min, state.grid.y_max = float(input_data.grid.y_min), float(input_data.grid.y_max)
+    state.grid.z_min, state.grid.z_max = float(input_data.grid.z_min), float(input_data.grid.z_max)
+    state.grid.nx, state.grid.ny, state.grid.nz = int(input_data.grid.nx), int(input_data.grid.ny), int(input_data.grid.nz)
+
+    state.domain_configuration = DomainManager()
+    state.domain_configuration.type = str(input_data.domain_configuration.type)
+
+    # Rule 5: No-default policy. Assign only if explicitly provided in input.
+    if hasattr(input_data.domain_configuration, '_reference_velocity') and input_data.domain_configuration._reference_velocity is not None:
+        state.domain_configuration.reference_velocity = np.array(input_data.domain_configuration.reference_velocity, dtype=np.float64)
+
+    # --- 2. Physical Context ---
+    state.fluid_properties = FluidPropertiesManager()
+    state.fluid_properties.density, state.fluid_properties.viscosity = float(input_data.fluid_properties.density), float(input_data.fluid_properties.viscosity)
+
+    state.external_forces = ExternalForceManager()
+    state.external_forces.force_vector = np.array(input_data.external_forces.force_vector, dtype=np.float64)
+ 
+    # Mapping Physical Constraints
+    state.physical_constraints = PhysicalConstraintsManager()
+    state.physical_constraints.min_velocity = float(input_data.physical_constraints.min_velocity)
+    state.physical_constraints.max_velocity = float(input_data.physical_constraints.max_velocity)
+    state.physical_constraints.min_pressure = float(input_data.physical_constraints.min_pressure)
+    state.physical_constraints.max_pressure = float(input_data.physical_constraints.max_pressure)
+
+    # --- 3. Initial Conditions ---
+    state.initial_conditions = InitialConditionManager()
+    state.initial_conditions.velocity = np.array(input_data.initial_conditions.velocity, dtype=np.float64)
+    state.initial_conditions.pressure = float(input_data.initial_conditions.pressure)
+
+    # --- 4. Simulation Parameters ---
+    state.simulation_parameters = SimulationParameterManager()
+    state.simulation_parameters.time_step = float(input_data.simulation_parameters.time_step)
+    state.simulation_parameters.total_time = float(input_data.simulation_parameters.total_time)
+    state.simulation_parameters.output_interval = int(input_data.simulation_parameters.output_interval)
+
+    # --- 5. Topology & Foundation ---
+    mask_3d, _, _ = generate_3d_masks(input_data.mask.data, input_data.grid)
+    state.fields = FieldManager()
+    n_cells = (state.grid.nx + 2) * (state.grid.ny + 2) * (state.grid.nz + 2)
+    state.fields.allocate(n_cells)
+    padded_mask = np.pad(mask_3d, pad_width=1, mode="constant", constant_values=0)
+    state.fields.data[:, FI.MASK] = padded_mask.flatten()
+
+    state.mask = MaskManager()
+    state.mask.mask = mask_3d
+
+    # --- 6. Boundary Conditions ---
+    state.boundary_conditions = BoundaryConditionManager()
+
+    for item in input_data.boundary_conditions.items:
+        bc = BoundaryCondition()
+        bc.location = item.location
+        bc.type = item.type
+        bc.values = item.values
+
+        state.boundary_conditions.add_condition(bc)
+
+    if DEBUG:
+        print("DEBUG [Step 1]: State assembly complete.")
+        print(f"  > Foundation: {n_cells} cells allocated (Buffered) with {FI.num_fields()} fields.")
+
+    return state
+========== END OF FILE: step1/orchestrate_step1.py ==========
+
+========== START OF FILE: step1/helpers.py ==========
+import logging
+import numpy as np
+
+from src.common.solver_input import GridInput
+
+logger = logging.getLogger(__name__)
+
+# Rule 7: Granular Traceability
+DEBUG = False
+
+
+def generate_3d_masks(mask_data: list[int], grid: GridInput) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Transforms flat input into 3D topology arrays via SSoT vectorized NumPy operations.
+    
+    Compliance:
+    - Rule 4 (SSoT): Mapping logic derived from grid_math.py indexing order.
+    - Rule 5 (Deterministic): Strict boundary validation; no implicit resizing.
+    """
+    nx, ny, nz = int(grid.nx), int(grid.ny), int(grid.nz)
+    
+    # 1. Strict Size Integrity Check
+    # Ensure the input flat list perfectly matches the 3D grid volume.
+    expected_size = nx * ny * nz
+    if len(mask_data) != expected_size:
+        raise ValueError(f"Mask data size mismatch: Expected {expected_size} cells, got {len(mask_data)}")
+    
+    # 2. Vectorized mapping via Fortran-ordered reshape (eliminating Python scalar loop overhead)
+    mask_array = np.array(mask_data, dtype=np.int8)
+    mask_3d = mask_array.reshape((nx, ny, nz), order='F')
+
+    # 3. Logic-Layer: Identify fluid and boundary regions via vectorized masks
+    is_fluid = (mask_3d == 1)
+    is_boundary = (mask_3d == -1)
+    
+    if DEBUG:
+        logger.debug("DEBUG [Step 1.2]: Topology Verification (Mask Generated)")
+        logger.debug(f"  > Grid Dimensions: {nx}x{ny}x{nz}")
+        logger.debug(f"  > Fluid Volume: {np.sum(is_fluid)} cells")
+        
+    return mask_3d, is_fluid, is_boundary
+========== END OF FILE: step1/helpers.py ==========
+
+========== START OF FILE: step2/__init__.py ==========
+"""
+Step 2: Topology Assembly Layer
+This module manages the instantiation of the topological graph (StencilBlocks).
+Access is restricted to the orchestrator to maintain API Minimalism (Rule 8).
+"""
+
+from .orchestrate_step2 import orchestrate_step2
+
+# Rule 8: API Minimalism. 
+# Explicitly export only the orchestrator to prevent leakage of internal 
+# wiring logic (Cell/StencilBlock assembly) to higher-level application code.
+__all__ = ["orchestrate_step2"]
+========== END OF FILE: step2/__init__.py ==========
+
+========== START OF FILE: step2/orchestrate_step2.py ==========
+# src/step2/orchestrate_step2.py
+
+from src.common.solver_state import SolverState
+from src.step2.stencil_assembler import assemble_stencil_matrix
+
+# Rule 7: Granular Traceability
+DEBUG = False
+
+def orchestrate_step2(state: SolverState) -> SolverState:
+    """
+    Orchestrates the construction of the Stencil Matrix.
+    """
+    if DEBUG:
+        print("DEBUG [Step 2.0]: Orchestration Started")
+
+    # The registry is now encapsulated within the assembler, 
+    # ensuring a clean lifecycle for every simulation run.
+    state.stencil_matrix = assemble_stencil_matrix(state)
+    
+    state.ready_for_time_loop = True
+    
+    if DEBUG:
+        print("DEBUG [Step 2.0]: Orchestration Finalized.")
+    
+    return state========== END OF FILE: step2/orchestrate_step2.py ==========
+
+========== START OF FILE: step3/__init__.py ==========
+# src/step3/__init__.py
+
+"""
+Step 3: Projection Method Package.
+
+This package implements the Projection Method for incompressible flow.
+Compliance:
+- Rule 8 (API Minimalism): Only the orchestrator is exposed.
+- Rule 4 (SSoT): Internal modules are isolated to prevent redundant data access paths.
+"""
+
+from src.step3.orchestrate_step3 import orchestrate_step3
+
+# We expose ONLY the orchestrator. The compiled C++ extension kernels 
+# (corrector, ppe_solver, predictor) are kept internal to the backend module 
+# to enforce the API Minimalism mandate and prevent direct attribute access bypasses.
+__all__ = ["orchestrate_step3"]
+========== END OF FILE: step3/__init__.py ==========
+
