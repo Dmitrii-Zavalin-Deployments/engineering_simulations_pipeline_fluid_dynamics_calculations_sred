@@ -4,20 +4,16 @@
  */
 
 #include "laplacian.hpp"
+#include "grid_math.hpp"
 #include <cmath>
 #include <stdexcept>
 #include <iostream>
 
 #ifdef _OPENMP
 #include <omp.h>
-#include "grid_math.hpp"
 #endif
 
 namespace navier_stokes_solver {
-
-// Local 3D row-major indexing helper
-
-
 
 void compute_laplacian(
     const double* field, double* lap_out,
@@ -40,15 +36,15 @@ void compute_laplacian(
     for (int i = 1; i < Nx - 1; ++i) {
         for (int j = 1; j < Ny - 1; ++j) {
             for (int k = 1; k < Nz - 1; ++k) {
-                size_t c = lap_idx(i, j, k, Ny, Nz);
+                size_t c = get_flat_index(i, j, k, Nx, Ny);
 
                 double f_c  = field[c];
-                double f_ip = field[lap_idx(i+1, j, k, Ny, Nz)];
-                double f_im = field[lap_idx(i-1, j, k, Ny, Nz)];
-                double f_jp = field[lap_idx(i, j+1, k, Ny, Nz)];
-                double f_jm = field[lap_idx(i, j-1, k, Ny, Nz)];
-                double f_kp = field[lap_idx(i, j, k+1, Ny, Nz)];
-                double f_km = field[lap_idx(i, j, k-1, Ny, Nz)];
+                double f_ip = field[get_flat_index(i+1, j, k, Nx, Ny)];
+                double f_im = field[get_flat_index(i-1, j, k, Nx, Ny)];
+                double f_jp = field[get_flat_index(i, j+1, k, Nx, Ny)];
+                double f_jm = field[get_flat_index(i, j-1, k, Nx, Ny)];
+                double f_kp = field[get_flat_index(i, j, k+1, Nx, Ny)];
+                double f_km = field[get_flat_index(i, j, k-1, Nx, Ny)];
 
                 double term_x = (f_ip - 2.0 * f_c + f_im) / dx2;
                 double term_y = (f_jp - 2.0 * f_c + f_jm) / dy2;

@@ -1,5 +1,5 @@
 /**
- * @file pybind_wrapper.cpp
+ * @file bindings.cpp
  * @brief Pybind11 Python bindings for the 3D Navier-Stokes C++ Orchestrator.
  */
 
@@ -10,6 +10,7 @@
 #include <memory>
 #include "orchestrator.hpp"
 #include "grid_math.hpp"
+
 using namespace navier_stokes_solver;
 
 namespace py = pybind11;

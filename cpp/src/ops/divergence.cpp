@@ -4,20 +4,16 @@
  */
 
 #include "divergence.hpp"
+#include "grid_math.hpp"
 #include <cmath>
 #include <stdexcept>
 #include <iostream>
 
 #ifdef _OPENMP
 #include <omp.h>
-#include "grid_math.hpp"
 #endif
 
 namespace navier_stokes_solver {
-
-// Local 3D row-major indexing helper
-
-
 
 void compute_divergence(
     const double* u_star, const double* v_star, const double* w_star,
@@ -35,12 +31,12 @@ void compute_divergence(
     for (int i = 1; i < Nx - 1; ++i) {
         for (int j = 1; j < Ny - 1; ++j) {
             for (int k = 1; k < Nz - 1; ++k) {
-                size_t c = div_idx(i, j, k, Ny, Nz);
+                size_t c = get_flat_index(i, j, k, Nx, Ny);
 
                 // 1. Central difference components: ∂u*/∂x, ∂v*/∂y, ∂w*/∂z
-                double div_x = (u_star[div_idx(i+1, j, k, Ny, Nz)] - u_star[div_idx(i-1, j, k, Ny, Nz)]) / (2.0 * dx);
-                double div_y = (v_star[div_idx(i, j+1, k, Ny, Nz)] - v_star[div_idx(i, j-1, k, Ny, Nz)]) / (2.0 * dy);
-                double div_z = (w_star[div_idx(i, j, k+1, Ny, Nz)] - w_star[div_idx(i, j, k-1, Ny, Nz)]) / (2.0 * dz);
+                double div_x = (u_star[get_flat_index(i+1, j, k, Nx, Ny)] - u_star[get_flat_index(i-1, j, k, Nx, Ny)]) / (2.0 * dx);
+                double div_y = (v_star[get_flat_index(i, j+1, k, Nx, Ny)] - v_star[get_flat_index(i, j-1, k, Nx, Ny)]) / (2.0 * dy);
+                double div_z = (w_star[get_flat_index(i, j, k+1, Nx, Ny)] - w_star[get_flat_index(i, j, k-1, Nx, Ny)]) / (2.0 * dz);
 
                 double divergence_val = div_x + div_y + div_z;
 

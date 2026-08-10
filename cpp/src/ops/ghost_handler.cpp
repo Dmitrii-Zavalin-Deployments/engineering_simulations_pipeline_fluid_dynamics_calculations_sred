@@ -7,6 +7,10 @@
 #include <iostream>
 #include <stdexcept>
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
 namespace navier_stokes_solver {
 
 void sync_ghost_trial_buffers(

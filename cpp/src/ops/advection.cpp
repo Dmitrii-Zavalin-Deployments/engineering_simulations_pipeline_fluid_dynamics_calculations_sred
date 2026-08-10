@@ -4,20 +4,16 @@
  */
 
 #include "advection.hpp"
+#include "grid_math.hpp"
 #include <cmath>
 #include <stdexcept>
 #include <iostream>
 
 #ifdef _OPENMP
 #include <omp.h>
-#include "grid_math.hpp"
 #endif
 
 namespace navier_stokes_solver {
-
-// Local 3D row-major indexing helper
-
-
 
 void compute_advection(
     const double* u, const double* v, const double* w,
@@ -31,12 +27,12 @@ void compute_advection(
     for (int i = 1; i < Nx - 1; ++i) {
         for (int j = 1; j < Ny - 1; ++j) {
             for (int k = 1; k < Nz - 1; ++k) {
-                size_t c = advect_idx(i, j, k, Ny, Nz);
+                size_t c = get_flat_index(i, j, k, Nx, Ny);
 
                 // 1. Compute spatial derivatives (Central Differencing)
-                double df_dx = (field[advect_idx(i+1, j, k, Ny, Nz)] - field[advect_idx(i-1, j, k, Ny, Nz)]) / (2.0 * dx);
-                double df_dy = (field[advect_idx(i, j+1, k, Ny, Nz)] - field[advect_idx(i, j-1, k, Ny, Nz)]) / (2.0 * dy);
-                double df_dz = (field[advect_idx(i, j, k+1, Ny, Nz)] - field[advect_idx(i, j, k-1, Ny, Nz)]) / (2.0 * dz);
+                double df_dx = (field[get_flat_index(i+1, j, k, Nx, Ny)] - field[get_flat_index(i-1, j, k, Nx, Ny)]) / (2.0 * dx);
+                double df_dy = (field[get_flat_index(i, j+1, k, Nx, Ny)] - field[get_flat_index(i, j-1, k, Nx, Ny)]) / (2.0 * dy);
+                double df_dz = (field[get_flat_index(i, j, k+1, Nx, Ny)] - field[get_flat_index(i, j, k-1, Nx, Ny)]) / (2.0 * dz);
 
                 // 2. Fetch cell-centered velocities
                 double u_c = u[c];
