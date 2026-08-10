@@ -12,6 +12,7 @@
 #include <vector>
 #include <stdexcept>
 #include "predictor.hpp"
+#include "grid_math.hpp"
 
 namespace navier_stokes_solver {
 

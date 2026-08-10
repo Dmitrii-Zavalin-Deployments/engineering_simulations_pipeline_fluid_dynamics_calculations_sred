@@ -14,6 +14,7 @@
 #include <string>
 #include "pressure_poisson_solver.hpp"
 #include "orchestrator.hpp"
+#include "grid_math.hpp"
 
 using namespace navier_stokes_solver;
 

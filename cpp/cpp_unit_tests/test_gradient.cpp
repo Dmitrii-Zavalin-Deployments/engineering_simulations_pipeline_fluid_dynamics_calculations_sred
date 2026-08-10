@@ -12,6 +12,7 @@
 #include <cmath>
 #include <stdexcept>
 #include "gradient.hpp"
+#include "grid_math.hpp"
 
 using namespace navier_stokes_solver;
 

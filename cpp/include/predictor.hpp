@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <vector>
+#include "grid_math.hpp"
 
 namespace navier_stokes_solver {
 

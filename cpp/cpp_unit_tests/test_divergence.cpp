@@ -12,6 +12,7 @@
 #include <cmath>
 #include <stdexcept>
 #include "divergence.hpp"
+#include "grid_math.hpp"
 
 using namespace navier_stokes_solver;
 

@@ -4,6 +4,7 @@
 #include <vector>
 #include <string>
 #include "orchestrator.hpp"
+#include "grid_math.hpp"
 
 namespace navier_stokes_solver {
 

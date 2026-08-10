@@ -3,6 +3,8 @@
 
 #include <vector>
 
+namespace navier_stokes_solver {
+
 /**
  * @brief Executes the Corrector Step of Chorin's Projection Method in parallel.
  * Projects tentative trial velocities onto a divergence-free vector field.
@@ -37,5 +39,7 @@ void solve_corrector_parallel(
     double dx, double dy, double dz,
     double dt, double rho
 );
+
+} // namespace navier_stokes_solver
 
 #endif // CORRECTOR_HPP

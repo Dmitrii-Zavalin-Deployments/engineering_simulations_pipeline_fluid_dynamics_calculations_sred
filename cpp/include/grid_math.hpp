@@ -2,6 +2,7 @@
 #define GRID_MATH_HPP
 
 #include <tuple>
+#include "grid_math.hpp"
 
 namespace navier_stokes_solver {
 

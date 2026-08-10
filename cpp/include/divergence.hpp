@@ -2,6 +2,7 @@
 #define DIVERGENCE_HPP
 
 #include "base_operator.hpp"
+#include "grid_math.hpp"
 
 namespace navier_stokes_solver {
 

@@ -7,6 +7,7 @@
 #include <vector>
 #include <cmath>
 #include "predictor.hpp"
+#include "grid_math.hpp"
 
 namespace navier_stokes_solver {
 

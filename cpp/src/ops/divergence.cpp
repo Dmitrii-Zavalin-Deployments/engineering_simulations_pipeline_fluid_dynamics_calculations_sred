@@ -10,14 +10,13 @@
 
 #ifdef _OPENMP
 #include <omp.h>
+#include "grid_math.hpp"
 #endif
 
 namespace navier_stokes_solver {
 
 // Local 3D row-major indexing helper
-inline size_t div_idx(int i, int j, int k, int Ny, int Nz) {
-    return static_cast<size_t>(i) * (Ny * Nz) + static_cast<size_t>(j) * Nz + k;
-}
+
 
 
 void compute_divergence(

@@ -6,8 +6,8 @@
 namespace navier_stokes_solver {
 
 /**
- * Computes the 3D advection term: (v ⋅ ∇) * field
- * using central differencing and forensic finite-number auditing.
+ * @brief Computes the 3D advection term: (v ⋅ ∇) * field
+ *        using central differencing and forensic finite-number auditing.
  */
 void compute_advection(
     const double* u, const double* v, const double* w,
