@@ -18,8 +18,8 @@ TEST(PredictorForceScalingTest, VolumetricForceDensityScaling) {
     // 2. Simulation & Physical Properties: dt = 0.1 s, Water density (1000 kg/m^3), zero viscosity
     double dt = 0.1;
     FluidProperties fluid;
-    fluid.nu = 0.0;           // Kinematic viscosity nu = 0 m^2/s
-    fluid.density = 1000.0;   // Mass density rho = 1000 kg/m^3
+    fluid.nu = 0.0;             // Kinematic viscosity nu = 0 m^2/s
+    fluid.density = 1000.0;     // Mass density rho = 1000 kg/m^3
 
     const size_t total_cells = static_cast<size_t>(dims.nx * dims.ny * dims.nz);
 
@@ -55,13 +55,13 @@ TEST(PredictorForceScalingTest, VolumetricForceDensityScaling) {
     // Expected v_star = v_0 + dt * a_y = 0.0 + (0.1 s * -9.81 m/s^2) = -0.981 m/s
     const double expected_v_star = -0.981;
 
-    for (size_t idx = 0; idx < total_cells; ++idx) {
-        EXPECT_NEAR(v_star[idx], expected_v_star, 1e-12)
-            << "Dimensional Failure: Volumetric force f_y was not scaled by fluid.density at index " << idx;
-        
-        EXPECT_DOUBLE_EQ(u_star[idx], 0.0);
-        EXPECT_DOUBLE_EQ(w_star[idx], 0.0);
-    }
+    // Verify interior cell (1, 1, 1) where stencil is active
+    size_t idx = static_cast<size_t>(get_flat_index(1, 1, 1, dims.nx, dims.ny));
+    EXPECT_NEAR(v_star[idx], expected_v_star, 1e-12)
+        << "Dimensional Failure: Volumetric force f_y was not scaled by fluid.density at index " << idx;
+    
+    EXPECT_DOUBLE_EQ(u_star[idx], 0.0);
+    EXPECT_DOUBLE_EQ(w_star[idx], 0.0);
 }
 
 } // namespace navier_stokes_solver

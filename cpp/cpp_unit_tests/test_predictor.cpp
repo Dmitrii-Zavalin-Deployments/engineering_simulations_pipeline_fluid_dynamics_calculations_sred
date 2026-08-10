@@ -10,6 +10,7 @@
 #include <gtest/gtest.h>
 #include <cmath>
 #include <vector>
+#include <limits>
 #include <stdexcept>
 #include "predictor.hpp"
 #include "grid_math.hpp"
@@ -154,17 +155,17 @@ TEST(PredictorTest, InvalidGeometryAndPhysicsParametersThrowErrors) {
 // NARRATIVE SECTION 2: Deterministic Baseline Verification (Uniform Flow)
 // ============================================================================
 // In a perfectly uniform flow field where velocity components are constant everywhere 
-// (e.g., $u = 2.0$, $v = 1.0$, $w = 0.5$), spatial gradients (advection and Laplacian) 
+// (e.g., u = 2.0, v = 1.0, w = 0.5), spatial gradients (advection and Laplacian) 
 // must evaluate precisely to zero:
-//      $\nabla u = 0, \quad \nabla^2 u = 0$
+//      \nabla u = 0, \quad \nabla^2 u = 0
 // Therefore, the explicit Forward-Euler trial velocity update simplifies directly to:
-//      $u^* = u^n + \Delta t \cdot \frac{f_x}{\rho}$
+//      u^* = u^n + \Delta t \cdot \frac{f_x}{\rho}
 // ============================================================================
 
 TEST(PredictorTest, UniformFlowExactEulerUpdate) {
-    size_t nx = 5, ny = 5, nz = 5;
-    size_t total_cells = nx * ny * nz;
-    GridDimensions dims = {static_cast<int>(nx), static_cast<int>(ny), static_cast<int>(nz), 1.0, 1.0, 1.0};
+    int nx = 5, ny = 5, nz = 5;
+    size_t total_cells = static_cast<size_t>(nx) * ny * nz;
+    GridDimensions dims = {nx, ny, nz, 1.0, 1.0, 1.0};
     FluidProperties fluid = {0.01, 1000.0};
     double dt = 0.1;
 
@@ -193,12 +194,10 @@ TEST(PredictorTest, UniformFlowExactEulerUpdate) {
     );
 
     // Check interior cells (since boundary cells are skipped by mask/stencil constraints)
-    size_t ny_nz = ny * nz;
-    size_t nz_val = nz;
-    for (size_t i = 1; i < nx - 1; ++i) {
-        for (size_t j = 1; j < ny - 1; ++j) {
-            for (size_t k = 1; k < nz - 1; ++k) {
-                size_t idx = i * ny_nz + j * nz_val + k;
+    for (int i = 1; i < nx - 1; ++i) {
+        for (int j = 1; j < ny - 1; ++j) {
+            for (int k = 1; k < nz - 1; ++k) {
+                size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
 
                 // Expected calculation accounting for density scaling (rho = 1000.0):
                 // u_star = u + dt * (fx / rho) = 2.0 + 0.1 * (0.5 / 1000.0) = 2.00005
@@ -217,16 +216,16 @@ TEST(PredictorTest, UniformFlowExactEulerUpdate) {
 // ============================================================================
 // To ensure OpenMP multi-threading executes correctly without data corruption, 
 // race conditions, or incorrect chunk distribution, we test a large grid domain 
-// ($15 \times 15 \times 15 = 3375$ cells), which strictly exceeds our threshold 
-// of $1000$ cells to trigger parallel thread execution. We verify that all interior 
+// (15 x 15 x 15 = 3375 cells), which strictly exceeds our threshold 
+// of 1000 cells to trigger parallel thread execution. We verify that all interior 
 // cells compute correct deterministic values and remain completely free of NaN/Inf anomalies.
 // ============================================================================
 
 TEST(PredictorTest, MultiThreadingParallelExecutionCorrectness) {
     // Grid size 15x15x15 = 3375 cells (> 1000 threshold, activating OpenMP parallel region)
-    size_t nx = 15, ny = 15, nz = 15;
-    size_t total_cells = nx * ny * nz;
-    GridDimensions dims = {static_cast<int>(nx), static_cast<int>(ny), static_cast<int>(nz), 0.5, 0.5, 0.5};
+    int nx = 15, ny = 15, nz = 15;
+    size_t total_cells = static_cast<size_t>(nx) * ny * nz;
+    GridDimensions dims = {nx, ny, nz, 0.5, 0.5, 0.5};
     FluidProperties fluid = {0.02, 1000.0};
     double dt = 0.05;
 
@@ -255,12 +254,10 @@ TEST(PredictorTest, MultiThreadingParallelExecutionCorrectness) {
     );
 
     // Verify that every interior cell was processed correctly in parallel
-    size_t ny_nz = ny * nz;
-    size_t nz_val = nz;
-    for (size_t i = 1; i < nx - 1; ++i) {
-        for (size_t j = 1; j < ny - 1; ++j) {
-            for (size_t k = 1; k < nz - 1; ++k) {
-                size_t idx = i * ny_nz + j * nz_val + k;
+    for (int i = 1; i < nx - 1; ++i) {
+        for (int j = 1; j < ny - 1; ++j) {
+            for (int k = 1; k < nz - 1; ++k) {
+                size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
 
                 // With uniform flow, advection and Laplacian are zero. 
                 // Expected u_star = 1.5 + dt * (fx / rho) = 1.5 + 0.05 * (0.1 / 1000.0) = 1.500005
@@ -283,9 +280,9 @@ TEST(PredictorTest, MultiThreadingParallelExecutionCorrectness) {
 // ============================================================================
 
 TEST(PredictorTest, NonFiniteVelocityThrowsRuntimeError) {
-    size_t nx = 5, ny = 5, nz = 5;
-    size_t total_cells = nx * ny * nz;
-    GridDimensions dims = {static_cast<int>(nx), static_cast<int>(ny), static_cast<int>(nz), 0.1, 0.1, 0.1};
+    int nx = 5, ny = 5, nz = 5;
+    size_t total_cells = static_cast<size_t>(nx) * ny * nz;
+    GridDimensions dims = {nx, ny, nz, 0.1, 0.1, 0.1};
     FluidProperties fluid = {0.01, 1000.0};
     double dt = 0.1;
 
@@ -295,10 +292,8 @@ TEST(PredictorTest, NonFiniteVelocityThrowsRuntimeError) {
     
     // Inject a NaN into an interior cell force component to trigger non-finite detection
     std::vector<double> fx(total_cells, 1.0);
-    size_t ny_nz = ny * nz;
-    size_t nz_val = nz;
-    size_t target_idx = 2 * ny_nz + 2 * nz_val + 2; // interior cell (2,2,2)
-    fx[target_idx] = NAN;
+    size_t target_idx = static_cast<size_t>(get_flat_index(2, 2, 2, nx, ny)); // interior cell (2,2,2)
+    fx[target_idx] = std::numeric_limits<double>::quiet_NaN();
 
     std::vector<double> fy(total_cells, 0.0);
     std::vector<double> fz(total_cells, 0.0);
@@ -329,9 +324,9 @@ TEST(PredictorTest, NonFiniteVelocityThrowsRuntimeError) {
 // ============================================================================
 
 TEST(PredictorTest, MaskProtectsNonFluidCellsFromModification) {
-    size_t nx = 5, ny = 5, nz = 5;
-    size_t total_cells = nx * ny * nz;
-    GridDimensions dims = {static_cast<int>(nx), static_cast<int>(ny), static_cast<int>(nz), 1.0, 1.0, 1.0};
+    int nx = 5, ny = 5, nz = 5;
+    size_t total_cells = static_cast<size_t>(nx) * ny * nz;
+    GridDimensions dims = {nx, ny, nz, 1.0, 1.0, 1.0};
     FluidProperties fluid = {0.01, 1000.0};
     double dt = 0.1;
 
@@ -348,10 +343,8 @@ TEST(PredictorTest, MaskProtectsNonFluidCellsFromModification) {
     // as solid walls (0) and Dirichlet boundaries (-1).
     std::vector<int> mask(total_cells, 1);
 
-    size_t ny_nz = ny * nz;
-    size_t nz_val = nz;
-    size_t solid_idx = 2 * ny_nz + 2 * nz_val + 2;     // cell (2,2,2)
-    size_t dirichlet_idx = 1 * ny_nz + 1 * nz_val + 1;  // cell (1,1,1)
+    size_t solid_idx = static_cast<size_t>(get_flat_index(2, 2, 2, nx, ny));     // cell (2,2,2)
+    size_t dirichlet_idx = static_cast<size_t>(get_flat_index(1, 1, 1, nx, ny));  // cell (1,1,1)
 
     mask[solid_idx] = 0;      // Solid state
     mask[dirichlet_idx] = -1; // Dirichlet boundary state

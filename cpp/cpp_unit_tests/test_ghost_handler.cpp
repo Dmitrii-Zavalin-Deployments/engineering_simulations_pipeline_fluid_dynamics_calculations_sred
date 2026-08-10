@@ -28,10 +28,10 @@ protected:
  * Test Case 1: Valid Buffer Synchronization & Copy Exactness
  * 
  * We populate baseline velocity and pressure fields with known numerical values:
- *     u[i] = 1.0 * i
- *     v[i] = 2.0 * i
- *     w[i] = 3.0 * i
- *     p[i] = 4.0 * i
+ *      u[i] = 1.0 * i
+ *      v[i] = 2.0 * i
+ *      w[i] = 3.0 * i
+ *      p[i] = 4.0 * i
  * 
  * When we execute sync_ghost_trial_buffers, the trial buffers (u_star, v_star, 
  * w_star, p_next) must receive exact values matching the baseline.
@@ -75,9 +75,9 @@ TEST_F(GhostHandlerTest, ValidBufferSynchronization) {
  * Test Case 2: Null Pointer Foundation Integrity Guard
  * 
  * If any foundation pointer (baseline or trial buffer) is passed as a null 
- * pointer, the integrity guard must intercept it and throw a std::runtime_error.
+ * pointer, the integrity guard must intercept it and throw a std::invalid_argument.
  */
-TEST_F(GhostHandlerTest, NullPointerThrowsRuntimeError) {
+TEST_F(GhostHandlerTest, NullPointerThrowsInvalidArgument) {
     std::vector<double> valid_buf(total_cells, 1.0);
 
     // Supplying a null pointer for baseline u should trigger a contract violation.
@@ -87,7 +87,7 @@ TEST_F(GhostHandlerTest, NullPointerThrowsRuntimeError) {
             valid_buf.data(), valid_buf.data(), valid_buf.data(), valid_buf.data(),
             total_cells
         );
-    }, std::runtime_error);
+    }, std::invalid_argument);
 
     // Supplying a null pointer for trial buffer u_star should trigger a contract violation.
     EXPECT_THROW({
@@ -96,5 +96,5 @@ TEST_F(GhostHandlerTest, NullPointerThrowsRuntimeError) {
             nullptr, valid_buf.data(), valid_buf.data(), valid_buf.data(),
             total_cells
         );
-    }, std::runtime_error);
+    }, std::invalid_argument);
 }

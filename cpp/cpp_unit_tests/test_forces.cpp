@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 #include <cmath>
 #include <vector>
+#include <limits>
 #include "forces.hpp"
 
 using namespace navier_stokes_solver;
@@ -25,7 +26,7 @@ using namespace navier_stokes_solver;
 // Test Case: Valid standard 3D force vector extraction
 TEST(ForcesTest, ValidForceVectorExtraction) {
     // We define a standard 3-component body force vector (e.g., gravity and acceleration):
-    //     Fx = 0.0, Fy = -9.81, Fz = 1.25
+    //      Fx = 0.0, Fy = -9.81, Fz = 1.25
     std::vector<double> valid_forces = {0.0, -9.81, 1.25};
 
     // We validate and extract the force components into a fixed array.
@@ -56,13 +57,13 @@ TEST(ForcesTest, InvalidVectorSizeThrows) {
 TEST(ForcesTest, NonFiniteValuesThrow) {
     // If a NaN (Not a Number) enters the force vector due to a math breakdown, 
     // the forensic auditor must intercept it immediately:
-    double nan_val = std::nan("");
+    double nan_val = std::numeric_limits<double>::quiet_NaN();
     std::vector<double> corrupted_forces = {0.0, nan_val, 9.81};
 
     // We expect a runtime error to be thrown:
     EXPECT_THROW(validate_and_get_forces(corrupted_forces), std::runtime_error);
 
     // Testing with infinite values as well:
-    std::vector<double> infinite_forces = {INFINITY, 0.0, 0.0};
+    std::vector<double> infinite_forces = {std::numeric_limits<double>::infinity(), 0.0, 0.0};
     EXPECT_THROW(validate_and_get_forces(infinite_forces), std::runtime_error);
 }

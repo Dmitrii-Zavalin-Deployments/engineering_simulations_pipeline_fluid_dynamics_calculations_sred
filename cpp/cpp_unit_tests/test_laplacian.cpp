@@ -10,6 +10,7 @@
 #include <gtest/gtest.h>
 #include <vector>
 #include <cmath>
+#include <limits>
 #include <stdexcept>
 #include "laplacian.hpp"
 #include "grid_math.hpp"
@@ -36,16 +37,16 @@ protected:
  * Test Case 1: Analytical Quadratic Field Laplacian Exactness
  * 
  * We construct a scalar field following a quadratic distribution:
- *     f(x, y, z) = 1.0 * x² - 2.0 * y² + 3.0 * z²
+ *      f(x, y, z) = 1.0 * x² - 2.0 * y² + 3.0 * z²
  * 
  * Using second-order central differences for the 7-point Laplacian stencil, 
  * the second partial derivatives are constant across the interior domain:
- *     ∂²f/∂x² = 2.0
- *     ∂²f/∂y² = -4.0
- *     ∂²f/∂z² = 6.0
+ *      ∂²f/∂x² = 2.0
+ *      ∂²f/∂y² = -4.0
+ *      ∂²f/∂z² = 6.0
  * 
  * The total discrete Laplacian is their sum:
- *     ∇²f = ∂²f/∂x² + ∂²f/∂y² + ∂²f/∂z² = 2.0 + (-4.0) + 6.0 = 4.0
+ *      ∇²f = ∂²f/∂x² + ∂²f/∂y² + ∂²f/∂z² = 2.0 + (-4.0) + 6.0 = 4.0
  */
 TEST_F(LaplacianTest, QuadraticFieldExactLaplacian) {
     size_t total_size = static_cast<size_t>(Nx) * Ny * Nz;
@@ -59,7 +60,7 @@ TEST_F(LaplacianTest, QuadraticFieldExactLaplacian) {
             double y = j * dy;
             for (int k = 0; k < Nz; ++k) {
                 double z = k * dz;
-                size_t idx = static_cast<size_t>(i) * (Ny * Nz) + static_cast<size_t>(j) * Nz + k;
+                size_t idx = static_cast<size_t>(get_flat_index(i, j, k, Nx, Ny));
                 field[idx] = 1.0 * (x * x) - 2.0 * (y * y) + 3.0 * (z * z);
             }
         }
@@ -72,7 +73,7 @@ TEST_F(LaplacianTest, QuadraticFieldExactLaplacian) {
     for (int i = 1; i < Nx - 1; ++i) {
         for (int j = 1; j < Ny - 1; ++j) {
             for (int k = 1; k < Nz - 1; ++k) {
-                size_t idx = static_cast<size_t>(i) * (Ny * Nz) + static_cast<size_t>(j) * Nz + k;
+                size_t idx = static_cast<size_t>(get_flat_index(i, j, k, Nx, Ny));
                 EXPECT_NEAR(lap_out[idx], 4.0, 1e-9);
             }
         }
@@ -88,7 +89,7 @@ TEST_F(LaplacianTest, QuadraticFieldExactLaplacian) {
  * execution threshold of 1000 cells, activating the OpenMP parallel loops across multiple CPU cores.
  * 
  * Using the same quadratic analytical field:
- *     f(x, y, z) = 1.0 * x² - 2.0 * y² + 3.0 * z²
+ *      f(x, y, z) = 1.0 * x² - 2.0 * y² + 3.0 * z²
  * 
  * The computed parallel result across all threads must identically match 
  * the exact analytical constant sum of 4.0.
@@ -109,7 +110,7 @@ TEST_F(LaplacianTest, MultiThreadingParallelExecutionCorrectness) {
             double y = j * dy;
             for (int k = 0; k < large_Nz; ++k) {
                 double z = k * dz;
-                size_t idx = static_cast<size_t>(i) * (large_Ny * large_Nz) + static_cast<size_t>(j) * large_Nz + k;
+                size_t idx = static_cast<size_t>(get_flat_index(i, j, k, large_Nx, large_Ny));
                 field[idx] = 1.0 * (x * x) - 2.0 * (y * y) + 3.0 * (z * z);
             }
         }
@@ -124,7 +125,7 @@ TEST_F(LaplacianTest, MultiThreadingParallelExecutionCorrectness) {
     for (int i = 1; i < large_Nx - 1; ++i) {
         for (int j = 1; j < large_Ny - 1; ++j) {
             for (int k = 1; k < large_Nz - 1; ++k) {
-                size_t idx = static_cast<size_t>(i) * (large_Ny * large_Nz) + static_cast<size_t>(j) * large_Nz + k;
+                size_t idx = static_cast<size_t>(get_flat_index(i, j, k, large_Nx, large_Ny));
                 EXPECT_NEAR(lap_out[idx], 4.0, 1e-9);
                 EXPECT_TRUE(std::isfinite(lap_out[idx]));
             }
@@ -139,8 +140,9 @@ TEST_F(LaplacianTest, MultiThreadingParallelExecutionCorrectness) {
  * space configuration and must trigger an invalid_argument exception.
  */
 TEST_F(LaplacianTest, InvalidGridSpacingThrows) {
-    std::vector<double> field(Nx * Ny * Nz, 1.0);
-    std::vector<double> lap_out(Nx * Ny * Nz, 0.0);
+    size_t total_size = static_cast<size_t>(Nx) * Ny * Nz;
+    std::vector<double> field(total_size, 1.0);
+    std::vector<double> lap_out(total_size, 0.0);
 
     // Supplying a negative grid spacing increment should invoke the geometry guard.
     EXPECT_THROW({
@@ -155,12 +157,13 @@ TEST_F(LaplacianTest, InvalidGridSpacingThrows) {
  * field, the numerical audit mechanism must intercept it and throw a runtime_error safely across thread boundaries.
  */
 TEST_F(LaplacianTest, NonFiniteFieldThrows) {
-    std::vector<double> field(Nx * Ny * Nz, 1.0);
-    std::vector<double> lap_out(Nx * Ny * Nz, 0.0);
+    size_t total_size = static_cast<size_t>(Nx) * Ny * Nz;
+    std::vector<double> field(total_size, 1.0);
+    std::vector<double> lap_out(total_size, 0.0);
 
     // We inject an infinity into a target cell.
-    size_t target_idx = static_cast<size_t>(2) * (Ny * Nz) + static_cast<size_t>(2) * Nz + 2;
-    field[target_idx] = __builtin_inf();
+    size_t target_idx = static_cast<size_t>(get_flat_index(2, 2, 2, Nx, Ny));
+    field[target_idx] = std::numeric_limits<double>::infinity();
 
     // The forensic numeric checker should catch the resulting non-finite Laplacian value.
     EXPECT_THROW({

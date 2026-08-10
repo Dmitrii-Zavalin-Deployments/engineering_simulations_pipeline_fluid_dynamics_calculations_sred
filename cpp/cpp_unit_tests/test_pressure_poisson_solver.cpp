@@ -24,14 +24,14 @@ using namespace navier_stokes_solver;
 // Neumann boundary conditions impose a zero-gradient constraint normal to the 
 // boundary surfaces ($\frac{\partial p}{\partial n} = 0$). Numerically, this sets 
 // the boundary cell pressure equal to the adjacent interior cell pressure:
-//      $p_{\text{boundary}} = p_{\text{interior}}$
+//       $p_{\text{boundary}} = p_{\text{interior}}$
 // Here we verify all directional variants ("x_min", "x_max", "y_min", "y_max", 
 // "z_min", "z_max") as well as the composite "wall" boundary type.
 // ============================================================================
 
 TEST(PressurePoissonTest, ApplyNeumannPressureDirections) {
     int nx = 5, ny = 5, nz = 5;
-    size_t total_cells = nx * ny * nz;
+    size_t total_cells = static_cast<size_t>(nx) * ny * nz;
 
     // Test x_min boundary
     {
@@ -114,12 +114,12 @@ TEST(PressurePoissonTest, ApplyNeumannPressureDirections) {
 // For immersed boundaries or internal solid regions where the mask value is 0,
 // the pressure is interpolated from the 6 orthogonal neighbor cells to ensure 
 // smoothness and satisfy discrete Neumann equilibrium:
-//      $p_{i,j,k} = \frac{p_{i+1,j,k} + p_{i-1,j,k} + p_{i,j+1,k} + p_{i,j-1,k} + p_{i,j,k+1} + p_{i,j,k-1}}{6}$
+//       $p_{i,j,k} = \frac{p_{i+1,j,k} + p_{i-1,j,k} + p_{i,j+1,k} + p_{i,j-1,k} + p_{i,j,k+1} + p_{i,j,k-1}}{6}$
 // ============================================================================
 
 TEST(PressurePoissonTest, SolidNeumannPressureAveraging) {
     int nx = 5, ny = 5, nz = 5;
-    size_t total_cells = nx * ny * nz;
+    size_t total_cells = static_cast<size_t>(nx) * ny * nz;
 
     std::vector<double> p(total_cells, 0.0);
     std::vector<int> mask(total_cells, 1); // 1 = fluid
@@ -153,7 +153,7 @@ TEST(PressurePoissonTest, SolidNeumannPressureAveraging) {
 
 TEST(PressurePoissonTest, RedBlackPoissonSolverExecution) {
     int nx = 5, ny = 5, nz = 5;
-    size_t total_cells = nx * ny * nz;
+    size_t total_cells = static_cast<size_t>(nx) * ny * nz;
 
     std::vector<double> p(total_cells, 0.0);
     std::vector<double> rhs(total_cells, 0.1);

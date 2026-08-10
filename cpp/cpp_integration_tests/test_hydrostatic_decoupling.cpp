@@ -13,20 +13,20 @@
  * that overwhelm subtle dynamic fluctuations.
  * 
  * To eliminate these artifacts, the orchestrator implements Hydrostatic Pressure Splitting:
- *     (1) Total Pressure Decomposition:
- *         p_total = p_hydro + p_dynamic
+ *      (1) Total Pressure Decomposition:
+ *          p_total = p_hydro + p_dynamic
  * 
- *     (2) Hydrostatic Balance Enforcement:
- *         grad(p_hydro) = rho * g  ==>  -(1/rho) * grad(p_hydro) + g = 0
+ *      (2) Hydrostatic Balance Enforcement:
+ *          grad(p_hydro) = rho * g  ==>  -(1/rho) * grad(p_hydro) + g = 0
  * 
- *     (3) Governing Momentum Balance for Quiescent Equilibrium:
- *         rho * (du/dt) = -grad(p_dynamic) + mu * grad^2(u) + rho * g - grad(p_hydro) = 0
+ *      (3) Governing Momentum Balance for Quiescent Equilibrium:
+ *          rho * (du/dt) = -grad(p_dynamic) + mu * grad^2(u) + rho * g - grad(p_hydro) = 0
  * 
  * EXTENDED HYDROSTATIC STABILITY VALIDATION OBJECTIVE:
  * This integration test initializes a completely quiescent fluid column (u = 0), 
  * executes N = 100 consecutive time steps through the orchestrator, and verifies two core pillars:
- *     1. Dynamic Pressure Boundedness: Dynamic pressure p_dynamic remains strictly zero.
- *     2. Zero Spurious Currents: Velocity field infinity norm stays below machine precision (||u^n||_inf < 1e-14 m/s),
+ *      1. Dynamic Pressure Boundedness: Dynamic pressure p_dynamic remains strictly zero.
+ *      2. Zero Spurious Currents: Velocity field infinity norm stays below machine precision (||u^n||_inf < 1e-14 m/s),
  *          which mathematically proves exact force-pressure balance without needing non-existent API hooks.
  * ---------------------------------------------------------------------------------
  */
