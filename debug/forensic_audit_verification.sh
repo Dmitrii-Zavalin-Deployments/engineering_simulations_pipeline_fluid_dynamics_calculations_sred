@@ -1,41 +1,33 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # @file src/debug/forensic_audit.sh
-# @brief Forensic audit and diagnostic script for C++ compilation errors:
-#        Unqualified 'get_flat_index' usage in corrector.cpp and bindings.cpp 
-#        outside the 'navier_stokes_solver' namespace scope.
+# @brief Forensic audit and diagnostic script for compilation errors:
+#        'GridDimensions' does not name a type due to include ordering in 
+#        orchestrator.hpp (predictor.hpp is included before GridDimensions struct definition).
 # ==============================================================================
 
 set -euo pipefail
 
-echo "========================================================================="
-echo "          Build Environment & Namespace Scope Diagnostics                "
-echo "========================================================================="
-uname -a
-gcc --version || true
-cmake --version || true
-
 echo ""
-echo "=== 1. Diagnostic Grep for get_flat_index References ==="
-echo "Checking corrector.cpp:"
-grep -n -C 3 "get_flat_index" cpp/src/corrector.cpp || true
+echo "=== 1. Diagnostic Grep for GridDimensions References ==="
+echo "Checking orchestrator.hpp:"
+grep -n -C 5 "GridDimensions" cpp/include/orchestrator.hpp || true
 
-echo "Checking bindings.cpp:"
-grep -n -C 3 "get_flat_index" cpp/src/bindings.cpp || true
+echo "Checking predictor.hpp:"
+grep -n -C 3 "GridDimensions" cpp/include/predictor.hpp || true
 
 echo ""
 echo "=== 2. Smoking-Gun Source Audits (cat -n) ==="
-echo "--- Auditing cpp/src/corrector.cpp ---"
-cat -n cpp/src/corrector.cpp
+echo "--- Auditing cpp/include/orchestrator.hpp ---"
+cat -n cpp/include/orchestrator.hpp
 
-echo "--- Auditing cpp/src/bindings.cpp ---"
-cat -n cpp/src/bindings.cpp
+echo "--- Auditing cpp/include/predictor.hpp ---"
+cat -n cpp/include/predictor.hpp
 
 echo ""
 echo "=== 3. Automated Repair Injections (Commented) ==="
-# Re-qualify get_flat_index or inject namespace using declarations
-# # sed -i 's/\bget_flat_index\b/navier_stokes_solver::get_flat_index/g' cpp/src/corrector.cpp
-# # sed -i 's/\bget_flat_index\b/navier_stokes_solver::get_flat_index/g' cpp/src/bindings.cpp
-# # sed -i '/^#include/g' cpp/src/corrector.cpp  # Alternative: ensure using namespace navier_stokes_solver;
+# Move struct GridDimensions definition above operator header inclusions in orchestrator.hpp, 
+# or add a forward declaration struct GridDimensions; in predictor.hpp.
+# # sed -i '/#include "predictor.hpp"/i struct GridDimensions;\n' cpp/include/predictor.hpp
 
 echo "=== Forensic audit script executed successfully. ==="

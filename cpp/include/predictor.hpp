@@ -1,16 +1,13 @@
-/**
- * @file predictor.hpp
- * @brief Step 1 Predictor Phase Orchestrator for Incompressible Navier-Stokes.
- */
-
 #ifndef PREDICTOR_HPP
 #define PREDICTOR_HPP
 
 #include <cstddef>
 #include <vector>
-#include "orchestrator.hpp"
 
 namespace navier_stokes_solver {
+
+// Forward declaration to resolve circular dependency with orchestrator.hpp
+struct GridDimensions;
 
 struct FluidProperties {
     double nu;
