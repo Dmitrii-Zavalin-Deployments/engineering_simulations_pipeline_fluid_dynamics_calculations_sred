@@ -6,8 +6,8 @@
 namespace navier_stokes_solver {
 
 /**
- * Synchronizes trial buffers (STAR, NEXT) with baseline foundation values
- * (u, v, w, p) directly in the memory space.
+ * @brief Synchronizes trial buffers (STAR, NEXT) with baseline foundation values
+ *        (u, v, w, p) directly in the memory space.
  * 
  * Compliance:
  * - Rule 7 & 9: Direct buffer alignment for stability.

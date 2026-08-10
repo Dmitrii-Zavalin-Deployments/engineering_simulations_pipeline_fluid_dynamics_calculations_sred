@@ -7,8 +7,8 @@
 namespace navier_stokes_solver {
 
 /**
- * Computes the scalar divergence field (∇ ⋅ v*) for the Pressure Poisson Equation (PPE)
- * using central differencing and strict finite-number audits.
+ * @brief Computes the scalar divergence field (∇ ⋅ v*) for the Pressure Poisson Equation (PPE)
+ *        using central differencing and strict finite-number audits.
  */
 void compute_divergence(
     const double* u_star, const double* v_star, const double* w_star,

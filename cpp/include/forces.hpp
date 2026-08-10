@@ -8,8 +8,8 @@
 namespace navier_stokes_solver {
 
 /**
- * Validates and retrieves the 3-component body force vector (Fx, Fy, Fz).
- * Ensures safety, size compliance, and finiteness.
+ * @brief Validates and retrieves the 3-component body force vector (Fx, Fy, Fz).
+ *        Ensures safety, size compliance, and finiteness.
  */
 std::array<double, 3> validate_and_get_forces(const std::vector<double>& forces);
 
