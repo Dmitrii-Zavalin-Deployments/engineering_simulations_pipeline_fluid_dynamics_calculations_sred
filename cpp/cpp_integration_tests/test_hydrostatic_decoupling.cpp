@@ -106,10 +106,10 @@ TEST_F(HydrostaticDecouplingTest, QuiescentFluidDeepGravityWell) {
 
     // -----------------------------------------------------------------------------
     // Step 2: Allocate vector fields and initialize with quiescent conditions:
-    //         u(x, y, z) = 0.0
-    //         v(x, y, z) = 0.0
-    //         w(x, y, z) = 0.0
-    //         p_dynamic(x, y, z) initialized to hydrostatic equilibrium profile
+    //          u(x, y, z) = 0.0
+    //          v(x, y, z) = 0.0
+    //          w(x, y, z) = 0.0
+    //          p_dynamic(x, y, z) initialized to hydrostatic equilibrium profile
     // -----------------------------------------------------------------------------
     size_t total_cells = static_cast<size_t>(nx) * ny * nz;
     std::vector<double> u(total_cells, 0.0);
@@ -117,10 +117,10 @@ TEST_F(HydrostaticDecouplingTest, QuiescentFluidDeepGravityWell) {
     std::vector<double> w(total_cells, 0.0);
     std::vector<double> p_dynamic(total_cells, 0.0);
 
-    // External force vector configured with uniform downward gravity g = (0, -9.81, 0)
+    // External force vector configured with uniform downward gravity force per unit volume (rho * g)
     double gravity_y = -9.81;
     std::vector<double> fx(total_cells, 0.0);
-    std::vector<double> fy(total_cells, gravity_y); // Active gravitational body force per unit mass
+    std::vector<double> fy(total_cells, density * gravity_y); // Active gravitational body force per unit volume (N/m^3)
     std::vector<double> fz(total_cells, 0.0);
 
     // Initialize dynamic pressure profile to analytical hydrostatic equilibrium:
