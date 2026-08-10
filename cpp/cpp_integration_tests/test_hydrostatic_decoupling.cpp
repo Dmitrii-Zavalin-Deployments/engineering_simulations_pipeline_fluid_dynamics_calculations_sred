@@ -13,20 +13,20 @@
  * that overwhelm subtle dynamic fluctuations.
  * 
  * To eliminate these artifacts, the orchestrator implements Hydrostatic Pressure Splitting:
- *      (1) Total Pressure Decomposition:
- *          p_total = p_hydro + p_dynamic
+ *       (1) Total Pressure Decomposition:
+ *           p_total = p_hydro + p_dynamic
  * 
- *      (2) Hydrostatic Balance Enforcement:
- *          grad(p_hydro) = rho * g  ==>  -(1/rho) * grad(p_hydro) + g = 0
+ *       (2) Hydrostatic Balance Enforcement:
+ *           grad(p_hydro) = rho * g  ==>  -(1/rho) * grad(p_hydro) + g = 0
  * 
- *      (3) Governing Momentum Balance for Quiescent Equilibrium:
- *          rho * (du/dt) = -grad(p_dynamic) + mu * grad^2(u) + rho * g - grad(p_hydro) = 0
+ *       (3) Governing Momentum Balance for Quiescent Equilibrium:
+ *           rho * (du/dt) = -grad(p_dynamic) + mu * grad^2(u) + rho * g - grad(p_hydro) = 0
  * 
  * EXTENDED HYDROSTATIC STABILITY VALIDATION OBJECTIVE:
  * This integration test initializes a completely quiescent fluid column (u = 0), 
  * executes N = 100 consecutive time steps through the orchestrator, and verifies two core pillars:
- *      1. Dynamic Pressure Boundedness: Dynamic pressure p_dynamic remains strictly zero.
- *      2. Zero Spurious Currents: Velocity field infinity norm stays below machine precision (||u^n||_inf < 1e-14 m/s),
+ *       1. Dynamic Pressure Boundedness: Dynamic pressure p_dynamic remains strictly zero.
+ *       2. Zero Spurious Currents: Velocity field infinity norm stays below machine precision (||u^n||_inf < 1e-14 m/s),
  *          which mathematically proves exact force-pressure balance without needing non-existent API hooks.
  * ---------------------------------------------------------------------------------
  */
@@ -107,11 +107,10 @@ TEST_F(HydrostaticDecouplingTest, QuiescentFluidDeepGravityWell) {
 
     // -----------------------------------------------------------------------------
     // Step 2: Allocate vector fields and initialize with quiescent conditions:
-    //      u(x, y, z) = 0.0
-    //      v(x, y, z) = 0.0
-    //      w(x, y, z) = 0.0
-    //      p_dynamic(x, y, z) initialized to hydrostatic equilibrium profile:
-    //          p_hydro(y) = rho * |g_y| * (y_max - y)
+    //       u(x, y, z) = 0.0
+    //       v(x, y, z) = 0.0
+    //       w(x, y, z) = 0.0
+    //       p_dynamic(x, y, z) initialized to zero (perturbation from hydrostatic equilibrium)
     // -----------------------------------------------------------------------------
     size_t total_cells = static_cast<size_t>(nx) * ny * nz;
     std::vector<double> u(total_cells, 0.0);
@@ -122,10 +121,10 @@ TEST_F(HydrostaticDecouplingTest, QuiescentFluidDeepGravityWell) {
     // External force vector configured with uniform downward gravity g = (0, -9.81, 0)
     double gravity_y = -9.81;
     std::vector<double> fx(total_cells, 0.0);
-    std::vector<double> fy(total_cells, 0.0); // Dynamic force is zero in hydrostatic balance
+    std::vector<double> fy(total_cells, gravity_y); // Active gravitational body force per unit mass
     std::vector<double> fz(total_cells, 0.0);
 
-    // Initialize hydrostatic pressure profile using repository SSoT grid math indexing (X-fastest layout)
+    // Initialize dynamic pressure profile using repository SSoT grid math indexing (X-fastest layout)
     for (int k = 0; k < nz; ++k) {
         for (int j = 0; j < ny; ++j) {
             for (int i = 0; i < nx; ++i) {
@@ -170,7 +169,6 @@ TEST_F(HydrostaticDecouplingTest, QuiescentFluidDeepGravityWell) {
     for (size_t idx = 0; idx < total_cells; ++idx) {
         auto [i, j, k] = get_coords_from_index(static_cast<int>(idx), nx, ny);
         double y_coord = y_min + j * dy;
-        double p_hydro_exact = density * std::abs(gravity_y) * (y_max - y_coord);
         double p_dyn = p_dynamic[idx];
 
         ASSERT_FALSE(std::isnan(p_dyn) || std::isinf(p_dyn))

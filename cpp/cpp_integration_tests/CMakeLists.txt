@@ -19,3 +19,16 @@ target_link_libraries(test_projection_pipeline
 )
 
 add_test(NAME ProjectionPipelineTest COMMAND test_projection_pipeline)
+
+add_executable(test_hydrostatic_decoupling
+    test_hydrostatic_decoupling.cpp
+)
+
+target_link_libraries(test_hydrostatic_decoupling
+    PRIVATE
+        GTest::gtest_main
+        navier_stokes_core
+        nlohmann_json::nlohmann_json
+)
+
+add_test(NAME HydrostaticDecouplingTest COMMAND test_hydrostatic_decoupling)
