@@ -248,11 +248,22 @@
     "external_forces": {
       "type": "object",
       "required": [
-        "force_vector"
+        "force_vector",
+        "gravity_vector"
       ],
       "properties": {
         "force_vector": {
           "type": "array",
+          "description": "Generic external force density vector (e.g., electromagnetic, momentum sources).",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {
+            "type": "number"
+          }
+        },
+        "gravity_vector": {
+          "type": "array",
+          "description": "Gravitational acceleration vector in 3D space used for analytical hydrostatic pressure splitting.",
           "minItems": 3,
           "maxItems": 3,
           "items": {
