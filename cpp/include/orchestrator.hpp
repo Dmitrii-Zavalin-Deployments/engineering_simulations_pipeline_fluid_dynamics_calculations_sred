@@ -5,6 +5,7 @@
 #include <string>
 #include <cstddef>
 
+#include "grid_math.hpp"
 #include "predictor.hpp"
 #include "simulation_prestep.hpp"
 #include "pressure_poisson_solver.hpp"
@@ -12,15 +13,6 @@
 #include "ghost_handler.hpp"
 
 namespace navier_stokes_solver {
-
-struct GridDimensions {
-    int nx;
-    int ny;
-    int nz;
-    double dx;
-    double dy;
-    double dz;
-};
 
 struct BoundaryValues {
     bool has_u = false;

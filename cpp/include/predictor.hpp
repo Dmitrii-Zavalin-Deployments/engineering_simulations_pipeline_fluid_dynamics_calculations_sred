@@ -7,9 +7,6 @@
 
 namespace navier_stokes_solver {
 
-// Forward declaration to resolve circular dependency with orchestrator.hpp
-struct GridDimensions;
-
 struct FluidProperties {
     double nu;
     double density;

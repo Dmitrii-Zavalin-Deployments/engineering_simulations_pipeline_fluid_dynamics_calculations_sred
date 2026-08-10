@@ -6,6 +6,18 @@
 namespace navier_stokes_solver {
 
 /**
+ * @brief Structure representing the grid dimensions and spacing.
+ */
+struct GridDimensions {
+    int nx;
+    int ny;
+    int nz;
+    double dx;
+    double dy;
+    double dz;
+};
+
+/**
  * @brief Computes a flat index from 3D coordinates. 
  * Assumes standard row-major order: index = i + nx * j + (nx * ny) * k
  */
