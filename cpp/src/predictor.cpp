@@ -18,8 +18,6 @@
 
 namespace navier_stokes_solver {
 
-namespace {
-
 void validate_inputs(
     const GridDimensions& dims,
     const FluidProperties& fluid,
@@ -53,7 +51,7 @@ void validate_inputs(
     }
 }
 
-} // anonymous namespace
+
 
 void compute_trial_velocities(
     const GridDimensions& dims,

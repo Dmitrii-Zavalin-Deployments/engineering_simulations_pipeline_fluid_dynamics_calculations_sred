@@ -14,12 +14,11 @@
 
 namespace navier_stokes_solver {
 
-namespace {
 // Local 3D row-major indexing helper
 inline size_t grad_idx(int i, int j, int k, int Ny, int Nz) {
     return static_cast<size_t>(i) * (Ny * Nz) + static_cast<size_t>(j) * Nz + k;
 }
-} // anonymous namespace
+
 
 void compute_gradient(
     const double* field,
