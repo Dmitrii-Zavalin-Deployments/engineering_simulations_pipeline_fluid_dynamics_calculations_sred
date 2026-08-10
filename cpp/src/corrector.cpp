@@ -11,6 +11,7 @@
 #endif
 
 namespace navier_stokes_solver {
+
 void solve_corrector_parallel(
     std::vector<double>& u,
     std::vector<double>& v,
@@ -22,8 +23,8 @@ void solve_corrector_parallel(
     const std::vector<int>& mask,
     int nx, int ny, int nz,
     double dx, double dy, double dz,
-    double dt, double rho)
-{
+    double dt, double rho
+) {
     const double coeff = dt / rho;
     const double idx_inv = 1.0 / (2.0 * dx);
     const double idy_inv = 1.0 / (2.0 * dy);
@@ -68,4 +69,5 @@ void solve_corrector_parallel(
         }
     }
 }
+
 } // namespace navier_stokes_solver

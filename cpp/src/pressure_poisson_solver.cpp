@@ -16,8 +16,8 @@ namespace navier_stokes_solver {
 void apply_neumann_pressure(
     std::vector<double>& p,
     const std::string& location,
-    int nx, int ny, int nz) 
-{
+    int nx, int ny, int nz
+) {
     #pragma omp parallel for collapse(2) schedule(static)
     for (int k = 0; k < nz; ++k) {
         for (int j = 0; j < ny; ++j) {
@@ -52,8 +52,8 @@ void apply_neumann_pressure(
 void apply_solid_neumann_pressure_parallel(
     std::vector<double>& p, 
     const std::vector<int>& mask, 
-    int nx, int ny, int nz) 
-{
+    int nx, int ny, int nz
+) {
     #pragma omp parallel for collapse(3) schedule(static)
     for (int k = 1; k < nz - 1; ++k) {
         for (int j = 1; j < ny - 1; ++j) {
@@ -88,8 +88,8 @@ void solve_poisson_red_black_parallel(
     const std::vector<BoundaryCondition>& bc_list,
     int nx, int ny, int nz,
     double dx, double dy, double dz,
-    int max_iters, double tol) 
-{
+    int max_iters, double tol
+) {
     const double idx2 = 1.0 / (dx * dx);
     const double idy2 = 1.0 / (dy * dy);
     const double idz2 = 1.0 / (dz * dz);
@@ -166,7 +166,6 @@ void solve_poisson_red_black_parallel(
         }
 
         // --- PASS 3: Synchronize Boundaries & Solids Inside Iteration ---
-        #pragma omp parallel for schedule(static)
         for (size_t b = 0; b < bc_list.size(); ++b) {
             const auto& bc = bc_list[b];
             if (bc.type != "pressure") {

@@ -30,7 +30,7 @@ void validate_inputs(
     if (!u || !v || !w || !fx || !fy || !fz || !u_star || !v_star || !w_star) {
         throw std::invalid_argument("CONTRACT VIOLATION: Null pointer supplied to predictor module.");
     }
-    const size_t total_cells = dims.nx * dims.ny * dims.nz;
+    const size_t total_cells = static_cast<size_t>(dims.nx) * dims.ny * dims.nz;
     if (mask.size() != total_cells) {
         throw std::invalid_argument("CONTRACT VIOLATION: Mask vector size does not match grid dimensions.");
     }
@@ -50,8 +50,6 @@ void validate_inputs(
         throw std::invalid_argument("PHYSICS ERROR: Fluid density must be strictly positive.");
     }
 }
-
-
 
 void compute_trial_velocities(
     const GridDimensions& dims,
