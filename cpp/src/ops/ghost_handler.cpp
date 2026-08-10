@@ -21,7 +21,7 @@ void sync_ghost_trial_buffers(
     // Foundation Integrity Guard (Rule 5 & 9 equivalent)
     if (!u || !v || !w || !p || !u_star || !v_star || !w_star || !p_next) {
         std::cerr << "CONTRACT VIOLATION: Cell foundation pointers are null in ghost trial buffer sync.\n";
-        throw std::runtime_error("Ghost sync failed: Cell foundation is malformed.");
+        throw std::invalid_argument("Ghost sync failed: Cell foundation is malformed.");
     }
 
     // Direct buffer alignment across memory space without heap reallocations
