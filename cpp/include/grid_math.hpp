@@ -2,12 +2,11 @@
 #define GRID_MATH_HPP
 
 #include <tuple>
-#include "grid_math.hpp"
 
 namespace navier_stokes_solver {
 
 /**
- * Computes a flat index from 3D coordinates. 
+ * @brief Computes a flat index from 3D coordinates. 
  * Assumes standard row-major order: index = i + nx * j + (nx * ny) * k
  */
 inline constexpr int get_flat_index(int i, int j, int k, int nx, int ny) {
@@ -15,7 +14,7 @@ inline constexpr int get_flat_index(int i, int j, int k, int nx, int ny) {
 }
 
 /**
- * SSoT Mapping: Converts flat index back to (i, j, k).
+ * @brief SSoT Mapping: Converts flat index back to (i, j, k).
  */
 inline constexpr std::tuple<int, int, int> get_coords_from_index(int index, int nx, int ny) {
     int xy_plane = nx * ny;

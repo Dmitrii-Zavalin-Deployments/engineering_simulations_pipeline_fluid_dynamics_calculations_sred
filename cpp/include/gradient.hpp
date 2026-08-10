@@ -7,8 +7,8 @@
 namespace navier_stokes_solver {
 
 /**
- * Computes the 3D gradient vector of a scalar field (e.g., pressure p):
- * ∇p = (∂p/∂x, ∂p/∂y, ∂p/∂z) using central differencing and strict finite-number audits.
+ * @brief Computes the 3D gradient vector of a scalar field (e.g., pressure p):
+ *        ∇p = (∂p/∂x, ∂p/∂y, ∂p/∂z) using central differencing and strict finite-number audits.
  */
 void compute_gradient(
     const double* field,
