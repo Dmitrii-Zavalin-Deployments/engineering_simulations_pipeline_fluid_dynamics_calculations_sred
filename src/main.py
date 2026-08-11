@@ -16,10 +16,6 @@ np.seterr(all="raise")
 from src.archivist import archive_simulation_results
 from src.ingestion import load_and_validate_inputs
 from src.state import SolverState
-from src.step1.orchestrate_step1 import orchestrate_step1
-from src.step2.orchestrate_step2 import orchestrate_step2
-from src.step3.orchestrate_step3 import orchestrate_step3
-from src.step4.orchestrate_step4 import orchestrate_step4
 
 DEBUG = False
 logger = logging.getLogger("Solver.Main")
