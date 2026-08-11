@@ -13,9 +13,9 @@ import numpy as np
 # Rule 5: Force global arithmetic trapping for deterministic stability
 np.seterr(all="raise")
 
-from src.common.archive_service import archive_simulation_artifacts
-from src.common.elasticity import ElasticManager
-from src.common.simulation_context import SimulationContext
+from src.archivist import archive_simulation_results
+from src.ingestion import load_and_validate_inputs
+from src.state import SolverState
 from src.step1.orchestrate_step1 import orchestrate_step1
 from src.step2.orchestrate_step2 import orchestrate_step2
 from src.step3.orchestrate_step3 import orchestrate_step3
@@ -25,6 +25,66 @@ DEBUG = False
 logger = logging.getLogger("Solver.Main")
 logger.propagate = True
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+class InputDataWrapper:
+    """Provides attribute access over raw simulation input dictionaries."""
+
+    def __init__(self, input_data: dict[str, Any]):
+        if input_data is None:
+            raise ValueError("FATAL ERROR: input_data must be explicitly provided.")
+        self._data = input_data
+        self.simulation_parameters = input_data.get("simulation_parameters")
+
+    def to_dict(self) -> dict[str, Any]:
+        return self._data
+
+
+class SimulationContext:
+    """Container combining input schema parameters and execution configuration."""
+
+    def __init__(self, input_data: dict[str, Any], config: dict[str, Any]):
+        if input_data is None or config is None:
+            raise ValueError("FATAL ERROR: input_data and config must be explicitly provided.")
+        self.input_data = InputDataWrapper(input_data)
+        self.config = config
+
+    @classmethod
+    def create(cls, input_data: dict[str, Any], config_data: dict[str, Any]) -> "SimulationContext":
+        if input_data is None or config_data is None:
+            raise ValueError("FATAL ERROR: input_data and config_data must be explicitly provided.")
+        return cls(input_data, config_data)
+
+
+class ElasticManager:
+    """Manages solver time-step stability and adaptive scaling under anomalies."""
+
+    def __init__(self, config: dict[str, Any], state: SolverState):
+        if config is None or state is None:
+            raise ValueError("FATAL ERROR: config and state must be explicitly provided.")
+        self.config: dict[str, Any] = config
+        self.state: SolverState = state
+        self.dt: float = float(state.dt)
+
+    def stabilization(self, is_needed: bool = False) -> None:
+        if is_needed is None:
+            raise ValueError("FATAL ERROR: is_needed must be explicitly provided.")
+        if is_needed:
+            self.dt *= 0.5
+            logger.warning(f"Elasticity stabilization triggered: reducing time-step dt to {self.dt}")
+
+
+def archive_simulation_artifacts(state: SolverState, output_path: str | Path) -> str:
+    """Routes artifact archival requests to the core archivist."""
+    if state is None or output_path is None:
+        raise ValueError("FATAL ERROR: state and output_path must be explicitly provided.")
+    p = Path(output_path)
+    if p.is_dir() or str(output_path).endswith("/") or not p.suffix:
+        p.mkdir(parents=True, exist_ok=True)
+        return archive_simulation_results(state, str(p), "simulation_results.zip")
+    else:
+        p.parent.mkdir(parents=True, exist_ok=True)
+        return archive_simulation_results(state, str(p.parent), p.name)
 
 
 def _configure_numerical_runtime(context: SimulationContext):
@@ -49,11 +109,7 @@ def _load_simulation_context(input_path: str | Path) -> SimulationContext:
     if not config_path.exists():
         raise FileNotFoundError(f"config.json required at {config_path}")
 
-    with open(full_input_path, encoding="utf-8") as f:
-        input_data = json.load(f)
-    with open(config_path, encoding="utf-8") as f:
-        config_data = json.load(f)
-
+    input_data, config_data = load_and_validate_inputs(full_input_path, config_path)
     return SimulationContext.create(input_data, config_data)
 
 
@@ -89,7 +145,7 @@ def run_solver(input_path: str | Path, output_path: str | Path) -> str:
         state.validate_against_schema(str(SCHEMA_PATH))
     except jsonschema.exceptions.ValidationError as e:
         path_str = ".".join([str(p) for p in e.path])
-        logger.error(f"!!! STATE CONTRACT VIOLATION at {path_str}: {e.message}")
+        logger.error(f"!!! STATE CONTRACT VALIDATION at {path_str}: {e.message}")
         raise
 
     # 4. ELASTICITY ENGINE
@@ -112,7 +168,7 @@ def run_solver(input_path: str | Path, output_path: str | Path) -> str:
                     is_first_pass=True,
                 )
 
-            for _ in range(context.config.ppe_max_iter):
+            for _ in range(context.config["max_poisson_iterations"]):
                 max_delta = 0.0
                 for block in state.stencil_matrix:
                     _, delta = orchestrate_step3(
@@ -124,13 +180,13 @@ def run_solver(input_path: str | Path, output_path: str | Path) -> str:
                     )
                     max_delta = max(max_delta, delta)
 
-                if max_delta < context.config.ppe_tolerance:
+                if max_delta < context.config["poisson_tolerance"]:
                     break
 
             elasticity.stabilization(is_needed=False)
             state = orchestrate_step4(state, context)
 
-            if state.time >= context.input_data.simulation_parameters.total_time:
+            if state.time >= context.input_data.simulation_parameters["total_time"]:
                 state.ready_for_time_loop = False
 
         except ArithmeticError as e:
@@ -145,7 +201,7 @@ def run_solver(input_path: str | Path, output_path: str | Path) -> str:
             logger.error(f"CRITICAL TERMINATION [{type(e).__name__}]: {e!s}")
             raise
 
-    return archive_simulation_artifacts(state, output_path=str(output_path))
+    return archive_simulation_artifacts(state, output_path=output_path)
 
 
 def main():
