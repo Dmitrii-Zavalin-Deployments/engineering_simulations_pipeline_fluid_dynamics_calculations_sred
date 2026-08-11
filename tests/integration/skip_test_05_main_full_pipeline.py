@@ -3,9 +3,9 @@ tests/integration/test_05_main_full_pipeline.py
 Integration Test 5: Complete End-to-End Control Plane / Data Plane integration test.
 """
 
+import json
 import sys
 import zipfile
-import json
 from pathlib import Path
 
 

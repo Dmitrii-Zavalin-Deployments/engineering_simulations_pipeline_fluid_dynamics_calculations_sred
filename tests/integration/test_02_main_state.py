@@ -5,6 +5,7 @@ Integration Test 2: Main CLI -> Ingestion -> Sovereign SolverState initializatio
 
 import sys
 from unittest.mock import patch
+
 from src.state import SolverState
 
 

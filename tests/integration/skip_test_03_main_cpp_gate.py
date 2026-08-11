@@ -5,6 +5,7 @@ Integration Test 3: Main CLI -> Ingestion -> SolverState -> C++ Execution Bridge
 
 import sys
 from unittest.mock import patch
+
 from src.cpp_gate import step_simulation
 
 

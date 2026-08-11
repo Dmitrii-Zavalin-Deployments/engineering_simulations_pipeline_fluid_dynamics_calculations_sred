@@ -8,7 +8,7 @@ import json
 import logging
 import zipfile
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any
 
 logger = logging.getLogger("Solver.Archivist")
 
@@ -29,7 +29,7 @@ def archive_simulation_results(state, output_dir: str, zip_filename: str = "simu
     out_path = Path(output_dir)
     out_path.mkdir(parents=True, exist_ok=True)
 
-    summary_metadata: Dict[str, Any] = {
+    summary_metadata: dict[str, Any] = {
         "status": "COMPLETED",
         "total_iterations_completed": state.current_iteration,
         "final_simulation_time": state.current_time,

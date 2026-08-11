@@ -3,9 +3,9 @@ tests/integration/test_04_main_archivist.py
 Integration Test 4: Main CLI -> Ingestion -> State -> C++ Gate -> Archivist packaging.
 """
 
+import json
 import sys
 import zipfile
-import json
 from pathlib import Path
 from unittest.mock import patch
 

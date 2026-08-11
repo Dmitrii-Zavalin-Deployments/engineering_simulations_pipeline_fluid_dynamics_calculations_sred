@@ -8,7 +8,7 @@ against required non-default schemas before passing data into the execution pipe
 import json
 import logging
 from pathlib import Path
-from typing import Tuple, Dict, Any
+from typing import Any
 
 logger = logging.getLogger("Solver.Ingestion")
 
@@ -33,7 +33,7 @@ REQUIRED_CONSTRAINTS_KEYS = ["min_velocity", "max_velocity", "min_pressure", "ma
 REQUIRED_CONFIG_KEYS = ["max_poisson_iterations", "poisson_tolerance"]
 
 
-def _validate_keys(data: Dict[str, Any], required_keys: list, section_name: str) -> None:
+def _validate_keys(data: dict[str, Any], required_keys: list, section_name: str) -> None:
     for key in required_keys:
         if key not in data or data[key] is None:
             raise KeyError(
@@ -41,7 +41,7 @@ def _validate_keys(data: Dict[str, Any], required_keys: list, section_name: str)
             )
 
 
-def load_and_validate_inputs(input_path: str, config_path: str) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+def load_and_validate_inputs(input_path: str, config_path: str) -> tuple[dict[str, Any], dict[str, Any]]:
     """
     Reads, parses, and strictly validates the simulation input JSON and configuration JSON files.
     

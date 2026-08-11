@@ -6,7 +6,8 @@ dynamic 4D field buffers (u, v, w, p), snapshot logs, and physical boundary enfo
 """
 
 import logging
-from typing import Dict, Any, List
+from typing import Any
+
 import numpy as np
 
 logger = logging.getLogger("Solver.State")
@@ -18,9 +19,9 @@ class SolverState:
     and constraint evaluations across simulation iterations.
     """
 
-    def __init__(self, input_data: Dict[str, Any], config_data: Dict[str, Any]):
-        self.input_data: Dict[str, Any] = input_data
-        self.config: Dict[str, Any] = config_data
+    def __init__(self, input_data: dict[str, Any], config_data: dict[str, Any]):
+        self.input_data: dict[str, Any] = input_data
+        self.config: dict[str, Any] = config_data
 
         # Grid parameters
         grid = input_data["grid"]
@@ -40,14 +41,14 @@ class SolverState:
         self.dz: float = (self.z_max - self.z_min) / self.nz
 
         # Sub-schemas
-        self.grid: Dict[str, Any] = grid
-        self.fluid_properties: Dict[str, Any] = input_data["fluid_properties"]
-        self.initial_conditions: Dict[str, Any] = input_data["initial_conditions"]
-        self.simulation_parameters: Dict[str, Any] = input_data["simulation_parameters"]
-        self.boundary_conditions: List[Dict[str, Any]] = input_data["boundary_conditions"]
-        self.external_forces: Dict[str, Any] = input_data["external_forces"]
-        self.domain_configuration: Dict[str, Any] = input_data["domain_configuration"]
-        self.physical_constraints: Dict[str, Any] = input_data["physical_constraints"]
+        self.grid: dict[str, Any] = grid
+        self.fluid_properties: dict[str, Any] = input_data["fluid_properties"]
+        self.initial_conditions: dict[str, Any] = input_data["initial_conditions"]
+        self.simulation_parameters: dict[str, Any] = input_data["simulation_parameters"]
+        self.boundary_conditions: list[dict[str, Any]] = input_data["boundary_conditions"]
+        self.external_forces: dict[str, Any] = input_data["external_forces"]
+        self.domain_configuration: dict[str, Any] = input_data["domain_configuration"]
+        self.physical_constraints: dict[str, Any] = input_data["physical_constraints"]
 
         # 4D fields buffer: shape (4, nx, ny, nz) -> [0]: u, [1]: v, [2]: w, [3]: p
         self.fields: np.ndarray = np.zeros((4, self.nx, self.ny, self.nz), dtype=np.float64)
@@ -71,8 +72,8 @@ class SolverState:
         self.total_iterations: int = int(round(self.total_time / self.dt))
         self.output_interval: int = int(self.simulation_parameters["output_interval"])
 
-        self.history_logs: List[Dict[str, Any]] = []
-        self.snapshot_records: List[Dict[str, Any]] = []
+        self.history_logs: list[dict[str, Any]] = []
+        self.snapshot_records: list[dict[str, Any]] = []
 
     def enforce_physical_constraints(self) -> None:
         """

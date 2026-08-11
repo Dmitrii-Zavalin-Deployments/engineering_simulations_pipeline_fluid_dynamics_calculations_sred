@@ -5,13 +5,14 @@ Integration Test 1: Main CLI entry point -> Ingestion schema parsing.
 
 import sys
 from unittest.mock import patch
+
 from src.ingestion import load_and_validate_inputs
 
 
 def test_main_cli_ingestion_stage(workspace_folder, monkeypatch):
     folder = workspace_folder["folder"]
     input_file = workspace_folder["input_file_name"]
-    config_path = workspace_folder["config_path"]
+    workspace_folder["config_path"]
 
     cli_args = [
         "main.py",
