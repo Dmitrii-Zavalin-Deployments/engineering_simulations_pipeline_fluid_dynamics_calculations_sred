@@ -1,21 +1,19 @@
 """
 tests/integration/test_03_main_cpp_gate.py
 Integration Test 3: Main CLI -> Ingestion -> SolverState -> C++ Execution Bridge.
-Verifies that all data and parameters from the sovereign container are correctly passed to C++.
+Verifies that the entire SolverState sovereign container object is correctly passed to C++.
 """
 
 import sys
 from unittest.mock import MagicMock, patch
-
 import numpy as np
 
 
 def test_main_cli_cpp_gate_stage(workspace_folder, monkeypatch):
     """
     Narrative: Verifies the complete end-to-end integration pipeline, ensuring that 
-    all fields, physical constraints, boundary conditions, fluid properties, and 
-    production configuration parameters from the sovereign SolverState container 
-    are accurately unpacked and passed through the C++ bridge to the compiled engine.
+    the entire sovereign SolverState container object is passed directly to the C++ engine 
+    constructor, and that all fields, forces, and boundary conditions are accurately transmitted.
     """
     folder = workspace_folder["folder"]
     input_file = workspace_folder["input_file_name"]
@@ -28,7 +26,7 @@ def test_main_cli_cpp_gate_stage(workspace_folder, monkeypatch):
     ]
     monkeypatch.setattr(sys, "argv", cli_args)
 
-    # Setup mock C++ engine components to intercept calls and inspect transmitted data
+    # Setup mock C++ engine components to intercept calls and inspect transmitted state object
     mock_cpp_solver_instance = MagicMock()
     mock_cpp_solver_class = MagicMock(return_value=mock_cpp_solver_instance)
     
@@ -57,16 +55,18 @@ def test_main_cli_cpp_gate_stage(workspace_folder, monkeypatch):
         except SystemExit as e:
             assert e.code == 0
 
-    # 1. Verify C++ Solver Constructor received all required configuration and grid parameters
+    # 1. Verify C++ Solver Constructor received the entire sovereign SolverState container object as a positional argument
     assert mock_cpp_solver_class.called
-    constructor_args = mock_cpp_solver_class.call_args.kwargs
-    
-    assert constructor_args["nx"] == 4
-    assert constructor_args["ny"] == 4
-    assert constructor_args["nz"] == 4
-    assert constructor_args["max_poisson_iters"] == 2000  # Synced from production config/config.json
-    assert constructor_args["poisson_tolerance"] == 1e-8    # Synced from production config/config.json
-    assert constructor_args["density"] == 1.0
+    assert len(mock_cpp_solver_class.call_args.args) == 1
+    passed_state = mock_cpp_solver_class.call_args.args[0]
+
+    # Verify state container attributes through the passed object instance
+    assert passed_state.nx == 4
+    assert passed_state.ny == 4
+    assert passed_state.nz == 4
+    assert int(passed_state.config["max_poisson_iterations"]) == 2000  # Synced from production config/config.json
+    assert float(passed_state.config["poisson_tolerance"]) == 1e-8    # Synced from production config/config.json
+    assert float(passed_state.fluid_properties["density"]) == 1.0
 
     # 2. Verify total simulation steps executed (total_time 0.003 / time_step 0.001 = 3 iterations)
     assert mock_cpp_solver_instance.step.call_count == 3
