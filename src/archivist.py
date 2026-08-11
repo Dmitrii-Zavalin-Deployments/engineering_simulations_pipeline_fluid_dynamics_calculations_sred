@@ -13,19 +13,26 @@ from typing import Any
 logger = logging.getLogger("Solver.Archivist")
 
 
-def archive_simulation_results(state, output_dir: str, zip_filename: str = "simulation_results.zip") -> str:
+def archive_simulation_results(state: Any, output_dir: str, zip_filename: str) -> str:
     """
     Compiles final simulation state, writes output JSON metadata, and packages
     all generated previews and configuration files into a compressed ZIP archive.
 
     Args:
         state: SolverState instance after execution finishes
-        output_dir: Directory containing output files and previews
-        zip_filename: Name of the generated zip archive
+        output_dir: Directory containing output files and previews (mandatory, no defaults)
+        zip_filename: Name of the generated zip archive (mandatory, no defaults)
 
     Returns:
         Absolute path to the created ZIP archive.
     """
+    if state is None:
+        raise ValueError("FATAL ERROR: state must be explicitly provided (no defaults allowed).")
+    if output_dir is None:
+        raise ValueError("FATAL ERROR: output_dir must be explicitly provided (no defaults allowed).")
+    if zip_filename is None:
+        raise ValueError("FATAL ERROR: zip_filename must be explicitly provided (no defaults allowed).")
+
     out_path = Path(output_dir)
     out_path.mkdir(parents=True, exist_ok=True)
 

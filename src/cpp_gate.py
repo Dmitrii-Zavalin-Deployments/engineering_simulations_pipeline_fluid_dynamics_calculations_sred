@@ -29,6 +29,9 @@ def _get_or_create_cpp_solver(state: SolverState) -> navier_stokes_cpp.NavierSto
     Singleton initializer for the underlying C++ NavierStokesSolver.
     Extracts configuration parameters and constructs the C++ solver object.
     """
+    if state is None:
+        raise ValueError("FATAL ERROR: state must be explicitly provided (no defaults allowed).")
+
     global _cpp_solver_instance
     if _cpp_solver_instance is None:
         logger.info("Initializing C++ NavierStokesSolver engine instance...")
@@ -54,6 +57,9 @@ def step_simulation(state: SolverState) -> None:
     Args:
         state: SolverState instance holding physical arrays and simulation parameters.
     """
+    if state is None:
+        raise ValueError("FATAL ERROR: state must be explicitly provided (no defaults allowed).")
+
     solver = _get_or_create_cpp_solver(state)
 
     # Ensure memory layout matches expected contiguous C-order
@@ -68,18 +74,25 @@ def step_simulation(state: SolverState) -> None:
     fy = np.full((state.nx, state.ny, state.nz), f_vec[1] + g_vec[1], dtype=np.float64)
     fz = np.full((state.nx, state.ny, state.nz), f_vec[2] + g_vec[2], dtype=np.float64)
 
-    # Map Python boundary condition list to C++ BoundaryCondition structures
+    # Map Python boundary condition list to C++ BoundaryCondition structures (strict non-default policy)
     bc_list = []
     for bc_data in state.boundary_conditions:
         bc = navier_stokes_cpp.BoundaryCondition()
         bc.location = bc_data["location"]
         bc.type = bc_data["type"]
 
-        vals = bc_data.get("values", {})
-        bc.u_val = float(vals.get("u", 0.0))
-        bc.v_val = float(vals.get("v", 0.0))
-        bc.w_val = float(vals.get("w", 0.0))
-        bc.scalar_p = float(vals.get("p", 0.0))
+        if "values" not in bc_data:
+            raise KeyError(f"Missing mandatory 'values' key in boundary condition data: {bc_data}")
+        vals = bc_data["values"]
+
+        for key in ["u", "v", "w", "p"]:
+            if key not in vals:
+                raise KeyError(f"Missing mandatory boundary condition value '{key}' in boundary condition data: {bc_data}")
+
+        bc.u_val = float(vals["u"])
+        bc.v_val = float(vals["v"])
+        bc.w_val = float(vals["w"])
+        bc.scalar_p = float(vals["p"])
         bc_list.append(bc)
 
     dt = float(state.dt)

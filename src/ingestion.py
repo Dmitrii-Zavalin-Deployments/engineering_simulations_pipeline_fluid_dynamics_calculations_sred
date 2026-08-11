@@ -41,17 +41,22 @@ def _validate_keys(data: dict[str, Any], required_keys: list, section_name: str)
             )
 
 
-def load_and_validate_inputs(input_path: str, config_path: str) -> tuple[dict[str, Any], dict[str, Any]]:
+def load_and_validate_inputs(input_path: str | Path, config_path: str | Path) -> tuple[dict[str, Any], dict[str, Any]]:
     """
     Reads, parses, and strictly validates the simulation input JSON and configuration JSON files.
     
     Args:
-        input_path: Path to navier_stokes_input.json
-        config_path: Path to config.json
+        input_path: Path to navier_stokes_input.json (mandatory, no defaults)
+        config_path: Path to config.json (mandatory, no defaults)
         
     Returns:
         Tuple containing (input_data_dict, config_data_dict)
     """
+    if input_path is None:
+        raise ValueError("FATAL ERROR: input_path must be explicitly provided (no defaults allowed).")
+    if config_path is None:
+        raise ValueError("FATAL ERROR: config_path must be explicitly provided (no defaults allowed).")
+
     input_file = Path(input_path)
     config_file = Path(config_path)
 
@@ -79,7 +84,7 @@ def load_and_validate_inputs(input_path: str, config_path: str) -> tuple[dict[st
     _validate_keys(input_data["external_forces"], REQUIRED_FORCES_KEYS, "external_forces")
     _validate_keys(input_data["physical_constraints"], REQUIRED_CONSTRAINTS_KEYS, "physical_constraints")
 
-    if "type" not in input_data["domain_configuration"]:
+    if "type" not in input_data["domain_configuration"] or input_data["domain_configuration"]["type"] is None:
         raise KeyError("Non-default policy violation in 'domain_configuration': missing key 'type'.")
 
     # Validate grid bounds and cell counts

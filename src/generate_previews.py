@@ -6,6 +6,7 @@ Extracts 2D cross-sectional slices from 3D state arrays and generates visual pre
 
 import logging
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
@@ -21,19 +22,26 @@ except ImportError:
     logger.warning("Matplotlib not found. Preview generation falling back to raw NumPy slice export.")
 
 
-def generate_snapshot_preview(state, output_dir: str, step: int) -> str:
+def generate_snapshot_preview(state: Any, output_dir: str | Path, step: int) -> str:
     """
     Extracts a mid-plane 2D cross-section of pressure and velocity magnitude,
     rendering a PNG preview image into the target output directory.
 
     Args:
-        state: SolverState instance
-        output_dir: Target directory path for saving preview files
-        step: Current simulation step iteration index
+        state: SolverState instance (mandatory, no defaults)
+        output_dir: Target directory path for saving preview files (mandatory, no defaults)
+        step: Current simulation step iteration index (mandatory, no defaults)
 
     Returns:
         Relative path string to the generated preview file.
     """
+    if state is None:
+        raise ValueError("FATAL ERROR: state must be explicitly provided (no defaults allowed).")
+    if output_dir is None:
+        raise ValueError("FATAL ERROR: output_dir must be explicitly provided (no defaults allowed).")
+    if step is None:
+        raise ValueError("FATAL ERROR: step must be explicitly provided (no defaults allowed).")
+
     out_path = Path(output_dir)
     out_path.mkdir(parents=True, exist_ok=True)
 

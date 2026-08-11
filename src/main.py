@@ -35,6 +35,9 @@ def _configure_numerical_runtime(context: SimulationContext):
 
 def _load_simulation_context(input_path: str | Path) -> SimulationContext:
     """Assembles physical input and numerical config into a unified context."""
+    if input_path is None:
+        raise ValueError("FATAL ERROR: input_path must be explicitly provided (no defaults allowed).")
+
     full_input_path = Path(input_path)
     if not full_input_path.is_absolute():
         full_input_path = BASE_DIR / input_path
@@ -46,23 +49,31 @@ def _load_simulation_context(input_path: str | Path) -> SimulationContext:
     if not config_path.exists():
         raise FileNotFoundError(f"config.json required at {config_path}")
 
-    with open(full_input_path) as f:
+    with open(full_input_path, encoding="utf-8") as f:
         input_data = json.load(f)
-    with open(config_path) as f:
+    with open(config_path, encoding="utf-8") as f:
         config_data = json.load(f)
 
     return SimulationContext.create(input_data, config_data)
 
 
-def run_solver(input_path: str | Path, output_path: str | Path | None = None) -> str:
+def run_solver(input_path: str | Path, output_path: str | Path) -> str:
     """Main Orchestrator with State-Anchored Elastic Stability."""
+    if input_path is None:
+        raise ValueError("FATAL ERROR: input_path must be explicitly provided.")
+    if output_path is None:
+        raise ValueError("FATAL ERROR: output_path must be explicitly provided.")
+
     context = _load_simulation_context(input_path)
     _configure_numerical_runtime(context)
 
     # 1. VALIDATE INPUT
     SCHEMA_PATH = BASE_DIR / "schema/solver_input_schema.json"
+    if not SCHEMA_PATH.exists():
+        raise FileNotFoundError(f"Solver input schema missing at {SCHEMA_PATH}")
+
     try:
-        with open(SCHEMA_PATH) as f:
+        with open(SCHEMA_PATH, encoding="utf-8") as f:
             schema = json.load(f)
         jsonschema.validate(instance=context.input_data.to_dict(), schema=schema)
     except jsonschema.exceptions.ValidationError as e:
@@ -134,12 +145,7 @@ def run_solver(input_path: str | Path, output_path: str | Path | None = None) ->
             logger.error(f"CRITICAL TERMINATION [{type(e).__name__}]: {e!s}")
             raise
 
-    try:
-        if output_path is not None:
-            return archive_simulation_artifacts(state, output_path=str(output_path))
-        return archive_simulation_artifacts(state)
-    except TypeError:
-        return archive_simulation_artifacts(state)
+    return archive_simulation_artifacts(state, output_path=str(output_path))
 
 
 def main():
@@ -178,17 +184,20 @@ def main():
     elif args.positional_input:
         input_path = Path(args.positional_input)
     else:
-        print(
+        raise ValueError(
             "FATAL PIPELINE ERROR: Must provide either positional <input_json_path> OR both --input_output_folder and --input_file_name"
         )
-        sys.exit(1)
 
     if args.input_output_folder and args.output_file_name:
         output_path = Path(args.input_output_folder) / args.output_file_name
     elif args.output_file_name:
         output_path = Path(args.output_file_name)
+    elif args.positional_input:
+        output_path = Path(args.positional_input).parent / "simulation_results.zip"
     else:
-        output_path = None
+        raise ValueError(
+            "FATAL PIPELINE ERROR: Output path must be explicitly provided or derivable from input."
+        )
 
     try:
         zip_path = run_solver(input_path=input_path, output_path=output_path)

@@ -20,11 +20,23 @@ class SolverState:
     """
 
     def __init__(self, input_data: dict[str, Any], config_data: dict[str, Any]):
+        if input_data is None:
+            raise ValueError("FATAL ERROR: input_data must be explicitly provided (no defaults allowed).")
+        if config_data is None:
+            raise ValueError("FATAL ERROR: config_data must be explicitly provided (no defaults allowed).")
+
         self.input_data: dict[str, Any] = input_data
         self.config: dict[str, Any] = config_data
 
         # Grid parameters
+        if "grid" not in input_data or input_data["grid"] is None:
+            raise KeyError("Non-default policy violation: missing required 'grid' section in input_data.")
         grid = input_data["grid"]
+        
+        for k in ["nx", "ny", "nz", "x_min", "x_max", "y_min", "y_max", "z_min", "z_max"]:
+            if k not in grid or grid[k] is None:
+                raise KeyError(f"Non-default policy violation in 'grid': missing required key '{k}'.")
+
         self.nx: int = int(grid["nx"])
         self.ny: int = int(grid["ny"])
         self.nz: int = int(grid["nz"])
@@ -40,7 +52,20 @@ class SolverState:
         self.dy: float = (self.y_max - self.y_min) / self.ny
         self.dz: float = (self.z_max - self.z_min) / self.nz
 
-        # Sub-schemas
+        # Sub-schemas with strict presence checks
+        for sec in [
+            "fluid_properties",
+            "initial_conditions",
+            "simulation_parameters",
+            "boundary_conditions",
+            "external_forces",
+            "domain_configuration",
+            "physical_constraints",
+            "mask",
+        ]:
+            if sec not in input_data or input_data[sec] is None:
+                raise KeyError(f"Non-default policy violation: missing required section '{sec}' in input_data.")
+
         self.grid: dict[str, Any] = grid
         self.fluid_properties: dict[str, Any] = input_data["fluid_properties"]
         self.initial_conditions: dict[str, Any] = input_data["initial_conditions"]
