@@ -1,11 +1,13 @@
 /**
  * @file pressure_poisson_solver.cpp
- * @brief Implementation of Step 3 Pressure Poisson Solver (Red-Black GS).
+ * @brief Implementation of Step 3 Pressure Poisson Solver (Red-Black GS) with robust safety validation.
  */
 
 #include "pressure_poisson_solver.hpp"
 #include "grid_math.hpp"
 #include <cmath>
+#include <stdexcept>
+#include <algorithm>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -18,6 +20,8 @@ void apply_neumann_pressure(
     const std::string& location,
     int nx, int ny, int nz
 ) {
+    if (nx <= 0 || ny <= 0 || nz <= 0) return;
+
     #pragma omp parallel for collapse(2) schedule(static)
     for (int k = 0; k < nz; ++k) {
         for (int j = 0; j < ny; ++j) {
@@ -37,7 +41,7 @@ void apply_neumann_pressure(
                 } else if (location == "z_max" && k == nz - 1) {
                     p[idx] = p[static_cast<size_t>(get_flat_index(i, j, nz - 2, nx, ny))];
                 } else if (location == "wall") {
-                    if (i == 0)           p[idx] = p[static_cast<size_t>(get_flat_index(1, j, k, nx, ny))];
+                    if (i == 0)            p[idx] = p[static_cast<size_t>(get_flat_index(1, j, k, nx, ny))];
                     else if (i == nx - 1) p[idx] = p[static_cast<size_t>(get_flat_index(nx - 2, j, k, nx, ny))];
                     else if (j == 0)      p[idx] = p[static_cast<size_t>(get_flat_index(i, 1, k, nx, ny))];
                     else if (j == ny - 1) p[idx] = p[static_cast<size_t>(get_flat_index(i, ny - 2, k, nx, ny))];
@@ -54,6 +58,8 @@ void apply_solid_neumann_pressure_parallel(
     const std::vector<int>& mask, 
     int nx, int ny, int nz
 ) {
+    if (nx <= 2 || ny <= 2 || nz <= 2) return;
+
     #pragma omp parallel for collapse(3) schedule(static)
     for (int k = 1; k < nz - 1; ++k) {
         for (int j = 1; j < ny - 1; ++j) {
@@ -68,14 +74,7 @@ void apply_solid_neumann_pressure_parallel(
                 const size_t idx_down  = static_cast<size_t>(get_flat_index(i, j, k - 1, nx, ny));
                 const size_t idx_up    = static_cast<size_t>(get_flat_index(i, j, k + 1, nx, ny));
 
-                const double p_west  = p[idx_west];
-                const double p_east  = p[idx_east];
-                const double p_south = p[idx_south];
-                const double p_north = p[idx_north];
-                const double p_down  = p[idx_down];
-                const double p_up    = p[idx_up];
-
-                p[idx] = (p_east + p_west + p_north + p_south + p_up + p_down) / 6.0;
+                p[idx] = (p[idx_east] + p[idx_west] + p[idx_north] + p[idx_south] + p[idx_up] + p[idx_down]) / 6.0;
             }
         }
     }
@@ -90,6 +89,21 @@ void solve_poisson_red_black_parallel(
     double dx, double dy, double dz,
     int max_iters, double tol
 ) {
+    if (nx < 3 || ny < 3 || nz < 3) {
+        throw std::invalid_argument("GEOMETRY ERROR: Grid dimensions must be at least 3x3x3 for Poisson solver.");
+    }
+    if (dx <= 0.0 || dy <= 0.0 || dz <= 0.0) {
+        throw std::invalid_argument("GEOMETRY ERROR: Grid spacing must be strictly positive.");
+    }
+    if (max_iters <= 0 || tol < 0.0) {
+        throw std::invalid_argument("ITERATION ERROR: Invalid max iterations or tolerance.");
+    }
+
+    const size_t total_cells = static_cast<size_t>(nx) * ny * nz;
+    if (p.size() != total_cells || rhs.size() != total_cells || mask.size() != total_cells) {
+        throw std::invalid_argument("CONTRACT VIOLATION: Pressure, RHS, or mask vector size mismatch.");
+    }
+
     const double idx2 = 1.0 / (dx * dx);
     const double idy2 = 1.0 / (dy * dy);
     const double idz2 = 1.0 / (dz * dz);

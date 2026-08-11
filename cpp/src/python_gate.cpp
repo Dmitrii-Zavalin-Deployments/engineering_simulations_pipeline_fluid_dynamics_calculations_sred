@@ -81,18 +81,17 @@ public:
         py::dict fluid_props = state.attr("fluid_properties");
         double mu = fluid_props["viscosity"].cast<double>();
 
-        // 6. Extract External Forces & Gravity Vectors symmetrically
+        // 6. Extract External Forces & 3D Gravity Vector Symmetrically
         py::dict ext_forces = state.attr("external_forces");
         std::vector<double> gravity = ext_forces["gravity_vector"].cast<std::vector<double>>();
         std::vector<double> force_vec = ext_forces["force_vector"].cast<std::vector<double>>();
 
-        double gx = gravity.size() > 0 ? gravity[0] : 0.0;
-        double gy = gravity.size() > 1 ? gravity[1] : -9.81;
-        double gz = gravity.size() > 2 ? gravity[2] : 0.0;
-
-        double f_ext_x = force_vec.size() > 0 ? force_vec[0] : 0.0;
-        double f_ext_y = force_vec.size() > 1 ? force_vec[1] : 0.0;
-        double f_ext_z = force_vec.size() > 2 ? force_vec[2] : 0.0;
+        if (gravity.size() != 3) {
+            throw std::invalid_argument("CONTRACT VIOLATION: gravity_vector must contain exactly 3 components [gx, gy, gz].");
+        }
+        if (force_vec.size() != 3) {
+            throw std::invalid_argument("CONTRACT VIOLATION: force_vector must contain exactly 3 components [fx, fy, fz].");
+        }
 
         // 7. Extract Physical Constraints (Velocity & Pressure clamping limits)
         py::dict phys_constraints = state.attr("physical_constraints");
@@ -108,9 +107,10 @@ public:
         std::vector<double> p(total_cells);
         std::vector<int> mask_vec(total_cells);
         
-        std::vector<double> fx_vec(total_cells, f_ext_x + gx);
-        std::vector<double> fy_vec(total_cells, f_ext_y + gy);
-        std::vector<double> fz_vec(total_cells, f_ext_z + gz);
+        // Pure non-gravitational external force densities
+        std::vector<double> fx_vec(total_cells, force_vec[0]);
+        std::vector<double> fy_vec(total_cells, force_vec[1]);
+        std::vector<double> fz_vec(total_cells, force_vec[2]);
 
         for (int k = 0; k < nz; ++k) {
             for (int j = 0; j < ny; ++j) {
@@ -133,8 +133,8 @@ public:
             bc_list.push_back(item.cast<navier_stokes_solver::BoundaryCondition>());
         }
 
-        // 10. Execute full time-step inside the C++ Orchestrator Core
-        orchestrator_->step(dt, mu, fx_vec, fy_vec, fz_vec, mask_vec, bc_list, u, v, w, p);
+        // 10. Execute full time-step inside the C++ Orchestrator Core, passing 3D gravity vector
+        orchestrator_->step(dt, mu, gravity, fx_vec, fy_vec, fz_vec, mask_vec, bc_list, u, v, w, p);
 
         // 11. Copy modified fields back into the mutable Python NumPy array in-place,
         // respecting physical constraints (clamping velocity and pressure)

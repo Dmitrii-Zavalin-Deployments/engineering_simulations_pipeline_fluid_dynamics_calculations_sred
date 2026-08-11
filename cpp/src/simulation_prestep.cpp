@@ -1,11 +1,12 @@
 /**
  * @file simulation_prestep.cpp
- * @brief Implementation of Pre-Step Boundary & Initial Condition Setup.
+ * @brief Implementation of Pre-Step Boundary & Initial Condition Setup with robust safety validation.
  */
 
 #include "orchestrator.hpp"
 #include "simulation_prestep.hpp"
 #include "grid_math.hpp"
+#include <stdexcept>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -37,6 +38,10 @@ void execute_pre_step(
     const std::vector<BoundaryCondition>& bc_list,
     int nx, int ny, int nz
 ) {
+    if (nx <= 0 || ny <= 0 || nz <= 0) {
+        throw std::invalid_argument("GEOMETRY CRASH: Invalid grid dimensions in execute_pre_step.");
+    }
+
     // Iterate through all boundary configurations defined in the input schema array
     for (size_t b = 0; b < bc_list.size(); ++b) {
         const auto& bc = bc_list[b];

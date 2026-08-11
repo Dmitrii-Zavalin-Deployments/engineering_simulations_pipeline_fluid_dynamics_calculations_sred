@@ -1,6 +1,6 @@
 /**
  * @file orchestrator.cpp
- * @brief Implementation of the Navier-Stokes Time-Stepping Orchestrator.
+ * @brief Implementation of the Navier-Stokes Time-Stepping Orchestrator with 3D Hydrostatic Pressure Splitting.
  */
 
 #include "orchestrator.hpp"
@@ -24,6 +24,7 @@ NavierStokesOrchestrator::NavierStokesOrchestrator(const GridDimensions& dims, c
 void NavierStokesOrchestrator::step(
     double dt,
     double mu,
+    const std::vector<double>& gravity,
     const std::vector<double>& fx,
     const std::vector<double>& fy,
     const std::vector<double>& fz,
@@ -34,21 +35,27 @@ void NavierStokesOrchestrator::step(
     std::vector<double>& w,
     std::vector<double>& p
 ) {
+    if (gravity.size() != 3) {
+        throw std::invalid_argument("CONTRACT VIOLATION: gravity vector must have exactly 3 components.");
+    }
+
     // 1. PRE-STEP: Apply static Dirichlet velocity/pressure conditions on walls (mask == -1) and solids (mask == 0)
     execute_pre_step(u, v, w, p, mask, bc_list, dims_.nx, dims_.ny, dims_.nz);
 
     // 2. PREDICTOR STEP: Compute trial velocities (u*, v*, w*) for active fluid cells (mask == 1)
+    // Under hydrostatic pressure splitting, gravity g is analytically balanced by the hydrostatic 
+    // pressure gradient (rho * g), so net dynamic body acceleration excludes uncompensated gravity.
     FluidProperties fluid{mu / config_.density, config_.density};
     compute_trial_velocities(
         dims_, fluid, dt,
         u.data(), v.data(), w.data(),
         fx.data(), fy.data(), fz.data(),
+        gravity,
         mask,
         u_star_.data(), v_star_.data(), w_star_.data()
     );
 
     // 3. PRESSURE POISSON STEP: Compute RHS divergence and solve pressure field iteratively
-    // Compute divergence of trial velocity field into rhs_ (scaling by density / dt)
     const double scale = config_.density / dt;
     for (int k = 0; k < dims_.nz; ++k) {
         for (int j = 0; j < dims_.ny; ++j) {

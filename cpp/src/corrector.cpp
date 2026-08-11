@@ -1,10 +1,11 @@
 /**
  * @file corrector.cpp
- * @brief Implementation of Step 4 Corrector Velocity Projection.
+ * @brief Implementation of Step 4 Corrector Velocity Projection with robust safety validation.
  */
 
 #include "corrector.hpp"
 #include "grid_math.hpp"
+#include <stdexcept>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -25,6 +26,23 @@ void solve_corrector_parallel(
     double dx, double dy, double dz,
     double dt, double rho
 ) {
+    if (nx < 3 || ny < 3 || nz < 3) {
+        throw std::invalid_argument("GEOMETRY ERROR: Grid dimensions must be at least 3x3x3 for corrector projection.");
+    }
+    if (dx <= 0.0 || dy <= 0.0 || dz <= 0.0) {
+        throw std::invalid_argument("GEOMETRY ERROR: Grid spacing must be strictly positive.");
+    }
+    if (dt <= 0.0 || rho <= 0.0) {
+        throw std::invalid_argument("PHYSICS ERROR: Time step dt and density rho must be strictly positive.");
+    }
+
+    const size_t total_cells = static_cast<size_t>(nx) * ny * nz;
+    if (u.size() != total_cells || v.size() != total_cells || w.size() != total_cells ||
+        u_star.size() != total_cells || v_star.size() != total_cells || w_star.size() != total_cells ||
+        p.size() != total_cells || mask.size() != total_cells) {
+        throw std::invalid_argument("CONTRACT VIOLATION: Vector size mismatch in corrector module.");
+    }
+
     const double coeff = dt / rho;
     const double idx_inv = 1.0 / (2.0 * dx);
     const double idy_inv = 1.0 / (2.0 * dy);
