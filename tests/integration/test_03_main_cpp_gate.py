@@ -34,9 +34,9 @@ def test_main_cli_cpp_gate_stage(workspace_folder, monkeypatch):
     mock_cpp_solver_class = MagicMock()
 
     # Capture the state object passed during initialization and mutate fields in-place
-    # to simulate C++ engine zero-copy buffer updates across simulation steps.
+    # using a value within physical velocity bounds [-10.0, 10.0] to prevent clipping.
     def solver_constructor_side_effect(state, *args, **kwargs):
-        state.fields[0, 0, 0, 0] = 99.9
+        state.fields[0, 0, 0, 0] = 5.0
         return mock_cpp_solver_instance
 
     mock_cpp_solver_class.side_effect = solver_constructor_side_effect
@@ -131,4 +131,4 @@ def test_main_cli_cpp_gate_stage(workspace_folder, monkeypatch):
 
     # 4. Verify zero-copy RAM mutation: ensure changes made during C++ execution are immediately 
     # present in Python's sovereign container fields without any serialization or re-copying drift.
-    assert passed_state.fields[0, 0, 0, 0] == 99.9
+    assert passed_state.fields[0, 0, 0, 0] == 5.0
