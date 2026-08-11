@@ -1,9 +1,11 @@
 """
 tests/conftest.py
-Pytest fixtures providing test data and workspace directories for CLI-driven integration tests.
+Pytest fixtures providing test data and workspace directories for CLI-driven integration tests,
+dynamically syncing configuration data directly from production config/config.json.
 """
 
 import json
+import os
 
 import pytest
 
@@ -63,19 +65,10 @@ def valid_input_data():
 
 
 @pytest.fixture
-def valid_config_data():
-    """Returns valid solver numerical configuration parameters."""
-    return {
-        "max_poisson_iterations": 500,
-        "poisson_tolerance": 1e-6,
-    }
-
-
-@pytest.fixture
-def workspace_folder(tmp_path, valid_input_data, valid_config_data):
+def workspace_folder(tmp_path, valid_input_data):
     """
     Creates an input/output workspace folder containing input JSON files
-    matching CLI requirements (--input_output_folder, --input_file_name, config.json).
+    and mirrors the production config/config.json to satisfy CLI requirements.
     """
     io_folder = tmp_path / "io_workspace"
     io_folder.mkdir(parents=True, exist_ok=True)
@@ -86,11 +79,28 @@ def workspace_folder(tmp_path, valid_input_data, valid_config_data):
     input_path = io_folder / input_file_name
     config_path = io_folder / config_file_name
 
+    # Write valid input data
     with open(input_path, "w", encoding="utf-8") as f:
         json.dump(valid_input_data, f)
 
+    # Dynamically load and mirror the production configuration file
+    prod_config_candidates = [
+        os.path.join(os.path.dirname(__file__), "..", "config", "config.json"),
+        "config/config.json",
+    ]
+    
+    prod_config = None
+    for candidate in prod_config_candidates:
+        if os.path.exists(candidate):
+            with open(candidate, "r", encoding="utf-8") as f:
+                prod_config = json.load(f)
+            break
+
+    if prod_config is None:
+        raise FileNotFoundError("Critical: Production config/config.json not found for test workspace synchronization.")
+
     with open(config_path, "w", encoding="utf-8") as f:
-        json.dump(valid_config_data, f)
+        json.dump(prod_config, f)
 
     return {
         "folder": str(io_folder),

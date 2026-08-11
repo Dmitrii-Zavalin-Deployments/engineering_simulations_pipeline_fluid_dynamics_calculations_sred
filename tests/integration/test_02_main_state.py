@@ -1,6 +1,6 @@
 """
 tests/integration/test_02_main_state.py
-Integration Test 2: Main CLI -> Ingestion -> Sovereign SolverState initialization and comprehensive state fidelity verification.
+Integration Test 2: Main CLI -> Ingestion -> Sovereign SolverState initialization and production parameter verification.
 """
 
 import sys
@@ -13,11 +13,11 @@ def test_main_cli_state_stage(workspace_folder, monkeypatch):
     """
     Narrative: Verifies the sovereign integration pipeline from command-line parsing
     through strict ingestion to sovereign SolverState initialization, ensuring absolute
-    structural and value parity of every fixture attribute inside the instantiated SolverState object.
+    structural and production parity across all state attributes.
     """
     
     # We retrieve the temporary workspace folder path and input file handle 
-    # for the current simulation run established by conftest.py.
+    # for the current simulation run.
     folder = workspace_folder["folder"]
     input_file = workspace_folder["input_file_name"]
 
@@ -121,7 +121,8 @@ def test_main_cli_state_stage(workspace_folder, monkeypatch):
     assert state.input_data["external_forces"]["force_vector"] == [0.0, 0.0, 0.0]
     assert state.input_data["external_forces"]["gravity_vector"] == [0.0, -9.81, 0.0]
 
-    # 10. Numerical Configuration Parameters Verification:
-    #     max_poisson_iterations = 500, poisson_tolerance = 1e-6
-    assert state.config["max_poisson_iterations"] == 500
-    assert state.config["poisson_tolerance"] == 1e-6
+    # 10. Production Numerical Configuration Parameters Verification:
+    #     max_poisson_iterations = 2000
+    #     poisson_tolerance = 1e-8
+    assert state.config["max_poisson_iterations"] == 2000
+    assert state.config["poisson_tolerance"] == 1e-8

@@ -1,6 +1,6 @@
 """
 tests/integration/test_01_main_ingestion.py
-Integration Test 1: Main CLI entry point -> Ingestion schema parsing and full fixture fidelity.
+Integration Test 1: Main CLI entry point -> Ingestion schema parsing and production configuration parity.
 """
 
 import sys
@@ -13,11 +13,11 @@ def test_main_cli_ingestion_stage(workspace_folder, monkeypatch):
     """
     Narrative: Verifies the end-to-end integration of the Command Line Interface (CLI) 
     entry point with the strict ingestion and validation pipeline, ensuring absolute 
-    structural and value parity between the conftest.py fixtures and ingested payloads.
+    structural and value parity with production configurations.
     """
     
     # We retrieve the temporary workspace folder and explicit file handles established 
-    # for the current simulation run by conftest.py.
+    # for the current simulation run.
     folder = workspace_folder["folder"]
     input_file = workspace_folder["input_file_name"]
     workspace_folder["config_path"]
@@ -59,7 +59,7 @@ def test_main_cli_ingestion_stage(workspace_folder, monkeypatch):
                 assert e.code == 0
 
         # We verify that the ingestion spy was successfully invoked exactly once,
-        # and that every single dictionary component matches the reference fixtures.
+        # and that all structural parameters match production specifications.
         assert spy_ingest.called
         assert len(captured_return) == 1
         
@@ -114,7 +114,8 @@ def test_main_cli_ingestion_stage(workspace_folder, monkeypatch):
         assert input_data["external_forces"]["force_vector"] == [0.0, 0.0, 0.0]
         assert input_data["external_forces"]["gravity_vector"] == [0.0, -9.81, 0.0]
 
-        # 10. Numerical Configuration Parameters Verification:
-        #     max_poisson_iterations = 500, poisson_tolerance = 1e-6
-        assert config_data["max_poisson_iterations"] == 500
-        assert config_data["poisson_tolerance"] == 1e-6
+        # 10. Production Numerical Configuration Parameters Verification:
+        #     max_poisson_iterations = 2000
+        #     poisson_tolerance = 1e-8
+        assert config_data["max_poisson_iterations"] == 2000
+        assert config_data["poisson_tolerance"] == 1e-8
