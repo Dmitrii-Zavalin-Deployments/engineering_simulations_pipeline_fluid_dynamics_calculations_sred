@@ -8,8 +8,6 @@ and validates zero-copy memory alignment and in-place sharing between Python and
 import sys
 from unittest.mock import MagicMock, patch
 
-import numpy as np
-
 
 def test_main_cli_cpp_gate_stage(workspace_folder, monkeypatch):
     """

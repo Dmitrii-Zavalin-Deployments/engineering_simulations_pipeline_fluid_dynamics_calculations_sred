@@ -8,8 +8,6 @@ and eliminate parameter drift.
 
 import logging
 
-import numpy as np
-
 from src.state import SolverState
 
 try:
