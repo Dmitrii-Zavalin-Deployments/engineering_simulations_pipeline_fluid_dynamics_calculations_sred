@@ -1,233 +1,101 @@
-# src/main.py
+"""
+src/main.py
+Main Execution Control Plane.
+Orchestrates ingestion, sovereign state instantiation, the master time-integration loop,
+preview generation, and archival packaging.
+"""
 
 import argparse
-import json
 import logging
 import sys
 import traceback
 from pathlib import Path
 
-import jsonschema
-import numpy as np
-
-# Rule 5: Force global arithmetic trapping for deterministic stability
-np.seterr(all="raise")
-
 from src.archivist import archive_simulation_results
+from src.cpp_gate import step_simulation
+from src.generate_previews import generate_snapshot_preview
 from src.ingestion import load_and_validate_inputs
 from src.state import SolverState
 
-DEBUG = False
 logger = logging.getLogger("Solver.Main")
-logger.propagate = True
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-class InputDataWrapper:
-    """Provides attribute access over raw simulation input dictionaries."""
+def run_simulation(input_path: str | Path, output_dir: str | Path, zip_filename: str = "simulation_results.zip") -> str:
+    """
+    Executes the complete Navier-Stokes simulation pipeline.
 
-    def __init__(self, input_data: dict[str, Any]):
-        if input_data is None:
-            raise ValueError("FATAL ERROR: input_data must be explicitly provided.")
-        self._data = input_data
-        self.simulation_parameters = input_data.get("simulation_parameters")
+    Args:
+        input_path: Path to navier_stokes_input.json (mandatory, no defaults)
+        output_dir: Target directory path for output artifacts (mandatory, no defaults)
+        zip_filename: Name of the generated zip archive (mandatory, no defaults)
 
-    def to_dict(self) -> dict[str, Any]:
-        return self._data
-
-
-class SimulationContext:
-    """Container combining input schema parameters and execution configuration."""
-
-    def __init__(self, input_data: dict[str, Any], config: dict[str, Any]):
-        if input_data is None or config is None:
-            raise ValueError("FATAL ERROR: input_data and config must be explicitly provided.")
-        self.input_data = InputDataWrapper(input_data)
-        self.config = config
-
-    @classmethod
-    def create(cls, input_data: dict[str, Any], config_data: dict[str, Any]) -> "SimulationContext":
-        if input_data is None or config_data is None:
-            raise ValueError("FATAL ERROR: input_data and config_data must be explicitly provided.")
-        return cls(input_data, config_data)
-
-
-class ElasticManager:
-    """Manages solver time-step stability and adaptive scaling under anomalies."""
-
-    def __init__(self, config: dict[str, Any], state: SolverState):
-        if config is None or state is None:
-            raise ValueError("FATAL ERROR: config and state must be explicitly provided.")
-        self.config: dict[str, Any] = config
-        self.state: SolverState = state
-        self.dt: float = float(state.dt)
-
-    def stabilization(self, is_needed: bool = False) -> None:
-        if is_needed is None:
-            raise ValueError("FATAL ERROR: is_needed must be explicitly provided.")
-        if is_needed:
-            self.dt *= 0.5
-            logger.warning(f"Elasticity stabilization triggered: reducing time-step dt to {self.dt}")
-
-
-def archive_simulation_artifacts(state: SolverState, output_path: str | Path) -> str:
-    """Routes artifact archival requests to the core archivist."""
-    if state is None or output_path is None:
-        raise ValueError("FATAL ERROR: state and output_path must be explicitly provided.")
-    p = Path(output_path)
-    if p.is_dir() or str(output_path).endswith("/") or not p.suffix:
-        p.mkdir(parents=True, exist_ok=True)
-        return archive_simulation_results(state, str(p), "simulation_results.zip")
-    else:
-        p.parent.mkdir(parents=True, exist_ok=True)
-        return archive_simulation_results(state, str(p.parent), p.name)
-
-
-def _configure_numerical_runtime(context: SimulationContext):
-    """Rule 5: Deterministic Initialization via NumPy error trapping."""
-    np.seterr(all="raise", under="ignore")
-    logger.info("Numerical runtime configured: Trapping arithmetic anomalies.")
-
-
-def _load_simulation_context(input_path: str | Path) -> SimulationContext:
-    """Assembles physical input and numerical config into a unified context."""
+    Returns:
+        Absolute path string to the generated archive.
+    """
     if input_path is None:
         raise ValueError("FATAL ERROR: input_path must be explicitly provided (no defaults allowed).")
+    if output_dir is None:
+        raise ValueError("FATAL ERROR: output_dir must be explicitly provided (no defaults allowed).")
+    if zip_filename is None:
+        raise ValueError("FATAL ERROR: zip_filename must be explicitly provided (no defaults allowed).")
 
-    full_input_path = Path(input_path)
-    if not full_input_path.is_absolute():
-        full_input_path = BASE_DIR / input_path
+    config_path = BASE_DIR / "config" / "config.json"
+    if not config_path.is_file():
+        raise FileNotFoundError(f"Configuration file not found at: {config_path}")
 
-    config_path = BASE_DIR / "config/config.json"
+    logger.info("Step 1: Loading and validating inputs and configuration...")
+    input_data, config_data = load_and_validate_inputs(input_path, config_path)
 
-    if not full_input_path.exists():
-        raise FileNotFoundError(f"Input file missing at {full_input_path}")
-    if not config_path.exists():
-        raise FileNotFoundError(f"config.json required at {config_path}")
+    logger.info("Step 2: Initializing Sovereign SolverState container...")
+    state = SolverState(input_data, config_data)
 
-    input_data, config_data = load_and_validate_inputs(full_input_path, config_path)
-    return SimulationContext.create(input_data, config_data)
+    logger.info(f"Starting master time-integration loop: {state.total_iterations} iterations, dt={state.dt}")
 
+    out_path = Path(output_dir)
+    out_path.mkdir(parents=True, exist_ok=True)
 
-def run_solver(input_path: str | Path, output_path: str | Path) -> str:
-    """Main Orchestrator with State-Anchored Elastic Stability."""
-    if input_path is None:
-        raise ValueError("FATAL ERROR: input_path must be explicitly provided.")
-    if output_path is None:
-        raise ValueError("FATAL ERROR: output_path must be explicitly provided.")
+    # Record initial state snapshot (iteration 0)
+    preview_file = None
+    if state.output_interval > 0 and state.current_iteration % state.output_interval == 0:
+        preview_file = generate_snapshot_preview(state, out_path, state.current_iteration)
+    state.record_snapshot(preview_file_path=preview_file)
 
-    context = _load_simulation_context(input_path)
-    _configure_numerical_runtime(context)
+    # Master time loop
+    for _ in range(1, state.total_iterations + 1):
+        # Execute physical step through C++ bridge
+        step_simulation(state)
 
-    # 1. VALIDATE INPUT
-    SCHEMA_PATH = BASE_DIR / "schema/solver_input_schema.json"
-    if not SCHEMA_PATH.exists():
-        raise FileNotFoundError(f"Solver input schema missing at {SCHEMA_PATH}")
+        # Enforce physical constraints / bounds / stability checks
+        state.enforce_physical_constraints()
 
-    try:
-        with open(SCHEMA_PATH, encoding="utf-8") as f:
-            schema = json.load(f)
-        jsonschema.validate(instance=context.input_data.to_dict(), schema=schema)
-    except jsonschema.exceptions.ValidationError as e:
-        logger.error(f"!!! CONTRACT VIOLATION: {e.message}")
-        raise
+        # Generate preview and record snapshot at intervals
+        preview_file = None
+        if state.output_interval > 0 and (
+            state.current_iteration % state.output_interval == 0
+            or state.current_iteration == state.total_iterations
+        ):
+            preview_file = generate_snapshot_preview(state, out_path, state.current_iteration)
 
-    # 2. ASSEMBLY
-    state = orchestrate_step1(context)
-    state = orchestrate_step2(state)
+        state.record_snapshot(preview_file_path=preview_file)
 
-    # 3. STATE CONTRACT VALIDATION
-    try:
-        state.validate_against_schema(str(SCHEMA_PATH))
-    except jsonschema.exceptions.ValidationError as e:
-        path_str = ".".join([str(p) for p in e.path])
-        logger.error(f"!!! STATE CONTRACT VALIDATION at {path_str}: {e.message}")
-        raise
-
-    # 4. ELASTICITY ENGINE
-    elasticity = ElasticManager(context.config, state)
-
-    # 5. MAIN EXECUTION LOOP
-    while state.ready_for_time_loop:
-        state.capture_stable_state()
-
-        try:
-            for b in state.stencil_matrix:
-                b.dt = elasticity.dt
-
-            for block in state.stencil_matrix:
-                orchestrate_step3(
-                    block,
-                    context,
-                    state.grid,
-                    state.boundary_conditions,
-                    is_first_pass=True,
-                )
-
-            for _ in range(context.config["max_poisson_iterations"]):
-                max_delta = 0.0
-                for block in state.stencil_matrix:
-                    _, delta = orchestrate_step3(
-                        block,
-                        context,
-                        state.grid,
-                        state.boundary_conditions,
-                        is_first_pass=False,
-                    )
-                    max_delta = max(max_delta, delta)
-
-                if max_delta < context.config["poisson_tolerance"]:
-                    break
-
-            elasticity.stabilization(is_needed=False)
-            state = orchestrate_step4(state, context)
-
-            if state.time >= context.input_data.simulation_parameters["total_time"]:
-                state.ready_for_time_loop = False
-
-        except ArithmeticError as e:
-            logger.error(f"Audit Failure: {e}")
-            state.rollback_to_stable_state()
-            logger.warning(
-                f"STABILITY TRIGGER: Physical anomaly at iteration {state.iteration}. Reducing dt..."
+        if state.current_iteration % max(1, state.total_iterations // 10) == 0:
+            logger.info(
+                f"Progress: Iteration {state.current_iteration}/{state.total_iterations} (t={state.current_time:.4f}s)"
             )
-            elasticity.stabilization(is_needed=True)
 
-        except (RuntimeError, TypeError, ValueError, AttributeError) as e:
-            logger.error(f"CRITICAL TERMINATION [{type(e).__name__}]: {e!s}")
-            raise
-
-    return archive_simulation_artifacts(state, output_path=output_path)
+    logger.info("Simulation completed successfully. Packaging results via Archivist...")
+    archive_path = archive_simulation_results(state, str(out_path), zip_filename)
+    logger.info(f"Simulation artifacts successfully archived at: {archive_path}")
+    return archive_path
 
 
-def main():
-    parser = argparse.ArgumentParser(
-        description="Navier–Stokes Solver Execution Engine"
-    )
-    parser.add_argument(
-        "positional_input",
-        nargs="?",
-        default=None,
-        help="Path to input JSON configuration file (positional argument)",
-    )
-    parser.add_argument(
-        "--input_output_folder",
-        type=str,
-        default=None,
-        help="Directory folder containing input/output artifacts",
-    )
-    parser.add_argument(
-        "--input_file_name",
-        type=str,
-        default=None,
-        help="File name of the input JSON configuration",
-    )
-    parser.add_argument(
-        "--output_file_name",
-        type=str,
-        default=None,
-        help="File name for the output archive zip",
-    )
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Navier-Stokes Solver Execution Engine")
+    parser.add_argument("positional_input", nargs="?", default=None, help="Path to input JSON configuration file")
+    parser.add_argument("--input_output_folder", type=str, default=None, help="Directory folder containing input/output artifacts")
+    parser.add_argument("--input_file_name", type=str, default=None, help="File name of the input JSON configuration")
+    parser.add_argument("--output_file_name", type=str, default=None, help="File name for the output archive zip")
 
     args = parser.parse_args()
 
@@ -236,37 +104,26 @@ def main():
     elif args.positional_input:
         input_path = Path(args.positional_input)
     else:
-        raise ValueError(
-            "FATAL PIPELINE ERROR: Must provide either positional <input_json_path> OR both --input_output_folder and --input_file_name"
-        )
+        raise ValueError("FATAL PIPELINE ERROR: Must provide either positional <input_json> or both --input_output_folder and --input_file_name.")
 
     if args.input_output_folder and args.output_file_name:
-        output_path = Path(args.input_output_folder) / args.output_file_name
+        output_dir = Path(args.input_output_folder)
+        zip_filename = args.output_file_name
     elif args.output_file_name:
-        output_path = Path(args.output_file_name)
+        output_dir = Path(args.output_file_name).parent
+        zip_filename = Path(args.output_file_name).name
+        if not str(output_dir) or str(output_dir) == ".":
+            output_dir = Path(".")
     elif args.positional_input:
-        output_path = Path(args.positional_input).parent / "simulation_results.zip"
+        output_dir = Path(args.positional_input).parent
+        zip_filename = "simulation_results.zip"
     else:
-        raise ValueError(
-            "FATAL PIPELINE ERROR: Output path must be explicitly provided or derivable from input."
-        )
+        raise ValueError("FATAL PIPELINE ERROR: Output path must be explicitly provided or derivable from input.")
 
     try:
-        zip_path = run_solver(input_path=input_path, output_path=output_path)
-        print(f"Pipeline complete. Artifacts archived at: {zip_path}")
+        run_simulation(input_path=input_path, output_dir=output_dir, zip_filename=zip_filename)
         sys.exit(0)
-    except (
-        FileNotFoundError,
-        ValueError,
-        KeyError,
-        jsonschema.exceptions.ValidationError,
-        ArithmeticError,
-        OSError,
-        json.JSONDecodeError,
-        RuntimeError,
-        TypeError,
-        AttributeError,
-    ) as e:
+    except Exception as e:
         print(f"FATAL PIPELINE ERROR: {e!s}", file=sys.stderr)
         traceback.print_exc()
         sys.exit(1)
