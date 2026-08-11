@@ -17,6 +17,7 @@ def test_main_cli_state_stage(workspace_folder, monkeypatch):
         "main.py",
         "--input_output_folder", folder,
         "--input_file_name", input_file,
+        "--output_file_name", "simulation_results.zip",
     ]
     monkeypatch.setattr(sys, "argv", cli_args)
 
