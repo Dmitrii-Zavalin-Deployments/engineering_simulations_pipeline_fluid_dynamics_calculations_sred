@@ -1,0 +1,11 @@
+# Compiled Python extensions and shared libraries
+*.so
+*.pyd
+*.dll
+*.dylib
+
+# Build directories
+build/
+dist/
+__pycache__/
+.pytest_cache/
