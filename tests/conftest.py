@@ -1,0 +1,100 @@
+"""
+tests/conftest.py
+Pytest fixtures providing test data and workspace directories for CLI-driven integration tests.
+"""
+
+import json
+import pytest
+
+
+@pytest.fixture
+def valid_input_data():
+    """Returns a valid 4x4x4 domain input configuration dictionary."""
+    nx, ny, nz = 4, 4, 4
+    return {
+        "physical_constraints": {
+            "min_velocity": -10.0,
+            "max_velocity": 10.0,
+            "min_pressure": -100.0,
+            "max_pressure": 100.0,
+        },
+        "domain_configuration": {
+            "type": "INTERNAL",
+            "reference_velocity": [0.0, 0.0, 0.0],
+        },
+        "grid": {
+            "x_min": 0.0,
+            "x_max": 1.0,
+            "y_min": 0.0,
+            "y_max": 1.0,
+            "z_min": 0.0,
+            "z_max": 1.0,
+            "nx": nx,
+            "ny": ny,
+            "nz": nz,
+        },
+        "fluid_properties": {
+            "density": 1.0,
+            "viscosity": 0.01,
+        },
+        "initial_conditions": {
+            "velocity": [0.0, 0.0, 0.0],
+            "pressure": 0.0,
+        },
+        "simulation_parameters": {
+            "time_step": 0.001,
+            "total_time": 0.003,  # 3 iterations
+            "output_interval": 1,
+        },
+        "boundary_conditions": [
+            {
+                "location": "wall",
+                "type": "no-slip",
+                "values": {"u": 0.0, "v": 0.0, "w": 0.0},
+            }
+        ],
+        "mask": [0] * (nx * ny * nz),
+        "external_forces": {
+            "force_vector": [0.0, 0.0, 0.0],
+            "gravity_vector": [0.0, -9.81, 0.0],
+        },
+    }
+
+
+@pytest.fixture
+def valid_config_data():
+    """Returns valid solver numerical configuration parameters."""
+    return {
+        "max_poisson_iterations": 500,
+        "poisson_tolerance": 1e-6,
+    }
+
+
+@pytest.fixture
+def workspace_folder(tmp_path, valid_input_data, valid_config_data):
+    """
+    Creates an input/output workspace folder containing input JSON files
+    matching CLI requirements (--input_output_folder, --input_file_name, config.json).
+    """
+    io_folder = tmp_path / "io_workspace"
+    io_folder.mkdir(parents=True, exist_ok=True)
+
+    input_file_name = "navier_stokes_input.json"
+    config_file_name = "config.json"
+
+    input_path = io_folder / input_file_name
+    config_path = io_folder / config_file_name
+
+    with open(input_path, "w", encoding="utf-8") as f:
+        json.dump(valid_input_data, f)
+
+    with open(config_path, "w", encoding="utf-8") as f:
+        json.dump(valid_config_data, f)
+
+    return {
+        "folder": str(io_folder),
+        "input_file_name": input_file_name,
+        "config_path": str(config_path),
+        "input_path": str(input_path),
+        "output_zip_name": "simulation_results.zip",
+    }
