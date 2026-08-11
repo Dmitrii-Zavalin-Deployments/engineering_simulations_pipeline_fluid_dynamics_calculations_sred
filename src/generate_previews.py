@@ -1,113 +1,83 @@
+"""
+src/generate_previews.py
+Preview Generation Module.
+Extracts 2D cross-sectional slices from 3D state arrays and generates visual preview artifacts.
+"""
+
+import logging
 from pathlib import Path
+import numpy as np
+
+logger = logging.getLogger("Solver.Previews")
+
+try:
+    import matplotlib
+    matplotlib.use("Agg")  # Non-interactive backend
+    import matplotlib.pyplot as plt
+    HAS_MATPLOTLIB = True
+except ImportError:
+    HAS_MATPLOTLIB = False
+    logger.warning("Matplotlib not found. Preview generation falling back to raw NumPy slice export.")
 
 
-def generate_pipeline_previews(
-    output_dir: str = "data/testing-input-output",
-) -> None:
-  """Generates 3 diagnostic field snapshot images for the Navier-Stokes README preview table:
+def generate_snapshot_preview(state, output_dir: str, step: int) -> str:
+    """
+    Extracts a mid-plane 2D cross-section of pressure and velocity magnitude,
+    rendering a PNG preview image into the target output directory.
 
-  1. initial_field_setup.png: Taylor-Green vortex velocity magnitude & streamlines at t=0
-  2. ppe_solver_state.png: Pressure Poisson Equation correction field
-  3. velocity_vorticity_slice.png: Final divergence-free vorticity contour slice
-  """
-  import matplotlib.pyplot as plt
-  import numpy as np
+    Args:
+        state: SolverState instance
+        output_dir: Target directory path for saving preview files
+        step: Current simulation step iteration index
 
-  output_path = Path(output_dir)
-  output_path.mkdir(parents=True, exist_ok=True)
+    Returns:
+        Relative path string to the generated preview file.
+    """
+    out_path = Path(output_dir)
+    out_path.mkdir(parents=True, exist_ok=True)
 
-  # Spatial discretization grid
-  resolution = 128
-  x = np.linspace(-np.pi, np.pi, resolution)
-  y = np.linspace(-np.pi, np.pi, resolution)
-  X, Y = np.meshgrid(x, y)
+    mid_z = state.nz // 2
+    
+    # Extract 2D mid-plane slices
+    u_slice = state.fields[0, :, :, mid_z]
+    v_slice = state.fields[1, :, :, mid_z]
+    p_slice = state.fields[3, :, :, mid_z]
+    vel_mag_slice = np.sqrt(u_slice**2 + v_slice**2)
 
-  # -------------------------------------------------------------------------
-  # 1. Initial Field Setup (Analytical Taylor-Green Velocity Setup)
-  # -------------------------------------------------------------------------
-  u_0 = np.sin(X) * np.cos(Y)
-  v_0 = -np.cos(X) * np.sin(Y)
-  speed_0 = np.sqrt(u_0**2 + v_0**2)
+    file_name = f"preview_step_{step:06d}.png"
+    file_path = out_path / file_name
 
-  fig, ax = plt.subplots(figsize=(5, 4.5), dpi=200)
-  contour1 = ax.contourf(X, Y, speed_0, levels=30, cmap="viridis")
-  ax.streamplot(
-      x,
-      y,
-      u_0,
-      v_0,
-      color="white",
-      density=0.8,
-      linewidth=0.7,
-      arrowsize=0.7,
-  )
-  cbar1 = fig.colorbar(contour1, ax=ax)
-  cbar1.set_label(r"$| \mathbf{u} |$ Velocity Magnitude", fontsize=9)
-  ax.set_title(
-      r"1. Initial Field Setup ($t=0$)", fontsize=10, fontweight="bold"
-  )
-  ax.set_xlabel("X Domain")
-  ax.set_ylabel("Y Domain")
-  fig.tight_layout()
-  fig.savefig(
-      output_path / "initial_field_setup.png",
-      bbox_inches="tight",
-      facecolor="white",
-  )
-  plt.close(fig)
+    if HAS_MATPLOTLIB:
+        fig, axes = plt.subplots(1, 2, figsize=(10, 4))
 
-  # -------------------------------------------------------------------------
-  # 2. PPE Solver State (Pressure Poisson Distribution)
-  # -------------------------------------------------------------------------
-  # Analytical pressure field: p(x, y) = -1/4 * (cos(2x) + cos(2y))
-  p_field = -0.25 * (np.cos(2 * X) + np.cos(2 * Y))
+        # Velocity magnitude contour
+        im0 = axes[0].imshow(
+            vel_mag_slice.T, origin="lower", cmap="viridis",
+            extent=[state.x_min, state.x_max, state.y_min, state.y_max]
+        )
+        axes[0].set_title(f"Velocity Mag (Z-slice, Step {step})")
+        axes[0].set_xlabel("X")
+        axes[0].set_ylabel("Y")
+        fig.colorbar(im0, ax=axes[0])
 
-  fig, ax = plt.subplots(figsize=(5, 4.5), dpi=200)
-  contour2 = ax.contourf(X, Y, p_field, levels=30, cmap="coolwarm")
-  cbar2 = fig.colorbar(contour2, ax=ax)
-  cbar2.set_label(r"Pressure $p$ / Correction Field", fontsize=9)
-  ax.set_title(
-      r"2. PPE Solver State ($\nabla^2 p = \frac{1}{\Delta t} \nabla \cdot \mathbf{u}^*$)",
-      fontsize=10,
-      fontweight="bold",
-  )
-  ax.set_xlabel("X Domain")
-  ax.set_ylabel("Y Domain")
-  fig.tight_layout()
-  fig.savefig(
-      output_path / "ppe_solver_state.png",
-      bbox_inches="tight",
-      facecolor="white",
-  )
-  plt.close(fig)
+        # Pressure field contour
+        im1 = axes[1].imshow(
+            p_slice.T, origin="lower", cmap="coolwarm",
+            extent=[state.x_min, state.x_max, state.y_min, state.y_max]
+        )
+        axes[1].set_title(f"Pressure Field (Z-slice, Step {step})")
+        axes[1].set_xlabel("X")
+        axes[1].set_ylabel("Y")
+        fig.colorbar(im1, ax=axes[1])
 
-  # -------------------------------------------------------------------------
-  # 3. Velocity / Vorticity Slice (Final Verified State)
-  # -------------------------------------------------------------------------
-  # Vorticity w_z = dv/dx - du/dy = -2 * sin(x) * sin(y)
-  vorticity = -2.0 * np.sin(X) * np.sin(Y)
+        plt.tight_layout()
+        plt.savefig(file_path, dpi=100)
+        plt.close(fig)
+    else:
+        # Fallback: Save raw array values to CSV if matplotlib is unavailable
+        raw_file_name = f"preview_step_{step:06d}.csv"
+        file_path = out_path / raw_file_name
+        np.savetxt(file_path, vel_mag_slice, delimiter=",")
 
-  fig, ax = plt.subplots(figsize=(5, 4.5), dpi=200)
-  contour3 = ax.contourf(X, Y, vorticity, levels=30, cmap="plasma")
-  cbar3 = fig.colorbar(contour3, ax=ax)
-  cbar3.set_label(r"Vorticity $\omega_z$", fontsize=9)
-  ax.set_title(
-      r"3. Divergence-Free Vorticity Slice ($\nabla \cdot \mathbf{u} = 0$)",
-      fontsize=10,
-      fontweight="bold",
-  )
-  ax.set_xlabel("X Domain")
-  ax.set_ylabel("Y Domain")
-  fig.tight_layout()
-  fig.savefig(
-      output_path / "velocity_vorticity_slice.png",
-      bbox_inches="tight",
-      facecolor="white",
-  )
-  plt.close(fig)
-
-  print(f"Successfully generated 3 preview images in: {output_path.resolve()}")
-
-
-if __name__ == "__main__":
-  generate_pipeline_previews()
+    logger.debug(f"Generated simulation preview slice: {file_path}")
+    return str(file_name)
