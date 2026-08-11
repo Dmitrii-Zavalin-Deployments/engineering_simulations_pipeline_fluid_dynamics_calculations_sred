@@ -123,7 +123,15 @@ def main() -> None:
     try:
         run_simulation(input_path=input_path, output_dir=output_dir, zip_filename=zip_filename)
         sys.exit(0)
-    except Exception as e:
+    except (
+        FileNotFoundError,
+        ValueError,
+        KeyError,
+        OSError,
+        RuntimeError,
+        TypeError,
+        AttributeError,
+    ) as e:
         print(f"FATAL PIPELINE ERROR: {e!s}", file=sys.stderr)
         traceback.print_exc()
         sys.exit(1)
