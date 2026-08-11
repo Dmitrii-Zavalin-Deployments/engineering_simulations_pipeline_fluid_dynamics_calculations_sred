@@ -9,6 +9,8 @@ and confirms zero-copy memory alignment.
 import sys
 from unittest.mock import MagicMock, patch
 
+import numpy as np
+
 
 def test_main_cli_cpp_gate_stage(workspace_folder, monkeypatch):
     """
