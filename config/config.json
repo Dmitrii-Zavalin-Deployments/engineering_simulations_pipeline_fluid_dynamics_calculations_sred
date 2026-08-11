@@ -1,10 +1,4 @@
 {
-    "dt": 0.0001,
-    "dt_min_limit": 0.00001,
-    "ppe_tolerance": 1e-3,
-    "ppe_atol": 1e-5,
-    "ppe_max_iter": 1000,
-    "ppe_omega": 0.8,
-    "ppe_max_retries": 5,
-    "divergence_threshold": 1e6
+  "max_poisson_iterations": 2000,
+  "poisson_tolerance": 1e-8
 }
