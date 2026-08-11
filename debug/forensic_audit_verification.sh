@@ -1,43 +1,35 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # src/debug/forensic_audit.sh
-# Forensic diagnostic and automated remediation script for integration test CLI arguments.
+# Forensic diagnostic and automated remediation script for integration test 
+# SystemExit(1) failures and pipeline exception tracing.
 # ==============================================================================
 
 set -euo pipefail
 
 echo "============================================================"
-echo "      [FORENSIC AUDIT] Integration Test CLI Diagnostics     "
+echo "    [FORENSIC AUDIT] Integration Test Exit Code 1 Diagnostics"
 echo "============================================================"
 
-# echo "--- [1] Reproducing integration test failures ---"
-# pytest tests/integration/test_01_main_ingestion.py tests/integration/test_02_main_state.py || true
+echo "--- [1] Running pytest with full traceback on failing integration tests ---"
+pytest tests/integration/test_01_main_ingestion.py tests/integration/test_02_main_state.py --tb=long || true
 
 echo ""
-echo "--- [2] Inspecting integration test invocation in tests/integration/test_01_main_ingestion.py ---"
-if [ -f "tests/integration/test_01_main_ingestion.py" ]; then
-    grep -n -C 5 -- "input_output_folder" tests/integration/test_01_main_ingestion.py || true
-else
-    echo "Integration test file not found."
-fi
-
-echo ""
-echo "--- [3] Inspecting argument validation in src/main.py ---"
+echo "--- [2] Inspecting exception handling block in src/main.py ---"
 if [ -f "src/main.py" ]; then
-    grep -n -C 5 -- "--output_file_name" src/main.py || true
+    grep -n -C 8 "except (" src/main.py || true
     echo ""
-    echo "Source smoking-gun lines in src/main.py (100-125):"
-    cat -n src/main.py | sed -n '100,125p'
+    echo "Source smoking-gun lines in src/main.py (120-145):"
+    cat -n src/main.py | sed -n '120,145p'
 else
     echo "CRITICAL: src/main.py does not exist."
     exit 1
 fi
 
 echo ""
-echo "--- [4] Automated Repair Candidates (Reference # sed commands) ---"
-echo "To update integration tests to include --output_file_name under non-default policy:"
-# sed -i 's/"--input_output_folder", str(tmp_path)/"--input_output_folder", str(tmp_path), "--output_file_name", "simulation_results.zip"/g' tests/integration/test_01_main_ingestion.py
-# sed -i 's/"--input_output_folder", str(tmp_path)/"--input_output_folder", str(tmp_path), "--output_file_name", "simulation_results.zip"/g' tests/integration/test_02_main_state.py
+echo "--- [3] Automated Repair Candidates (Reference # sed commands) ---"
+echo "To print detailed exception class diagnostics before exit in main():"
+# sed -i 's/print(f"FATAL PIPELINE ERROR: {e!s}", file=sys.stderr)/print(f"FATAL PIPELINE ERROR [{type(e).__name__}]: {e!s}", file=sys.stderr)/g' src/main.py
 
 echo "============================================================"
 echo "          [FORENSIC AUDIT] Diagnostic Suite Complete        "
