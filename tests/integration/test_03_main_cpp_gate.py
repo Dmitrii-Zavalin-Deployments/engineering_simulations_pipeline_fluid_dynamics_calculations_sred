@@ -3,7 +3,7 @@ tests/integration/test_03_main_cpp_gate.py
 Integration Test 3: Main CLI -> Ingestion -> SolverState -> C++ Execution Bridge.
 Verifies that the entire SolverState sovereign container object is correctly passed to C++,
 validates all attributes comprehensively from the C++ perspective (direct object instance attributes),
-and confirms zero-copy memory alignment.
+and confirms zero-copy memory alignment and in-place state mutation across simulation iterations.
 """
 
 import sys
@@ -77,9 +77,9 @@ def test_main_cli_cpp_gate_stage(workspace_folder, monkeypatch):
     assert passed_state_constructor.mask.shape == (4, 4, 4)
     np.testing.assert_array_equal(passed_state_constructor.mask, np.zeros((4, 4, 4), dtype=np.int32))
 
-    # 2.3 Simulation Timing & Iterations
-    assert passed_state_constructor.current_iteration == 0
-    assert passed_state_constructor.current_time == 0.0
+    # 2.3 Simulation Timing & Iterations (Reflects post-run state after 3 completed time steps)
+    assert passed_state_constructor.current_iteration == 3
+    assert passed_state_constructor.current_time == 0.003
     assert passed_state_constructor.dt == 0.001
     assert passed_state_constructor.total_time == 0.003
     assert passed_state_constructor.total_iterations == 3
