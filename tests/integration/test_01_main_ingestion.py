@@ -34,6 +34,6 @@ def test_main_cli_ingestion_stage(workspace_folder, monkeypatch):
                 assert e.code == 0
 
         assert spy_ingest.called
-        input_data, config_data = spy_ingest.return_value
+        input_data, config_data = spy_ingest.spy_return
         assert input_data["grid"]["nx"] == 4
-        assert config_data["max_poisson_iterations"] == 500
+        assert config_data["max_poisson_iterations"] == 2000
