@@ -1,3 +1,8 @@
+/**
+ * @file predictor.hpp
+ * @brief Header for Step 2 Predictor Trial Velocity computation with gravity support.
+ */
+
 #ifndef PREDICTOR_HPP
 #define PREDICTOR_HPP
 
@@ -13,7 +18,8 @@ struct FluidProperties {
 };
 
 /**
- * @brief Computes the trial velocity vector field (u*, v*, w*) using explicit temporal integration.
+ * @brief Computes the trial velocity vector field (u*, v*, w*) using explicit temporal integration,
+ *        including external body forces and gravity vector components.
  *        Applies updates strictly to active fluid cells (mask == 1), while preserving 
  *        pre-step boundary and solid states.
  */
@@ -23,6 +29,7 @@ void compute_trial_velocities(
     double dt,
     const double* u, const double* v, const double* w,
     const double* fx, const double* fy, const double* fz,
+    const std::vector<double>& gravity,
     const std::vector<int>& mask,
     double* u_star, double* v_star, double* w_star
 );
