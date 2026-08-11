@@ -69,8 +69,8 @@ public:
         size_t total_cells = static_cast<size_t>(nx) * ny * nz;
 
         // 4. Extract Tensors & Buffers from sovereign state
-        py::array_t<double> fields = state.attr("fields"); // shape (4, nx, ny, nz)
-        py::array_t<int> mask = state.attr("mask");       // shape (nx, ny, nz)
+        py::array_t<double> fields = state.attr("fields").cast<py::array_t<double>>(); // shape (4, nx, ny, nz)
+        py::array_t<int> mask = state.attr("mask").cast<py::array_t<int>>();             // shape (nx, ny, nz)
 
         auto r_fields = fields.mutable_unchecked<4>();
         auto r_mask = mask.unchecked<3>();
