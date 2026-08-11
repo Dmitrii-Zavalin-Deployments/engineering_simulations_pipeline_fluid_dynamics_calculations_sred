@@ -69,7 +69,7 @@ class SolverState:
         self.current_time: float = 0.0
         self.dt: float = float(self.simulation_parameters["time_step"])
         self.total_time: float = float(self.simulation_parameters["total_time"])
-        self.total_iterations: int = int(round(self.total_time / self.dt))
+        self.total_iterations: int = round(self.total_time / self.dt)
         self.output_interval: int = int(self.simulation_parameters["output_interval"])
 
         self.history_logs: list[dict[str, Any]] = []
@@ -103,7 +103,7 @@ class SolverState:
         self.fields[2] = w_clamped
         self.fields[3] = p_clamped
 
-    def record_snapshot(self, preview_file_path: str = None) -> None:
+    def record_snapshot(self, preview_file_path: str | None = None) -> None:
         """
         Appends iteration summary statistics and associated preview metadata to snapshot records.
         """
