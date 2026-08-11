@@ -62,8 +62,8 @@ jobs:
           echo "🚀 Compiling and executing native C++ unit and integration tests with coverage..."
           mkdir -p build/tests
 
-          # Dynamically find all core C++ implementation files except bindings.cpp
-          CPP_SOURCES=$(find cpp/src -name "*.cpp" ! -name "bindings.cpp")
+          # Dynamically find all core C++ implementation files except python_gate.cpp for pure C++ tests
+          CPP_SOURCES=$(find cpp/src -name "*.cpp" ! -name "python_gate.cpp")
 
           # 1. Compile C++ Unit Tests (from flat cpp/cpp_unit_tests/ folder)
           echo "⚙️ Compiling Unit Tests..."
@@ -87,7 +87,7 @@ jobs:
             -lpthread \
             -o build/tests/integration_tests
 
-          # 3. Compile Python shared module with bindings and coverage
+          # 3. Compile Python shared module with bindings and coverage (MUST include python_gate.cpp)
           echo "⚙️ Compiling Python pybind11 module..."
           ALL_CPP_SOURCES=$(find cpp/src -name "*.cpp")
           g++ --coverage -O0 -std=c++17 -shared -fPIC \
