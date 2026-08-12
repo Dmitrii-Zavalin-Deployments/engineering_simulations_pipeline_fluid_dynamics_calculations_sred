@@ -29,6 +29,10 @@ void apply_neumann_pressure(
         throw std::invalid_argument("GEOMETRY ERROR: Grid spacing must be strictly positive in Neumann application.");
     }
 
+    if (gravity.size() != 3) {
+        throw std::invalid_argument("CONTRACT VIOLATION: gravity vector must contain exactly 3 components [gx, gy, gz].");
+    }
+
     const double gx = gravity[0];
     const double gy = gravity[1];
     const double gz = gravity[2];
