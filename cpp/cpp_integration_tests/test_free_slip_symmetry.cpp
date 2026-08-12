@@ -26,7 +26,7 @@ TEST(BoundaryConditionsTest, FreeSlipSymmetryPlane) {
 
     std::vector<int> mask(total_cells, 1);
     std::vector<double> u(total_cells, 1.5);
-    std::vector<double> v(total_cells, 0.0);
+    std::vector<double> v(total_cells, 1.0); // Non-zero initial normal velocity to test boundary enforcement
     std::vector<double> w(total_cells, 0.0);
     std::vector<double> p(total_cells, 0.0);
 
@@ -46,10 +46,9 @@ TEST(BoundaryConditionsTest, FreeSlipSymmetryPlane) {
     int top_j = ny - 1;
     for (int k = 0; k < nz; ++k) {
         for (int i = 0; i < nx; ++i) {
-            size_t boundary_idx = get_flat_index(i, top_j,     k, nx, ny);
-            size_t interior_idx = get_flat_index(i, top_j - 1, k, nx, ny);
-            EXPECT_DOUBLE_EQ(u[boundary_idx], u[interior_idx])
-                << "Free-slip symmetry failure: Tangential velocity gradient du/dy is non-zero across y_max boundary.";
+            size_t boundary_idx = get_flat_index(i, top_j, k, nx, ny);
+            EXPECT_DOUBLE_EQ(v[boundary_idx], 0.0)
+                << "Free-slip symmetry failure: Normal velocity v is non-zero at y_max symmetry boundary.";
         }
     }
 }
