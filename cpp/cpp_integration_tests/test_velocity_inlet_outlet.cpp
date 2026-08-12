@@ -63,8 +63,8 @@ TEST(BoundaryConditionsTest, VelocityInletPressureOutlet) {
     std::vector<double> gravity = {0.0, 0.0, 0.0};
     FluidProperties fluid{mu / density, density};
 
-    // Run short time-stepping loop to stabilize projection pipeline
-    for (int step = 0; step < 50; ++step) {
+    // Run sufficient time-stepping loop (1000 steps = 1.0s) to allow flow to traverse the 0.9m domain
+    for (int step = 0; step < 1000; ++step) {
         execute_pre_step(u, v, w, p, mask, bc_list, nx, ny, nz);
 
         std::vector<double> u_star(total_cells, 0.0);
