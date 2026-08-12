@@ -34,6 +34,7 @@ TEST(PredictorTest, NullPointerThrowsInvalidArgument) {
     // We allocate a valid buffer and mask to test individual pointer invalidations.
     std::vector<double> valid_buffer(125, 1.0);
     std::vector<double> output_buffer(125, 0.0);
+    std::vector<double> gravity(3, 0.0);
     std::vector<int> mask(125, 1);
 
     // If any input pointer (e.g., baseline velocity u) is null, the predictor 
@@ -43,6 +44,7 @@ TEST(PredictorTest, NullPointerThrowsInvalidArgument) {
             dims, fluid, dt,
             nullptr, valid_buffer.data(), valid_buffer.data(),
             valid_buffer.data(), valid_buffer.data(), valid_buffer.data(),
+            gravity,
             mask,
             output_buffer.data(), output_buffer.data(), output_buffer.data()
         ),
@@ -59,6 +61,7 @@ TEST(PredictorTest, MaskSizeMismatchThrowsInvalidArgument) {
 
     std::vector<double> buf(125, 1.0);
     std::vector<double> out(125, 0.0);
+    std::vector<double> gravity(3, 0.0);
 
     // Rule: A mask vector whose element count differs from the total grid volume 
     // (nx * ny * nz) violates topological consistency and must trigger an exception.
@@ -69,6 +72,7 @@ TEST(PredictorTest, MaskSizeMismatchThrowsInvalidArgument) {
             dims, fluid, dt,
             buf.data(), buf.data(), buf.data(),
             buf.data(), buf.data(), buf.data(),
+            gravity,
             invalid_mask,
             out.data(), out.data(), out.data()
         ),
@@ -82,6 +86,7 @@ TEST(PredictorTest, InvalidGeometryAndPhysicsParametersThrowErrors) {
     double valid_dt = 0.01;
     std::vector<double> buf(125, 1.0);
     std::vector<double> out(125, 0.0);
+    std::vector<double> gravity(3, 0.0);
     std::vector<int> valid_mask(125, 1);
 
     // Rule 1: Grid dimensions smaller than 3x3x3 violate central finite difference stencils.
@@ -92,6 +97,7 @@ TEST(PredictorTest, InvalidGeometryAndPhysicsParametersThrowErrors) {
             small_dims, valid_fluid, valid_dt,
             buf.data(), buf.data(), buf.data(),
             buf.data(), buf.data(), buf.data(),
+            gravity,
             small_mask,
             out.data(), out.data(), out.data()
         ),
@@ -105,6 +111,7 @@ TEST(PredictorTest, InvalidGeometryAndPhysicsParametersThrowErrors) {
             invalid_dx_dims, valid_fluid, valid_dt,
             buf.data(), buf.data(), buf.data(),
             buf.data(), buf.data(), buf.data(),
+            gravity,
             valid_mask,
             out.data(), out.data(), out.data()
         ),
@@ -118,6 +125,7 @@ TEST(PredictorTest, InvalidGeometryAndPhysicsParametersThrowErrors) {
             valid_dims, valid_fluid, invalid_dt,
             buf.data(), buf.data(), buf.data(),
             buf.data(), buf.data(), buf.data(),
+            gravity,
             valid_mask,
             out.data(), out.data(), out.data()
         ),
@@ -131,6 +139,7 @@ TEST(PredictorTest, InvalidGeometryAndPhysicsParametersThrowErrors) {
             valid_dims, invalid_nu_fluid, valid_dt,
             buf.data(), buf.data(), buf.data(),
             buf.data(), buf.data(), buf.data(),
+            gravity,
             valid_mask,
             out.data(), out.data(), out.data()
         ),
@@ -144,6 +153,7 @@ TEST(PredictorTest, InvalidGeometryAndPhysicsParametersThrowErrors) {
             valid_dims, invalid_rho_fluid, valid_dt,
             buf.data(), buf.data(), buf.data(),
             buf.data(), buf.data(), buf.data(),
+            gravity,
             valid_mask,
             out.data(), out.data(), out.data()
         ),
@@ -178,6 +188,7 @@ TEST(PredictorTest, UniformFlowExactEulerUpdate) {
     std::vector<double> fy(total_cells, -0.2);
     std::vector<double> fz(total_cells, 0.1);
 
+    std::vector<double> gravity(3, 0.0);
     std::vector<int> mask(total_cells, 1);
 
     std::vector<double> u_star(total_cells, 0.0);
@@ -189,6 +200,7 @@ TEST(PredictorTest, UniformFlowExactEulerUpdate) {
         dims, fluid, dt,
         u.data(), v.data(), w.data(),
         fx.data(), fy.data(), fz.data(),
+        gravity,
         mask,
         u_star.data(), v_star.data(), w_star.data()
     );
@@ -236,6 +248,7 @@ TEST(PredictorTest, MultiThreadingParallelExecutionCorrectness) {
     std::vector<double> fy(total_cells, 0.1);
     std::vector<double> fz(total_cells, 0.1);
 
+    std::vector<double> gravity(3, 0.0);
     std::vector<int> mask(total_cells, 1);
 
     std::vector<double> u_star(total_cells, 0.0);
@@ -248,6 +261,7 @@ TEST(PredictorTest, MultiThreadingParallelExecutionCorrectness) {
             dims, fluid, dt,
             u.data(), v.data(), w.data(),
             fx.data(), fy.data(), fz.data(),
+            gravity,
             mask,
             u_star.data(), v_star.data(), w_star.data()
         )
@@ -297,6 +311,7 @@ TEST(PredictorTest, NonFiniteVelocityThrowsRuntimeError) {
 
     std::vector<double> fy(total_cells, 0.0);
     std::vector<double> fz(total_cells, 0.0);
+    std::vector<double> gravity(3, 0.0);
     std::vector<int> mask(total_cells, 1);
 
     std::vector<double> u_star(total_cells, 0.0);
@@ -308,6 +323,7 @@ TEST(PredictorTest, NonFiniteVelocityThrowsRuntimeError) {
             dims, fluid, dt,
             u.data(), v.data(), w.data(),
             fx.data(), fy.data(), fz.data(),
+            gravity,
             mask,
             u_star.data(), v_star.data(), w_star.data()
         ),
@@ -341,6 +357,7 @@ TEST(PredictorTest, MaskProtectsNonFluidCellsFromModification) {
 
     // Configure mask: default all active fluid (1), but designate specific cells 
     // as solid walls (0) and Dirichlet boundaries (-1).
+    std::vector<double> gravity(3, 0.0);
     std::vector<int> mask(total_cells, 1);
 
     size_t solid_idx = static_cast<size_t>(get_flat_index(2, 2, 2, nx, ny));     // cell (2,2,2)
@@ -366,6 +383,7 @@ TEST(PredictorTest, MaskProtectsNonFluidCellsFromModification) {
         dims, fluid, dt,
         u.data(), v.data(), w.data(),
         fx.data(), fy.data(), fz.data(),
+        gravity,
         mask,
         u_star.data(), v_star.data(), w_star.data()
     );
