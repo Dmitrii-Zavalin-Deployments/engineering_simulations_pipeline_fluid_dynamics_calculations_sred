@@ -119,6 +119,7 @@ TEST_F(HydrostaticDecouplingTest, QuiescentFluidDeepGravityWell) {
 
     // External force vector configured with uniform downward gravity force per unit volume (rho * g)
     double gravity_y = -9.81;
+    std::vector<double> gravity = {0.0, gravity_y, 0.0};
     std::vector<double> fx(total_cells, 0.0);
     std::vector<double> fy(total_cells, density * gravity_y); // Active gravitational body force per unit volume (N/m^3)
     std::vector<double> fz(total_cells, 0.0);
@@ -158,7 +159,7 @@ TEST_F(HydrostaticDecouplingTest, QuiescentFluidDeepGravityWell) {
     const int total_time_steps = 100;
 
     for (int step = 0; step < total_time_steps; ++step) {
-        orchestrator.step(dt, mu, fx, fy, fz, mask, bc_list, u, v, w, p_dynamic);
+        orchestrator.step(dt, mu, gravity, fx, fy, fz, mask, bc_list, u, v, w, p_dynamic);
     }
 
     // -----------------------------------------------------------------------------

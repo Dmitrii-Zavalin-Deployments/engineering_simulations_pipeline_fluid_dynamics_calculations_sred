@@ -167,6 +167,7 @@ TEST_F(ProjectionPipelineTest, LongHorizonTimeIntegrationStability) {
     std::vector<double> w(total_cells, 0.0);
     std::vector<double> p(total_cells, 0.0);
 
+    std::vector<double> gravity(3, 0.0);
     std::vector<double> fx(total_cells, input_json_["external_forces"]["force_vector"][0]);
     std::vector<double> fy(total_cells, input_json_["external_forces"]["force_vector"][1]);
     std::vector<double> fz(total_cells, input_json_["external_forces"]["force_vector"][2]);
@@ -214,7 +215,7 @@ TEST_F(ProjectionPipelineTest, LongHorizonTimeIntegrationStability) {
     double peak_velocity_magnitude = 0.0;
 
     for (int step = 0; step < total_time_steps; ++step) {
-        orchestrator.step(dt, mu, fx, fy, fz, mask, bc_list, u, v, w, p);
+        orchestrator.step(dt, mu, gravity, fx, fy, fz, mask, bc_list, u, v, w, p);
 
         // Evaluate instantaneous maximum interior divergence
         double curr_div = ComputeMaxDivergence(u, v, w, dims);
