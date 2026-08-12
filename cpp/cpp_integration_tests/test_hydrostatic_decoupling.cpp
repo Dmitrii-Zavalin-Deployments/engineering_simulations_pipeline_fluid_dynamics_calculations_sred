@@ -23,7 +23,8 @@
  * 
  * SCENARIO DESCRIPTION:
  * This integration test initializes a static fluid column (a pool of water) under 
- * uniform downward gravity (g_y = -9.81 m/s^2). Because the pressure gradient 
+ * uniform downward gravity (g_y = -9.81 m/s^2) with the correct hydrostatic 
+ * pressure profile initialized in `p`. Because the pressure gradient 
  * precisely balances gravity through the projection step, the velocity field 
  * must remain strictly zero, avoiding any artificial vortices or spurious currents 
  * at the bottom or throughout the domain.
@@ -90,11 +91,6 @@ TEST_F(HydrostaticDecouplingDiagnosticTest, StepByStepWaterColumnIsolation) {
     std::vector<double> w(total_cells, 0.0);
     std::vector<double> p(total_cells, 0.0);
 
-    std::vector<double> u_star(total_cells, 0.0);
-    std::vector<double> v_star(total_cells, 0.0);
-    std::vector<double> w_star(total_cells, 0.0);
-    std::vector<double> rhs(total_cells, 0.0);
-
     // Set up a simple fluid mask: 1 for active fluid cells, -1 for wall boundaries.
     std::vector<int> mask(total_cells, 1);
     for (int k = 0; k < nz; ++k) {
@@ -108,6 +104,26 @@ TEST_F(HydrostaticDecouplingDiagnosticTest, StepByStepWaterColumnIsolation) {
         }
     }
 
+    // -----------------------------------------------------------------------------
+    // Step 1b: Initialize Hydrostatic Pressure Profile (p = -rho * g_y * y)
+    // -----------------------------------------------------------------------------
+    double gravity_y = -9.81;
+    for (int k = 0; k < nz; ++k) {
+        for (int j = 0; j < ny; ++j) {
+            for (int i = 0; i < nx; ++i) {
+                size_t idx = get_flat_index(i, j, k, nx, ny);
+                double y_coord = static_cast<double>(j) * dy;
+                double y_top = static_cast<double>(ny - 1) * dy;
+                p[idx] = -density * gravity_y * (y_top - y_coord);
+            }
+        }
+    }
+
+    std::vector<double> u_star(total_cells, 0.0);
+    std::vector<double> v_star(total_cells, 0.0);
+    std::vector<double> w_star(total_cells, 0.0);
+    std::vector<double> rhs(total_cells, 0.0);
+
     std::vector<BoundaryCondition> bc_list;
     BoundaryCondition bc;
     bc.location = "wall";
@@ -118,13 +134,10 @@ TEST_F(HydrostaticDecouplingDiagnosticTest, StepByStepWaterColumnIsolation) {
     // -----------------------------------------------------------------------------
     // Step 2: Configure Body Forces and Gravity Vector.
     // Gravity vector g = (0.0, -9.81, 0.0) m/s^2.
-    // Note: External force fields (fx, fy, fz) represent non-gravitational external 
-    // forces and are set to zero to prevent double-counting gravitational acceleration.
     // -----------------------------------------------------------------------------
-    double gravity_y = -9.81;
     std::vector<double> gravity = {0.0, gravity_y, 0.0};
     std::vector<double> fx(total_cells, 0.0);
-    std::vector<double> fy(total_cells, 0.0); // Fixed: Prevent double-counting gravity here
+    std::vector<double> fy(total_cells, 0.0);
     std::vector<double> fz(total_cells, 0.0);
 
     // -----------------------------------------------------------------------------
