@@ -1,6 +1,6 @@
 /**
  * @file test_static_pool_equilibrium.cpp
- * @brief Integration Test Suite for Static Pool Equilibrium 
+ * @brief Literate Integration Test Suite for Static Pool Equilibrium 
  *        and Spurious Current Suppression.
  */
 
@@ -19,6 +19,34 @@
 using namespace navier_stokes_solver;
 
 TEST(StaticPoolDiagnosticTest, StaticPoolEquilibrium) {
+    // =========================================================================
+    // Experiment Overview, Purpose, and Verification Objectives
+    // =========================================================================
+    // 
+    // * Experiment Description:
+    //   We configure a closed, rigid 3D rectangular fluid container filled with an 
+    //   incompressible fluid under a constant downward gravitational field ($g_y = -9.81 \, \text{m/s}^2$). 
+    //   The pressure field is initialized explicitly to satisfy the hydrostatic balance equation:
+    //       $p(y) = -\rho g_y (y_{\text{top}} - y)$
+    //
+    // * Why We Are Doing It:
+    //   In fractional-step Navier-Stokes solvers, numerical inconsistencies between the pressure 
+    //   gradient discretization and gravity body force terms frequently induce artificial 
+    //   acceleration. This flaw causes parasitic currents (spurious velocities) to spontaneously 
+    //   emerge in a fluid that should otherwise remain completely static.
+    //
+    // * What We Are Trying to Prove:
+    //   We aim to verify that the complete projection pipeline—comprising trial velocity prediction, 
+    //   Poisson pressure solve, and divergence-free velocity correction—maintains exact hydrostatic 
+    //   equilibrium. Specifically, we prove that residual fluid velocities remain strictly bounded 
+    //   below the spatial discretization truncation error threshold ($\max |v| < 6 \times 10^{-3} \, \text{m/s}$).
+    // =========================================================================
+
+    // =========================================================================
+    // 1. Simulation Domain and Physical Property Setup
+    // =========================================================================
+    // We define a 3D cartesian grid of dimensions $9 \times 9 \times 9$ with 
+    // uniform mesh spacing $\Delta x = \Delta y = \Delta z = 1.0 \, \text{m}$.
     int nx = 9;
     int ny = 9;
     int nz = 9;
@@ -27,9 +55,13 @@ TEST(StaticPoolDiagnosticTest, StaticPoolEquilibrium) {
     double dz = 1.0;
 
     GridDimensions dims{nx, ny, nz, dx, dy, dz};
-    double density = 1000.0; // Fluid density (kg/m^3)
-    double mu = 0.001;       // Dynamic viscosity (Pa*s)
-    double dt = 0.001;       // Controlled time step size (s)
+    
+    // The fluid medium is water, characterized by a density $\rho = 1000.0 \, \text{kg/m}^3$ 
+    // and dynamic viscosity $\mu = 0.001 \, \text{Pa}\cdot\text{s}$. The temporal discretization 
+    // uses a controlled step size $\Delta t = 0.001 \, \text{s}$.
+    double density = 1000.0; 
+    double mu = 0.001;       
+    double dt = 0.001;       
 
     SolverConfig config;
     config.density = density;
@@ -37,25 +69,36 @@ TEST(StaticPoolDiagnosticTest, StaticPoolEquilibrium) {
     config.poisson_tolerance = 1e-12;
 
     size_t total_cells = static_cast<size_t>(nx) * ny * nz;
+    
+    // Allocate velocity components ($u, v, w$) and scalar pressure ($p$) fields initialized to zero.
     std::vector<double> u(total_cells, 0.0);
     std::vector<double> v(total_cells, 0.0);
     std::vector<double> w(total_cells, 0.0);
     std::vector<double> p(total_cells, 0.0);
 
-    // Set up a closed fluid mask: 1 for active fluid cells, -1 for wall boundaries.
+    // =========================================================================
+    // 2. Boundary Mask Initialization
+    // =========================================================================
+    // We configure a closed rigid container. The mask array marks active fluid interior 
+    // cells with $1$ and boundary wall cells with $-1$.
     std::vector<int> mask(total_cells, 1);
     for (int k = 0; k < nz; ++k) {
         for (int j = 0; j < ny; ++j) {
             for (int i = 0; i < nx; ++i) {
                 size_t idx = get_flat_index(i, j, k, nx, ny);
                 if (i == 0 || i == nx - 1 || j == 0 || j == ny - 1 || k == 0 || k == nz - 1) {
-                    mask[idx] = -1; // Boundary wall
+                    mask[idx] = -1; // Rigid boundary wall
                 }
             }
         }
     }
 
-    // Initialize Hydrostatic Pressure Profile (p = -rho * g_y * (y_top - y))
+    // =========================================================================
+    // 3. Hydrostatic Pressure Profile Initialization
+    // =========================================================================
+    // To maintain a static equilibrium under gravity ($g_y = -9.81 \, \text{m/s}^2$), 
+    // the pressure field must balance the body force exactly according to the hydrostatic law:
+    //     $p(y) = -\rho g_y (y_{\text{top}} - y)$
     double gravity_y = -9.81;
     for (int k = 0; k < nz; ++k) {
         for (int j = 0; j < ny; ++j) {
@@ -85,10 +128,17 @@ TEST(StaticPoolDiagnosticTest, StaticPoolEquilibrium) {
     std::vector<double> fy(total_cells, 0.0);
     std::vector<double> fz(total_cells, 0.0);
 
-    // Execute Pre-Step Boundary Conditions
+    // =========================================================================
+    // 4. Pre-Step Boundary Condition Enforcement
+    // =========================================================================
+    // Execute boundary condition setup prior to evaluating momentum equations.
     execute_pre_step(u, v, w, p, mask, bc_list, nx, ny, nz);
 
-    // Execute Predictor Step (Trial Velocities)
+    // =========================================================================
+    // 5. Predictor Step: Trial Velocity Computation
+    // =========================================================================
+    // Compute intermediate trial velocities ($\mathbf{u}^*$) accounting for advection, 
+    // diffusion, and external gravity body forces without pressure gradient coupling.
     FluidProperties fluid{mu / density, density};
     compute_trial_velocities(
         dims, fluid, dt,
@@ -98,7 +148,12 @@ TEST(StaticPoolDiagnosticTest, StaticPoolEquilibrium) {
         u_star.data(), v_star.data(), w_star.data()
     );
 
-    // Pressure Poisson RHS Divergence & Iterative Solve
+    // =========================================================================
+    // 6. Pressure Poisson Equation Formulation & Red-Black Gauss-Seidel Solve
+    // =========================================================================
+    // The divergence of the trial velocity field acts as the source term for the 
+    // pressure correction Poisson equation:
+    //     $\nabla^2 p^{n+1} = \frac{\rho}{\Delta t} \nabla \cdot \mathbf{u}^*$
     const double scale = density / dt;
     for (int k = 0; k < nz; ++k) {
         for (int j = 0; j < ny; ++j) {
@@ -124,6 +179,7 @@ TEST(StaticPoolDiagnosticTest, StaticPoolEquilibrium) {
         }
     }
 
+    // Solve the Poisson equation iteratively using parallelized Red-Black Gauss-Seidel sweeps.
     solve_poisson_red_black_parallel(
         p, rhs, mask, bc_list,
         nx, ny, nz, dx, dy, dz,
@@ -131,7 +187,11 @@ TEST(StaticPoolDiagnosticTest, StaticPoolEquilibrium) {
         config.density, gravity
     );
 
-    // Corrector Step Projection & Final Verification
+    // =========================================================================
+    // 7. Corrector Step Projection & Final Velocity Update
+    // =========================================================================
+    // Project the velocity field divergence-free by subtracting the pressure gradient:
+    //     $\mathbf{u}^{n+1} = \mathbf{u}^* - \frac{\Delta t}{\rho} \nabla p^{n+1}$
     solve_corrector_parallel(
         u, v, w,
         u_star, v_star, w_star,
@@ -140,6 +200,10 @@ TEST(StaticPoolDiagnosticTest, StaticPoolEquilibrium) {
         dt, density
     );
 
+    // =========================================================================
+    // 8. Equilibrium Verification & Assertion
+    // =========================================================================
+    // Measure the maximum residual vertical velocity magnitude across active fluid cells.
     double max_v_final = 0.0;
     for (size_t idx = 0; idx < total_cells; ++idx) {
         if (mask[idx] == 1) {
@@ -147,6 +211,7 @@ TEST(StaticPoolDiagnosticTest, StaticPoolEquilibrium) {
         }
     }
 
-    // Assertion: Adjusted threshold accounting for discrete grid Laplacian truncation error
+    // Assert that spurious velocity currents remain strictly below the discretization error threshold:
+    //     $\max |v| < 6 \times 10^{-3} \, \text{m/s}$
     EXPECT_LT(max_v_final, 6e-3) << "Static Pool Failure: Spurious currents generated in equilibrium.";
 }
