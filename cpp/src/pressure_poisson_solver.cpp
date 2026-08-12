@@ -1,6 +1,7 @@
 /**
  * @file pressure_poisson_solver.cpp
- * @brief Implementation of Step 3 Pressure Poisson Solver (Red-Black GS) with robust safety validation.
+ * @brief Implementation of Step 3 Pressure Poisson Solver (Red-Black GS) with robust safety validation
+ *        and hydrostatic pressure / body-force boundary balancing.
  */
 
 #include "pressure_poisson_solver.hpp"
@@ -20,7 +21,26 @@ void apply_neumann_pressure(
     const std::string& location,
     int nx, int ny, int nz
 ) {
+    apply_neumann_pressure(p, location, nx, ny, nz, 1.0, 1.0, 1.0, 0.0, {0.0, 0.0, 0.0});
+}
+
+void apply_neumann_pressure(
+    std::vector<double>& p,
+    const std::string& location,
+    int nx, int ny, int nz,
+    double dx, double dy, double dz,
+    double density,
+    const std::vector<double>& gravity
+) {
     if (nx <= 0 || ny <= 0 || nz <= 0) return;
+
+    double gx = (gravity.size() > 0) ? gravity[0] : 0.0;
+    double gy = (gravity.size() > 1) ? gravity[1] : 0.0;
+    double gz = (gravity.size() > 2) ? gravity[2] : 0.0;
+
+    double dp_dx = density * gx;
+    double dp_dy = density * gy;
+    double dp_dz = density * gz;
 
     #pragma omp parallel for collapse(2) schedule(static)
     for (int k = 0; k < nz; ++k) {
@@ -29,24 +49,24 @@ void apply_neumann_pressure(
                 const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
 
                 if (location == "x_min" && i == 0) {
-                    p[idx] = p[static_cast<size_t>(get_flat_index(1, j, k, nx, ny))];
+                    p[idx] = p[static_cast<size_t>(get_flat_index(1, j, k, nx, ny))] - dp_dx * dx;
                 } else if (location == "x_max" && i == nx - 1) {
-                    p[idx] = p[static_cast<size_t>(get_flat_index(nx - 2, j, k, nx, ny))];
+                    p[idx] = p[static_cast<size_t>(get_flat_index(nx - 2, j, k, nx, ny))] + dp_dx * dx;
                 } else if (location == "y_min" && j == 0) {
-                    p[idx] = p[static_cast<size_t>(get_flat_index(i, 1, k, nx, ny))];
+                    p[idx] = p[static_cast<size_t>(get_flat_index(i, 1, k, nx, ny))] - dp_dy * dy;
                 } else if (location == "y_max" && j == ny - 1) {
-                    p[idx] = p[static_cast<size_t>(get_flat_index(i, ny - 2, k, nx, ny))];
+                    p[idx] = p[static_cast<size_t>(get_flat_index(i, ny - 2, k, nx, ny))] + dp_dy * dy;
                 } else if (location == "z_min" && k == 0) {
-                    p[idx] = p[static_cast<size_t>(get_flat_index(i, j, 1, nx, ny))];
+                    p[idx] = p[static_cast<size_t>(get_flat_index(i, j, 1, nx, ny))] - dp_dz * dz;
                 } else if (location == "z_max" && k == nz - 1) {
-                    p[idx] = p[static_cast<size_t>(get_flat_index(i, j, nz - 2, nx, ny))];
+                    p[idx] = p[static_cast<size_t>(get_flat_index(i, j, nz - 2, nx, ny))] + dp_dz * dz;
                 } else if (location == "wall") {
-                    if (i == 0)             p[idx] = p[static_cast<size_t>(get_flat_index(1, j, k, nx, ny))];
-                    else if (i == nx - 1) p[idx] = p[static_cast<size_t>(get_flat_index(nx - 2, j, k, nx, ny))];
-                    else if (j == 0)      p[idx] = p[static_cast<size_t>(get_flat_index(i, 1, k, nx, ny))];
-                    else if (j == ny - 1) p[idx] = p[static_cast<size_t>(get_flat_index(i, ny - 2, k, nx, ny))];
-                    else if (k == 0)      p[idx] = p[static_cast<size_t>(get_flat_index(i, j, 1, nx, ny))];
-                    else if (k == nz - 1) p[idx] = p[static_cast<size_t>(get_flat_index(i, j, nz - 2, nx, ny))];
+                    if (i == 0)         p[idx] = p[static_cast<size_t>(get_flat_index(1, j, k, nx, ny))] - dp_dx * dx;
+                    else if (i == nx - 1) p[idx] = p[static_cast<size_t>(get_flat_index(nx - 2, j, k, nx, ny))] + dp_dx * dx;
+                    else if (j == 0)      p[idx] = p[static_cast<size_t>(get_flat_index(i, 1, k, nx, ny))] - dp_dy * dy;
+                    else if (j == ny - 1) p[idx] = p[static_cast<size_t>(get_flat_index(i, ny - 2, k, nx, ny))] + dp_dy * dy;
+                    else if (k == 0)      p[idx] = p[static_cast<size_t>(get_flat_index(i, j, 1, nx, ny))] - dp_dz * dz;
+                    else if (k == nz - 1) p[idx] = p[static_cast<size_t>(get_flat_index(i, j, nz - 2, nx, ny))] + dp_dz * dz;
                 }
             }
         }
@@ -87,7 +107,9 @@ void solve_poisson_red_black_parallel(
     const std::vector<BoundaryCondition>& bc_list,
     int nx, int ny, int nz,
     double dx, double dy, double dz,
-    int max_iters, double tol
+    int max_iters, double tol,
+    double density,
+    const std::vector<double>& gravity
 ) {
     if (nx < 3 || ny < 3 || nz < 3) {
         throw std::invalid_argument("GEOMETRY ERROR: Grid dimensions must be at least 3x3x3 for Poisson solver.");
@@ -183,7 +205,7 @@ void solve_poisson_red_black_parallel(
         for (size_t b = 0; b < bc_list.size(); ++b) {
             const auto& bc = bc_list[b];
             if (bc.type != "pressure") {
-                apply_neumann_pressure(p, bc.location, nx, ny, nz);
+                apply_neumann_pressure(p, bc.location, nx, ny, nz, dx, dy, dz, density, gravity);
             }
         }
 
