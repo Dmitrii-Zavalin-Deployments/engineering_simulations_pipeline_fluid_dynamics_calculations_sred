@@ -33,7 +33,8 @@ TEST(PredictorForceScalingTest, VolumetricForceDensityScaling) {
     std::vector<double> fy(total_cells, -9810.0);
     std::vector<double> fz(total_cells, 0.0);
 
-    // 5. Active Fluid Mask (mask == 1)
+    // 5. Gravity Vector & Active Fluid Mask
+    std::vector<double> gravity(3, 0.0);
     std::vector<int> mask(total_cells, 1);
 
     // Output trial velocity buffers
@@ -46,6 +47,7 @@ TEST(PredictorForceScalingTest, VolumetricForceDensityScaling) {
         dims, fluid, dt,
         u.data(), v.data(), w.data(),
         fx.data(), fy.data(), fz.data(),
+        gravity,
         mask,
         u_star.data(), v_star.data(), w_star.data()
     );
