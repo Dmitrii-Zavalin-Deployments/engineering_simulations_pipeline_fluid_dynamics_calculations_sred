@@ -1,3 +1,8 @@
+/**
+ * @file pressure_poisson_solver.hpp
+ * @brief Header for iterative Pressure Poisson Equation (PPE) solvers and boundary condition applications.
+ */
+
 #ifndef PRESSURE_POISSON_SOLVER_HPP
 #define PRESSURE_POISSON_SOLVER_HPP
 
@@ -8,7 +13,10 @@
 
 namespace navier_stokes_solver {
 
-// Core iterative solver (interior fluid cells only)
+/**
+ * @brief Solves the Pressure Poisson Equation (PPE) iteratively using Red-Black Gauss-Seidel parallelization.
+ *        Operates strictly on interior fluid cells while respecting boundary conditions and masks.
+ */
 void solve_poisson_red_black_parallel(
     std::vector<double>& p,
     const std::vector<double>& rhs,
@@ -19,12 +27,18 @@ void solve_poisson_red_black_parallel(
     int max_iters, double tol
 );
 
+/**
+ * @brief Applies Neumann pressure boundary conditions at domain extremities.
+ */
 void apply_neumann_pressure(
     std::vector<double>& p,
     const std::string& location,
     int nx, int ny, int nz
 );
 
+/**
+ * @brief Applies Neumann pressure conditions across solid boundaries in parallel.
+ */
 void apply_solid_neumann_pressure_parallel(
     std::vector<double>& p, 
     const std::vector<int>& mask, 

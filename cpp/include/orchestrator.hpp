@@ -1,3 +1,8 @@
+/**
+ * @file orchestrator.hpp
+ * @brief Header for the NavierStokesOrchestrator, managing fractional-step solver execution.
+ */
+
 #ifndef ORCHESTRATOR_HPP
 #define ORCHESTRATOR_HPP
 
@@ -48,7 +53,7 @@ public:
     /**
      * @brief Executes one full time step of the fractional-step Navier-Stokes solver:
      * 1. Pre-Step: Apply Dirichlet velocity & pressure boundary conditions (mask == -1, mask == 0)
-     * 2. Predictor Step: Compute trial velocities u* (mask == 1) via advection + diffusion + body forces
+     * 2. Predictor Step: Compute trial velocities u* (mask == 1) via advection + diffusion + body forces + gravity
      * 3. Poisson Solver: Compute RHS divergence and solve pressure Poisson equation iteratively
      * 4. Corrector Step: Project trial velocities to divergence-free velocity field u^{n+1}
      * 5. Ghost/Buffer Sync: Synchronize intermediate trial and persistent state buffers

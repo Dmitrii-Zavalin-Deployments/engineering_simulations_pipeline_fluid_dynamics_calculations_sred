@@ -1,3 +1,8 @@
+/**
+ * @file grid_math.hpp
+ * @brief Header for grid dimensions and coordinate indexing utilities (Single Source of Truth).
+ */
+
 #ifndef GRID_MATH_HPP
 #define GRID_MATH_HPP
 

@@ -1,7 +1,13 @@
+/**
+ * @file ghost_handler.hpp
+ * @brief Header for ghost cell and buffer synchronization utilities.
+ */
+
 #ifndef GHOST_HANDLER_HPP
 #define GHOST_HANDLER_HPP
 
 #include "base_operator.hpp"
+#include <cstddef>
 
 namespace navier_stokes_solver {
 

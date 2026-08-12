@@ -1,3 +1,8 @@
+/**
+ * @file laplacian.hpp
+ * @brief Header for 3D discrete Laplacian operator using a 7-point stencil.
+ */
+
 #ifndef LAPLACIAN_HPP
 #define LAPLACIAN_HPP
 

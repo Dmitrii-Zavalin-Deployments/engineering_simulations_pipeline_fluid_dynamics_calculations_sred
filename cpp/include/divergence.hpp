@@ -1,3 +1,8 @@
+/**
+ * @file divergence.hpp
+ * @brief Header for scalar velocity divergence calculation used in the Pressure Poisson Equation.
+ */
+
 #ifndef DIVERGENCE_HPP
 #define DIVERGENCE_HPP
 

@@ -1,3 +1,8 @@
+/**
+ * @file gradient.hpp
+ * @brief Header for 3D gradient calculation of scalar fields (e.g., pressure gradient).
+ */
+
 #ifndef GRADIENT_HPP
 #define GRADIENT_HPP
 
