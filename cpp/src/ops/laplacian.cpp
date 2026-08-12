@@ -1,6 +1,6 @@
 /**
  * @file laplacian.cpp
- * @brief Implementation of 3D Laplacian operator with OpenMP multi-threading.
+ * @brief Implementation of 3D Laplacian operator with OpenMP multi-threading and safe exception handling.
  */
 
 #include "laplacian.hpp"
@@ -32,10 +32,16 @@ void compute_laplacian(
     const double dy2 = dy * dy;
     const double dz2 = dz * dz;
 
+    bool has_error = false;
+    int err_i = 0, err_j = 0, err_k = 0;
+    double err_fc = 0.0, err_tx = 0.0, err_ty = 0.0, err_tz = 0.0;
+
     #pragma omp parallel for collapse(3) schedule(static) if(total_cells > 1000)
     for (int i = 1; i < Nx - 1; ++i) {
         for (int j = 1; j < Ny - 1; ++j) {
             for (int k = 1; k < Nz - 1; ++k) {
+                if (has_error) continue;
+
                 size_t c = get_flat_index(i, j, k, Nx, Ny);
 
                 double f_c  = field[c];
@@ -56,17 +62,30 @@ void compute_laplacian(
                 if (!std::isfinite(lap_val)) {
                     #pragma omp critical
                     {
-                        std::cerr << "MATH FAILURE: Non-finite Laplacian at grid index [" 
-                                  << i << ", " << j << ", " << k << "] | "
-                                  << "Center Val: " << f_c << " | "
-                                  << "Terms [X:" << term_x << ", Y:" << term_y << ", Z:" << term_z << "]\n";
-                        throw std::runtime_error("Laplacian exploded in grid computation.");
+                        if (!has_error) {
+                            has_error = true;
+                            err_i = i;
+                            err_j = j;
+                            err_k = k;
+                            err_fc = f_c;
+                            err_tx = term_x;
+                            err_ty = term_y;
+                            err_tz = term_z;
+                        }
                     }
+                } else {
+                    lap_out[c] = lap_val;
                 }
-
-                lap_out[c] = lap_val;
             }
         }
+    }
+
+    if (has_error) {
+        std::cerr << "MATH FAILURE: Non-finite Laplacian at grid index [" 
+                  << err_i << ", " << err_j << ", " << err_k << "] | "
+                  << "Center Val: " << err_fc << " | "
+                  << "Terms [X:" << err_tx << ", Y:" << err_ty << ", Z:" << err_tz << "]\n";
+        throw std::runtime_error("Laplacian exploded in grid computation.");
     }
 }
 
