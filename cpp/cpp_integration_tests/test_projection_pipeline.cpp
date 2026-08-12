@@ -9,32 +9,32 @@
  * in a bounded domain are expressed by the momentum conservation equation and the 
  * divergence-free kinematic constraint (mass conservation):
  * 
- *      (1) Momentum Equation (Advection-Diffusion-Pressure):
- *          rho * (du/dt + (u . grad)u) = -grad p + mu * grad^2 u + f
+ *       (1) Momentum Equation (Advection-Diffusion-Pressure):
+ *           rho * (du/dt + (u . grad)u) = -grad p + mu * grad^2 u + f
  * 
- *      (2) Incompressibility Constraint (Solenoidal Manifold):
- *          div u = 0
+ *       (2) Incompressibility Constraint (Solenoidal Manifold):
+ *           div u = 0
  * 
  * To solve this coupled system numerically, Chorin's fractional-step projection method 
  * advances the system through discrete time steps of size dt:
  * 
- *      - Predictor Step (Intermediate Velocity u*):
- *          (u* - u^n) / dt = -(u^n . grad)u^n + (mu / rho) * grad^2 u^n + f / rho
+ *       - Predictor Step (Intermediate Velocity u*):
+ *           (u* - u^n) / dt = -(u^n . grad)u^n + (mu / rho) * grad^2 u^n + f / rho
  * 
- *      - Pressure Poisson Equation (PPE):
- *          grad^2 p^(n+1) = (rho / dt) * div u*
+ *       - Pressure Poisson Equation (PPE):
+ *           grad^2 p^(n+1) = (rho / dt) * div u*
  * 
- *      - Corrector / Projection Step:
- *          u^(n+1) = u* - (dt / rho) * grad p^(n+1)
+ *       - Corrector / Projection Step:
+ *           u^(n+1) = u* - (dt / rho) * grad p^(n+1)
  * 
  * EXTENDED TIME-INTEGRATION VALIDATION OBJECTIVE:
  * Rather than assuming a single-step collapse to machine zero (which ignores physical 
  * advection and viscous re-injection), this test runs the complete Navier-Stokes 
  * orchestrator across N = 50 consecutive time steps. It verifies three pillars 
  * of solver correctness:
- *      1. Numerical Stability: Maximum velocity remains bounded (no NaN / blow-up).
- *      2. Divergence Boundedness: Divergence remains stably controlled under flow evolution.
- *      3. Temporal Dynamics: The velocity field actively evolves via physical transport.
+ *       1. Numerical Stability: Maximum velocity remains bounded (no NaN / blow-up).
+ *       2. Divergence Boundedness: Divergence remains stably controlled under flow evolution.
+ *       3. Temporal Dynamics: The velocity field actively evolves via physical transport.
  * ---------------------------------------------------------------------------------
  */
 
@@ -65,9 +65,9 @@ protected:
     }
 
     // Computes the discrete interior divergence div u using second-order central spatial differences:
-    //      (div u)_(i,j,k) = (u_(i+1,j,k) - u_(i-1,j,k)) / (2 * dx) 
-    //                      + (v_(i,j+1,k) - v_(i,j-1,k)) / (2 * dy) 
-    //                      + (w_(i,j,k+1) - w_(i,j,k-1)) / (2 * dz)
+    //       (div u)_(i,j,k) = (u_(i+1,j,k) - u_(i-1,j,k)) / (2 * dx) 
+    //                       + (v_(i,j+1,k) - v_(i,j-1,k)) / (2 * dy) 
+    //                       + (w_(i,j,k+1) - w_(i,j,k-1)) / (2 * dz)
     double ComputeMaxDivergence(
         const std::vector<double>& u,
         const std::vector<double>& v,
@@ -94,9 +94,9 @@ protected:
                     size_t idx_nz = i + static_cast<size_t>(nx) * (j + ny * (k - 1));
 
                     // Partial derivatives computed via second-order central spatial differences:
-                    //      du/dx = (u_(i+1) - u_(i-1)) / (2 * dx)
-                    //      dv/dy = (v_(j+1) - v_(j-1)) / (2 * dy)
-                    //      dw/dz = (w_(k+1) - w_(k-1)) / (2 * dz)
+                    //       du/dx = (u_(i+1) - u_(i-1)) / (2 * dx)
+                    //       dv/dy = (v_(j+1) - v_(j-1)) / (2 * dy)
+                    //       dw/dz = (w_(k+1) - w_(k-1)) / (2 * dz)
                     double du_dx = (u[idx_px] - u[idx_nx]) / (2.0 * dx);
                     double dv_dy = (v[idx_py] - v[idx_ny]) / (2.0 * dy);
                     double dw_dz = (w[idx_pz] - w[idx_nz]) / (2.0 * dz);
@@ -154,12 +154,12 @@ TEST_F(ProjectionPipelineTest, LongHorizonTimeIntegrationStability) {
 
     // -----------------------------------------------------------------------------
     // Step 2: Allocate vector fields and initialize with a non-zero analytical profile:
-    //      u(x, y, z) = x^2
-    //      v(x, y, z) = -y + x^2
-    //      w(x, y, z) = 0.0
+    //       u(x, y, z) = x^2
+    //       v(x, y, z) = -y + x^2
+    //       w(x, y, z) = 0.0
     //
     // Analytical divergence of initial condition:
-    //      div u^0 = du/dx + dv/dy + dw/dz = 2x - 1 != 0
+    //       div u^0 = du/dx + dv/dy + dw/dz = 2x - 1 != 0
     // -----------------------------------------------------------------------------
     size_t total_cells = static_cast<size_t>(nx) * ny * nz;
     std::vector<double> u(total_cells, 0.0);
@@ -221,7 +221,7 @@ TEST_F(ProjectionPipelineTest, LongHorizonTimeIntegrationStability) {
         max_observed_div = std::max(max_observed_div, curr_div);
 
         // Calculate maximum local velocity magnitude:
-        //      |U_idx| = sqrt(u_idx^2 + v_idx^2 + w_idx^2)
+        //       |U_idx| = sqrt(u_idx^2 + v_idx^2 + w_idx^2)
         for (size_t idx = 0; idx < total_cells; ++idx) {
             ASSERT_FALSE(std::isnan(u[idx]) || std::isinf(u[idx])) 
                 << "Numerical Instability Detected: Velocity u became NaN or Inf at step " << step;
@@ -236,7 +236,7 @@ TEST_F(ProjectionPipelineTest, LongHorizonTimeIntegrationStability) {
     // -----------------------------------------------------------------------------
     // Assertion 1: Numerical Boundedness & Stability Check
     // The peak velocity magnitude across 50 time steps must remain physically bounded:
-    //      peak_velocity_magnitude < 1000.0 m/s
+    //       peak_velocity_magnitude < 1000.0 m/s
     // -----------------------------------------------------------------------------
     EXPECT_LT(peak_velocity_magnitude, 1000.0)
         << "Assertion 1 Failed: Velocity field experienced unphysical numerical blow-up.";
@@ -244,7 +244,7 @@ TEST_F(ProjectionPipelineTest, LongHorizonTimeIntegrationStability) {
     // -----------------------------------------------------------------------------
     // Assertion 2: Mass Conservation Boundedness Check
     // The pressure-correction projection must stably bound velocity divergence:
-    //      max_observed_div < 1.0
+    //       max_observed_div < 1.0
     // -----------------------------------------------------------------------------
     EXPECT_LT(max_observed_div, 1.0)
         << "Assertion 2 Failed: Divergence grew unbounded over 50 time steps (max div: " << max_observed_div << ").";
@@ -252,7 +252,7 @@ TEST_F(ProjectionPipelineTest, LongHorizonTimeIntegrationStability) {
     // -----------------------------------------------------------------------------
     // Assertion 3: Non-Trivial Temporal Field Evolution
     // Verify physical state update over 50 iterations:
-    //      ||u^(50) - u^0||_inf = max(|u^(50) - u^0|, |v^(50) - v^0|) > 0
+    //       ||u^(50) - u^0||_inf = max(|u^(50) - u^0|, |v^(50) - v^0|) > 0
     // -----------------------------------------------------------------------------
     double max_field_displacement = 0.0;
     for (size_t i = 0; i < total_cells; ++i) {
