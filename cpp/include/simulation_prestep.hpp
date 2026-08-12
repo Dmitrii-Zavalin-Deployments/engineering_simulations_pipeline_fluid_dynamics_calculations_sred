@@ -8,11 +8,9 @@
 
 #include <vector>
 #include <string>
+#include "boundary_condition.hpp"
 
 namespace navier_stokes_solver {
-
-// Forward declaration of BoundaryCondition (defined in orchestrator.hpp)
-struct BoundaryCondition;
 
 /**
  * @brief Executes the Pre-Step static initialization phase.

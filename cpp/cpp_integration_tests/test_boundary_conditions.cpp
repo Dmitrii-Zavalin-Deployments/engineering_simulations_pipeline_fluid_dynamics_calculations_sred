@@ -21,6 +21,7 @@
 #include "corrector.hpp"
 #include "simulation_prestep.hpp"
 #include "grid_math.hpp"
+#include "boundary_condition.hpp"
 
 using namespace navier_stokes_solver;
 
@@ -38,7 +39,9 @@ void validate_boundary_schema(const std::vector<BoundaryCondition>& bc_list) {
     for (const auto& bc : bc_list) {
         // Over-constraint rule: A single patch cannot hold Dirichlet conditions
         // for BOTH velocity vectors and scalar pressure simultaneously.
-        if (bc.is_dirichlet_velocity && bc.is_dirichlet_pressure) {
+        bool has_velocity = bc.values.has_u || bc.values.has_v || bc.values.has_w;
+        bool has_pressure = bc.values.has_p;
+        if (has_velocity && has_pressure) {
             throw OverConstrainedBoundaryException(
                 "Over-constrained boundary detected on patch '" + bc.location + 
                 "': Cannot enforce Dirichlet velocity and Dirichlet pressure simultaneously."
@@ -109,8 +112,10 @@ TEST(BoundaryConditionsTest, VelocityInletPressureOutlet) {
     bc_inlet.location = "x_min";
     bc_inlet.type = "velocity_inlet";
     bc_inlet.u_val = U_0; bc_inlet.v_val = 0.0; bc_inlet.w_val = 0.0;
-    bc_inlet.is_dirichlet_velocity = true;
-    bc_inlet.is_dirichlet_pressure = false;
+    bc_inlet.values.has_u = true; bc_inlet.values.u = U_0;
+    bc_inlet.values.has_v = true; bc_inlet.values.v = 0.0;
+    bc_inlet.values.has_w = true; bc_inlet.values.w = 0.0;
+    bc_inlet.values.has_p = false;
     bc_list.push_back(bc_inlet);
 
     // x_max Outlet: Dirichlet Pressure (p = 0), Neumann Velocity (du/dx = 0)
@@ -118,8 +123,10 @@ TEST(BoundaryConditionsTest, VelocityInletPressureOutlet) {
     bc_outlet.location = "x_max";
     bc_outlet.type = "pressure_outlet";
     bc_outlet.scalar_p = 0.0;
-    bc_outlet.is_dirichlet_velocity = false;
-    bc_outlet.is_dirichlet_pressure = true;
+    bc_outlet.values.has_u = false;
+    bc_outlet.values.has_v = false;
+    bc_outlet.values.has_w = false;
+    bc_outlet.values.has_p = true; bc_outlet.values.p = 0.0;
     bc_list.push_back(bc_outlet);
 
     // Pre-Step execution enforces boundary values onto halo cells
@@ -255,8 +262,10 @@ TEST(BoundaryConditionsTest, PressureDrivenChannelFlow) {
     bc_in.location = "x_min";
     bc_in.type = "pressure_inlet";
     bc_in.scalar_p = p_in;
-    bc_in.is_dirichlet_velocity = false;
-    bc_in.is_dirichlet_pressure = true;
+    bc_in.values.has_u = false;
+    bc_in.values.has_v = false;
+    bc_in.values.has_w = false;
+    bc_in.values.has_p = true; bc_in.values.p = p_in;
     bc_list.push_back(bc_in);
 
     // x_max: Low Pressure Dirichlet Boundary
@@ -264,8 +273,10 @@ TEST(BoundaryConditionsTest, PressureDrivenChannelFlow) {
     bc_out.location = "x_max";
     bc_out.type = "pressure_outlet";
     bc_out.scalar_p = p_out;
-    bc_out.is_dirichlet_velocity = false;
-    bc_out.is_dirichlet_pressure = true;
+    bc_out.values.has_u = false;
+    bc_out.values.has_v = false;
+    bc_out.values.has_w = false;
+    bc_out.values.has_p = true; bc_out.values.p = p_out;
     bc_list.push_back(bc_out);
 
     execute_pre_step(u, v, w, p, mask, bc_list, nx, ny, nz);
@@ -366,8 +377,10 @@ TEST(BoundaryConditionsTest, NoSlipWallShearBoundary) {
     bc_wall.location = "y_min";
     bc_wall.type = "no_slip_wall";
     bc_wall.u_val = 0.0; bc_wall.v_val = 0.0; bc_wall.w_val = 0.0;
-    bc_wall.is_dirichlet_velocity = true;
-    bc_wall.is_dirichlet_pressure = false;
+    bc_wall.values.has_u = true; bc_wall.values.u = 0.0;
+    bc_wall.values.has_v = true; bc_wall.values.v = 0.0;
+    bc_wall.values.has_w = true; bc_wall.values.w = 0.0;
+    bc_wall.values.has_p = false;
     bc_list.push_back(bc_wall);
 
     execute_pre_step(u, v, w, p, mask, bc_list, nx, ny, nz);
@@ -447,8 +460,10 @@ TEST(BoundaryConditionsTest, FreeSlipSymmetryPlane) {
     bc_sym.location = "y_max";
     bc_sym.type = "free_slip_symmetry";
     bc_sym.v_val = 0.0;
-    bc_sym.is_dirichlet_velocity = false;
-    bc_sym.is_dirichlet_pressure = false;
+    bc_sym.values.has_u = false;
+    bc_sym.values.has_v = true; bc_sym.values.v = 0.0;
+    bc_sym.values.has_w = false;
+    bc_sym.values.has_p = false;
     bc_list.push_back(bc_sym);
 
     execute_pre_step(u, v, w, p, mask, bc_list, nx, ny, nz);
@@ -504,8 +519,10 @@ TEST(BoundaryConditionsTest, OverConstraintDetectionGuard) {
     invalid_bc.scalar_p = 101325.0;
     
     // Violation: Setting Dirichlet flags for BOTH velocity and pressure simultaneously
-    invalid_bc.is_dirichlet_velocity = true;
-    invalid_bc.is_dirichlet_pressure = true;
+    invalid_bc.values.has_u = true; invalid_bc.values.u = 1.0;
+    invalid_bc.values.has_v = true; invalid_bc.values.v = 0.0;
+    invalid_bc.values.has_w = true; invalid_bc.values.w = 0.0;
+    invalid_bc.values.has_p = true; invalid_bc.values.p = 101325.0;
 
     invalid_bc_list.push_back(invalid_bc);
 
