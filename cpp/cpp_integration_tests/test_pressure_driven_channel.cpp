@@ -32,7 +32,18 @@ TEST(BoundaryConditionsTest, PressureDrivenChannelFlow) {
     std::vector<double> u(total_cells, 0.0);
     std::vector<double> v(total_cells, 0.0);
     std::vector<double> w(total_cells, 0.0);
+    
+    // Initialize pressure with a linear gradient from inlet to outlet to drive initial momentum
     std::vector<double> p(total_cells, 0.0);
+    for (int k = 0; k < nz; ++k) {
+        for (int j = 0; j < ny; ++j) {
+            for (int i = 0; i < nx; ++i) {
+                size_t idx = get_flat_index(i, j, k, nx, ny);
+                double x_frac = (nx > 1) ? static_cast<double>(i) / (nx - 1) : 0.0;
+                p[idx] = p_in + x_frac * (p_out - p_in);
+            }
+        }
+    }
 
     std::vector<BoundaryCondition> bc_list;
 
