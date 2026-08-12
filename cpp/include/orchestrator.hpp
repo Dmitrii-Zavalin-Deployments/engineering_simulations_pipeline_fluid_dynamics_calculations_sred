@@ -11,6 +11,7 @@
 #include <cstddef>
 
 #include "grid_math.hpp"
+#include "boundary_condition.hpp"
 #include "predictor.hpp"
 #include "simulation_prestep.hpp"
 #include "pressure_poisson_solver.hpp"
@@ -18,27 +19,6 @@
 #include "ghost_handler.hpp"
 
 namespace navier_stokes_solver {
-
-struct BoundaryValues {
-    bool has_u = false;
-    double u = 0.0;
-    bool has_v = false;
-    double v = 0.0;
-    bool has_w = false;
-    double w = 0.0;
-    bool has_p = false;
-    double p = 0.0;
-};
-
-struct BoundaryCondition {
-    std::string location; // "x_min", "x_max", "y_min", "y_max", "z_min", "z_max", "wall"
-    std::string type;     // "no-slip", "free-slip", "inflow", "outflow", "pressure"
-    double scalar_p = 0.0;
-    double u_val = 0.0;
-    double v_val = 0.0;
-    double w_val = 0.0;
-    BoundaryValues values;
-};
 
 struct SolverConfig {
     size_t max_poisson_iterations;

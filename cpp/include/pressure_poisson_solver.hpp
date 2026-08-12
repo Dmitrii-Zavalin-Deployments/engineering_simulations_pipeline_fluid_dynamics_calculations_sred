@@ -9,14 +9,9 @@
 #include <vector>
 #include <string>
 #include "grid_math.hpp"
+#include "boundary_condition.hpp"
 
 namespace navier_stokes_solver {
-
-struct BoundaryCondition {
-    std::string type;
-    std::string location;
-    double value;
-};
 
 /**
  * @brief Solves the Pressure Poisson Equation (PPE) iteratively using Red-Black Gauss-Seidel parallelization.
