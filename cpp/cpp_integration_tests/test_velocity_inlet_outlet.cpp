@@ -64,7 +64,7 @@ TEST(BoundaryConditionsTest, VelocityInletPressureOutlet) {
     FluidProperties fluid{mu / density, density};
 
     // Run short time-stepping loop to stabilize projection pipeline
-    for (int step = 0; step < 5; ++step) {
+    for (int step = 0; step < 50; ++step) {
         execute_pre_step(u, v, w, p, mask, bc_list, nx, ny, nz);
 
         std::vector<double> u_star(total_cells, 0.0);
