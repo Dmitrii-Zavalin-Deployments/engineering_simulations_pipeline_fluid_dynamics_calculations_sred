@@ -19,20 +19,15 @@ namespace navier_stokes_solver {
 void apply_neumann_pressure(
     std::vector<double>& p,
     const std::string& location,
-    int nx, int ny, int nz
-) {
-    apply_neumann_pressure(p, location, nx, ny, nz, 1.0, 1.0, 1.0, 0.0, {0.0, 0.0, 0.0});
-}
-
-void apply_neumann_pressure(
-    std::vector<double>& p,
-    const std::string& location,
     int nx, int ny, int nz,
     double dx, double dy, double dz,
     double density,
     const std::vector<double>& gravity
 ) {
     if (nx <= 0 || ny <= 0 || nz <= 0) return;
+    if (dx <= 0.0 || dy <= 0.0 || dz <= 0.0) {
+        throw std::invalid_argument("GEOMETRY ERROR: Grid spacing must be strictly positive in Neumann application.");
+    }
 
     double gx = (gravity.size() > 0) ? gravity[0] : 0.0;
     double gy = (gravity.size() > 1) ? gravity[1] : 0.0;
