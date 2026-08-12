@@ -20,15 +20,41 @@ target_link_libraries(test_projection_pipeline
 
 add_test(NAME ProjectionPipelineTest COMMAND test_projection_pipeline)
 
-add_executable(test_hydrostatic_decoupling
-    test_hydrostatic_decoupling.cpp
+add_executable(test_static_pool_equilibrium
+    test_static_pool_equilibrium.cpp
 )
 
-target_link_libraries(test_hydrostatic_decoupling
+target_link_libraries(test_static_pool_equilibrium
     PRIVATE
         GTest::gtest_main
         navier_stokes_core
         nlohmann_json::nlohmann_json
 )
 
-add_test(NAME HydrostaticDecouplingTest COMMAND test_hydrostatic_decoupling)
+add_test(NAME StaticPoolDiagnosticTest COMMAND test_static_pool_equilibrium)
+
+add_executable(test_waterfall_inflow
+    test_waterfall_inflow.cpp
+)
+
+target_link_libraries(test_waterfall_inflow
+    PRIVATE
+        GTest::gtest_main
+        navier_stokes_core
+        nlohmann_json::nlohmann_json
+)
+
+add_test(NAME WaterfallDiagnosticTest COMMAND test_waterfall_inflow)
+
+add_executable(test_boundary_conditions
+    test_boundary_conditions.cpp
+)
+
+target_link_libraries(test_boundary_conditions
+    PRIVATE
+        GTest::gtest_main
+        navier_stokes_core
+        nlohmann_json::nlohmann_json
+)
+
+add_test(NAME BoundaryConditionsTest COMMAND test_boundary_conditions)
