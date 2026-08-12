@@ -1,3 +1,8 @@
+/**
+ * @file scaling.hpp
+ * @brief Header for temporal and density scaling factor utilities used across solver steps.
+ */
+
 #ifndef SCALING_HPP
 #define SCALING_HPP
 

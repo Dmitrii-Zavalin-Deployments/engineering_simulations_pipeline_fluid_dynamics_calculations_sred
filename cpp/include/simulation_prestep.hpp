@@ -1,3 +1,8 @@
+/**
+ * @file simulation_prestep.hpp
+ * @brief Header for the pre-step initialization phase applying boundary conditions.
+ */
+
 #ifndef SIMULATION_PRESTEP_HPP
 #define SIMULATION_PRESTEP_HPP
 

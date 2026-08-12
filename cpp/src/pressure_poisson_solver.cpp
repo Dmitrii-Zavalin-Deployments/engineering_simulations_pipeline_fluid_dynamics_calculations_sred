@@ -41,7 +41,7 @@ void apply_neumann_pressure(
                 } else if (location == "z_max" && k == nz - 1) {
                     p[idx] = p[static_cast<size_t>(get_flat_index(i, j, nz - 2, nx, ny))];
                 } else if (location == "wall") {
-                    if (i == 0)            p[idx] = p[static_cast<size_t>(get_flat_index(1, j, k, nx, ny))];
+                    if (i == 0)             p[idx] = p[static_cast<size_t>(get_flat_index(1, j, k, nx, ny))];
                     else if (i == nx - 1) p[idx] = p[static_cast<size_t>(get_flat_index(nx - 2, j, k, nx, ny))];
                     else if (j == 0)      p[idx] = p[static_cast<size_t>(get_flat_index(i, 1, k, nx, ny))];
                     else if (j == ny - 1) p[idx] = p[static_cast<size_t>(get_flat_index(i, ny - 2, k, nx, ny))];

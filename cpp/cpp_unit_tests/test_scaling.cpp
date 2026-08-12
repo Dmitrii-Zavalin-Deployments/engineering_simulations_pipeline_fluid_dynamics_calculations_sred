@@ -31,14 +31,14 @@ protected:
  * Test Case 1: Predictor/Corrector Scaling Factor Exactness (Δt / ρ)
  * 
  * For a time step Δt = 0.02 s and density ρ = 1.225 kg/m³, we compute:
- *      scaling = Δt / ρ = 0.02 / 1.225 ≈ 0.0163265306122449
+ *       scaling = Δt / ρ = 0.02 / 1.225 ≈ 0.0163265306122449
  */
 TEST_F(ScalingTest, DtOverRhoValidComputation) {
     // We compute the predictor/corrector scaling factor.
     double result = get_dt_over_rho(dt, rho);
 
     // The expected value is:
-    //      expected = 0.02 / 1.225
+    //       expected = 0.02 / 1.225
     double expected = dt / rho;
 
     // We assert that the computed scaling matches the analytical value within machine precision.
@@ -81,14 +81,14 @@ TEST_F(ScalingTest, DtOverRhoNonFiniteThrows) {
  * Test Case 4: Pressure Poisson Equation Scaling Factor Exactness (ρ / Δt)
  * 
  * For density ρ = 1.225 kg/m³ and time step Δt = 0.02 s, we compute:
- *      scaling = ρ / Δt = 1.225 / 0.02 = 61.25
+ *       scaling = ρ / Δt = 1.225 / 0.02 = 61.25
  */
 TEST_F(ScalingTest, RhoOverDtValidComputation) {
     // We compute the pressure Poisson equation scaling factor.
     double result = get_rho_over_dt(dt, rho);
 
     // The expected value is:
-    //      expected = 1.225 / 0.02 = 61.25
+    //       expected = 1.225 / 0.02 = 61.25
     double expected = rho / dt;
 
     // We assert that the computed scaling matches the analytical value within machine precision.
