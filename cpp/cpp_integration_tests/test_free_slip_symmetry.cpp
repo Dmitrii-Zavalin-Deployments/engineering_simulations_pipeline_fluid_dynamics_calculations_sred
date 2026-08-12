@@ -33,7 +33,7 @@ TEST(BoundaryConditionsTest, FreeSlipSymmetryPlane) {
     std::vector<BoundaryCondition> bc_list;
     BoundaryCondition bc_sym;
     bc_sym.location = "y_max";
-    bc_sym.type = "free_slip_symmetry";
+    bc_sym.type = "free-slip"; // Corrected to match the JSON schema enum standard
     bc_sym.v_val = 0.0;
     bc_sym.values.has_u = false;
     bc_sym.values.has_v = true; bc_sym.values.v = 0.0;
