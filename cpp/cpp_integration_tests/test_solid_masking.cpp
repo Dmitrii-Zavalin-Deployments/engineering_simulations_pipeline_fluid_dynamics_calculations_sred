@@ -1,6 +1,6 @@
 /**
  * @file test_solid_masking.cpp
- * @brief Scenario 4.1: Internal Solid Object Masking & Neumann Wall Interface Verification
+ * @brief Scenario 4.1: Internal Solid Object Masking & Bypassing Verification (Sentinel Pattern)
  */
 
 #include <gtest/gtest.h>
@@ -58,15 +58,19 @@ TEST(SolidMaskingTest, InternalSolidObjectMasking) {
         0, 0, 0, 0
     };
 
-    // Initialize initial fields (fluid cells = 1.0 m/s, solid cells = 0.0 m/s)
-    std::vector<double> u(total_cells, 0.0);
-    std::vector<double> v(total_cells, 0.0);
-    std::vector<double> w(total_cells, 0.0);
+    const double sentinel_val = -999.0;
+
+    // Initialize fields: solid cells get sentinel_val to prove they are bypassed entirely
+    std::vector<double> u(total_cells, sentinel_val);
+    std::vector<double> v(total_cells, sentinel_val);
+    std::vector<double> w(total_cells, sentinel_val);
     std::vector<double> p(total_cells, 0.0);
 
     for (size_t idx = 0; idx < total_cells; ++idx) {
         if (mask[idx] == 1) {
             u[idx] = 1.0; // Apply initial velocity ONLY to fluid domain
+            v[idx] = 0.0;
+            w[idx] = 0.0;
         }
     }
 
@@ -94,21 +98,21 @@ TEST(SolidMaskingTest, InternalSolidObjectMasking) {
         orchestrator.step(dt, mu, gravity, fx, fy, fz, mask, bc_list, u, v, w, p);
     }
 
-    // Assertion 1: Zero Leakage - Verify velocity in solid cells REMAINS 0.0
+    // Assertion: Verify that internal solid cells remain completely untouched (hold sentinel value)
     for (int k = 0; k < nz; ++k) {
         for (int j = 0; j < ny; ++j) {
             for (int i = 0; i < nx; ++i) {
                 size_t idx = get_flat_index(i, j, k, nx, ny);
                 if (mask[idx] == 0) {
-                    EXPECT_NEAR(u[idx], 0.0, 1e-6) << "Zero leakage failure (u) at (" << i << ", " << j << ", " << k << ")";
-                    EXPECT_NEAR(v[idx], 0.0, 1e-6) << "Zero leakage failure (v) at (" << i << ", " << j << ", " << k << ")";
-                    EXPECT_NEAR(w[idx], 0.0, 1e-6) << "Zero leakage failure (w) at (" << i << ", " << j << ", " << k << ")";
+                    EXPECT_EQ(u[idx], sentinel_val) << "Solid cell modification failure (u) at (" << i << ", " << j << ", " << k << ")";
+                    EXPECT_EQ(v[idx], sentinel_val) << "Solid cell modification failure (v) at (" << i << ", " << j << ", " << k << ")";
+                    EXPECT_EQ(w[idx], sentinel_val) << "Solid cell modification failure (w) at (" << i << ", " << j << ", " << k << ")";
                 }
             }
         }
     }
 
-    // Assertion 2: Pressure stability inside solid region
+    // Assertion: Pressure stability inside solid region
     bool pressure_valid = true;
     for (size_t idx = 0; idx < total_cells; ++idx) {
         if (mask[idx] == 0 && std::isnan(p[idx])) {
