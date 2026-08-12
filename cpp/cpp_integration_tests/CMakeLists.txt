@@ -46,15 +46,59 @@ target_link_libraries(test_waterfall_inflow
 
 add_test(NAME WaterfallDiagnosticTest COMMAND test_waterfall_inflow)
 
-add_executable(test_boundary_conditions
-    test_boundary_conditions.cpp
+# --- Scenario-based Boundary Condition Tests ---
+
+add_executable(test_velocity_inlet_outlet
+    test_velocity_inlet_outlet.cpp
 )
 
-target_link_libraries(test_boundary_conditions
+target_link_libraries(test_velocity_inlet_outlet
     PRIVATE
         GTest::gtest_main
         navier_stokes_core
         nlohmann_json::nlohmann_json
 )
 
-add_test(NAME BoundaryConditionsTest COMMAND test_boundary_conditions)
+add_test(NAME VelocityInletOutletTest COMMAND test_velocity_inlet_outlet)
+
+
+add_executable(test_pressure_driven_channel
+    test_pressure_driven_channel.cpp
+)
+
+target_link_libraries(test_pressure_driven_channel
+    PRIVATE
+        GTest::gtest_main
+        navier_stokes_core
+        nlohmann_json::nlohmann_json
+)
+
+add_test(NAME PressureDrivenChannelTest COMMAND test_pressure_driven_channel)
+
+
+add_executable(test_no_slip_wall_shear
+    test_no_slip_wall_shear.cpp
+)
+
+target_link_libraries(test_no_slip_wall_shear
+    PRIVATE
+        GTest::gtest_main
+        navier_stokes_core
+        nlohmann_json::nlohmann_json
+)
+
+add_test(NAME NoSlipWallShearTest COMMAND test_no_slip_wall_shear)
+
+
+add_executable(test_free_slip_symmetry
+    test_free_slip_symmetry.cpp
+)
+
+target_link_libraries(test_free_slip_symmetry
+    PRIVATE
+        GTest::gtest_main
+        navier_stokes_core
+        nlohmann_json::nlohmann_json
+)
+
+add_test(NAME FreeSlipSymmetryTest COMMAND test_free_slip_symmetry)
