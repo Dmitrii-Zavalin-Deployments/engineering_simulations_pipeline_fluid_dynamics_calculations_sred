@@ -131,7 +131,7 @@ TEST_F(HydrostaticDecouplingTest, QuiescentFluidDeepGravityWell) {
             for (int i = 0; i < nx; ++i) {
                 size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
                 double y_coord = y_min + j * dy;
-                p_dynamic[idx] = -density * gravity_y * (y_max - y_coord);
+                p_dynamic[idx] = 0.0;
             }
         }
     }
@@ -171,7 +171,7 @@ TEST_F(HydrostaticDecouplingTest, QuiescentFluidDeepGravityWell) {
     for (size_t idx = 0; idx < total_cells; ++idx) {
         auto [i, j, k] = get_coords_from_index(static_cast<int>(idx), nx, ny);
         double y_coord = y_min + j * dy;
-        double expected_p = -density * gravity_y * (y_max - y_coord);
+        double expected_p = 0.0;
         double p_dyn = std::abs(p_dynamic[idx] - expected_p);
 
         ASSERT_FALSE(std::isnan(p_dyn) || std::isinf(p_dyn))
