@@ -24,7 +24,7 @@ using namespace navier_stokes_solver;
 // Neumann boundary conditions impose a zero-gradient constraint normal to the 
 // boundary surfaces ($\frac{\partial p}{\partial n} = 0$). Numerically, this sets 
 // the boundary cell pressure equal to the adjacent interior cell pressure:
-//       $p_{\text{boundary}} = p_{\text{interior}}$
+//        $p_{\text{boundary}} = p_{\text{interior}}$
 // Here we verify all directional variants ("x_min", "x_max", "y_min", "y_max", 
 // "z_min", "z_max") as well as the composite "wall" boundary type.
 // ============================================================================
@@ -37,7 +37,7 @@ TEST(PressurePoissonTest, ApplyNeumannPressureDirections) {
     {
         std::vector<double> p(total_cells, 0.0);
         p[1 + nx * (2 + ny * 2)] = 10.5; // Interior neighbor at i=1
-        apply_neumann_pressure(p, "x_min", nx, ny, nz);
+        apply_neumann_pressure(p, "x_min", nx, ny, nz, 1.0, 1.0, 1.0, 1.0, {0.0, 0.0, 0.0});
         int idx_boundary = 0 + nx * (2 + ny * 2);
         EXPECT_NEAR(p[idx_boundary], 10.5, 1e-12);
     }
@@ -46,7 +46,7 @@ TEST(PressurePoissonTest, ApplyNeumannPressureDirections) {
     {
         std::vector<double> p(total_cells, 0.0);
         p[(nx - 2) + nx * (2 + ny * 2)] = 20.2; // Interior neighbor at i=nx-2
-        apply_neumann_pressure(p, "x_max", nx, ny, nz);
+        apply_neumann_pressure(p, "x_max", nx, ny, nz, 1.0, 1.0, 1.0, 1.0, {0.0, 0.0, 0.0});
         int idx_boundary = (nx - 1) + nx * (2 + ny * 2);
         EXPECT_NEAR(p[idx_boundary], 20.2, 1e-12);
     }
@@ -55,7 +55,7 @@ TEST(PressurePoissonTest, ApplyNeumannPressureDirections) {
     {
         std::vector<double> p(total_cells, 0.0);
         p[2 + nx * (1 + ny * 2)] = 15.3; // Interior neighbor at j=1
-        apply_neumann_pressure(p, "y_min", nx, ny, nz);
+        apply_neumann_pressure(p, "y_min", nx, ny, nz, 1.0, 1.0, 1.0, 1.0, {0.0, 0.0, 0.0});
         int idx_boundary = 2 + nx * (0 + ny * 2);
         EXPECT_NEAR(p[idx_boundary], 15.3, 1e-12);
     }
@@ -64,7 +64,7 @@ TEST(PressurePoissonTest, ApplyNeumannPressureDirections) {
     {
         std::vector<double> p(total_cells, 0.0);
         p[2 + nx * ((ny - 2) + ny * 2)] = 25.4; // Interior neighbor at j=ny-2
-        apply_neumann_pressure(p, "y_max", nx, ny, nz);
+        apply_neumann_pressure(p, "y_max", nx, ny, nz, 1.0, 1.0, 1.0, 1.0, {0.0, 0.0, 0.0});
         int idx_boundary = 2 + nx * ((ny - 1) + ny * 2);
         EXPECT_NEAR(p[idx_boundary], 25.4, 1e-12);
     }
@@ -73,7 +73,7 @@ TEST(PressurePoissonTest, ApplyNeumannPressureDirections) {
     {
         std::vector<double> p(total_cells, 0.0);
         p[2 + nx * (2 + ny * 1)] = 30.1; // Interior neighbor at k=1
-        apply_neumann_pressure(p, "z_min", nx, ny, nz);
+        apply_neumann_pressure(p, "z_min", nx, ny, nz, 1.0, 1.0, 1.0, 1.0, {0.0, 0.0, 0.0});
         int idx_boundary = 2 + nx * (2 + ny * 0);
         EXPECT_NEAR(p[idx_boundary], 30.1, 1e-12);
     }
@@ -82,7 +82,7 @@ TEST(PressurePoissonTest, ApplyNeumannPressureDirections) {
     {
         std::vector<double> p(total_cells, 0.0);
         p[2 + nx * (2 + ny * (nz - 2))] = 35.6; // Interior neighbor at k=nz-2
-        apply_neumann_pressure(p, "z_max", nx, ny, nz);
+        apply_neumann_pressure(p, "z_max", nx, ny, nz, 1.0, 1.0, 1.0, 1.0, {0.0, 0.0, 0.0});
         int idx_boundary = 2 + nx * (2 + ny * (nz - 1));
         EXPECT_NEAR(p[idx_boundary], 35.6, 1e-12);
     }
@@ -97,7 +97,7 @@ TEST(PressurePoissonTest, ApplyNeumannPressureDirections) {
         p[2 + nx * (2 + ny * 1)] = 15.0; // z_min face ref
         p[2 + nx * (2 + ny * (nz - 2))] = 16.0; // z_max face ref
 
-        apply_neumann_pressure(p, "wall", nx, ny, nz);
+        apply_neumann_pressure(p, "wall", nx, ny, nz, 1.0, 1.0, 1.0, 1.0, {0.0, 0.0, 0.0});
 
         EXPECT_NEAR(p[0 + nx * (2 + ny * 2)], 11.0, 1e-12);
         EXPECT_NEAR(p[(nx - 1) + nx * (2 + ny * 2)], 12.0, 1e-12);
@@ -114,7 +114,7 @@ TEST(PressurePoissonTest, ApplyNeumannPressureDirections) {
 // For immersed boundaries or internal solid regions where the mask value is 0,
 // the pressure is interpolated from the 6 orthogonal neighbor cells to ensure 
 // smoothness and satisfy discrete Neumann equilibrium:
-//       $p_{i,j,k} = \frac{p_{i+1,j,k} + p_{i-1,j,k} + p_{i,j+1,k} + p_{i,j-1,k} + p_{i,j,k+1} + p_{i,j,k-1}}{6}$
+//        $p_{i,j,k} = \frac{p_{i+1,j,k} + p_{i-1,j,k} + p_{i,j+1,k} + p_{i,j-1,k} + p_{i,j,k+1} + p_{i,j,k-1}}{6}$
 // ============================================================================
 
 TEST(PressurePoissonTest, SolidNeumannPressureAveraging) {
@@ -174,7 +174,8 @@ TEST(PressurePoissonTest, RedBlackPoissonSolverExecution) {
             p, rhs, mask, bc_list,
             nx, ny, nz,
             dx, dy, dz,
-            max_iters, tol
+            max_iters, tol,
+            1.0, {0.0, 0.0, 0.0}
         )
     );
 

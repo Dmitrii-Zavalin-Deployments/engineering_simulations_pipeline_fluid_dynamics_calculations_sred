@@ -8,14 +8,19 @@
 
 #include <vector>
 #include <string>
-#include "orchestrator.hpp"
 #include "grid_math.hpp"
 
 namespace navier_stokes_solver {
 
+struct BoundaryCondition {
+    std::string type;
+    std::string location;
+    double value;
+};
+
 /**
  * @brief Solves the Pressure Poisson Equation (PPE) iteratively using Red-Black Gauss-Seidel parallelization.
- *        Operates strictly on interior fluid cells while respecting boundary conditions and masks.
+ *        Operates strictly on interior fluid cells while respecting boundary conditions, body forces, and masks.
  */
 void solve_poisson_red_black_parallel(
     std::vector<double>& p,
@@ -24,16 +29,21 @@ void solve_poisson_red_black_parallel(
     const std::vector<BoundaryCondition>& bc_list,
     int nx, int ny, int nz,
     double dx, double dy, double dz,
-    int max_iters, double tol
+    int max_iters, double tol,
+    double density,
+    const std::vector<double>& gravity
 );
 
 /**
- * @brief Applies Neumann pressure boundary conditions at domain extremities.
+ * @brief Applies rigorous Neumann pressure boundary conditions with hydrostatic and body-force balancing.
  */
 void apply_neumann_pressure(
     std::vector<double>& p,
     const std::string& location,
-    int nx, int ny, int nz
+    int nx, int ny, int nz,
+    double dx, double dy, double dz,
+    double density,
+    const std::vector<double>& gravity
 );
 
 /**

@@ -87,7 +87,9 @@ void NavierStokesOrchestrator::step(
         dims_.nx, dims_.ny, dims_.nz,
         dims_.dx, dims_.dy, dims_.dz,
         static_cast<int>(config_.max_poisson_iterations),
-        config_.poisson_tolerance
+        config_.poisson_tolerance,
+        config_.density,
+        gravity
     );
 
     // 4. CORRECTOR STEP: Project trial velocity to divergence-free velocity field u^{n+1}
