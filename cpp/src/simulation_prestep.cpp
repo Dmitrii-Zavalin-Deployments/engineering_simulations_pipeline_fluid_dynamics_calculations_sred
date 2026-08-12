@@ -57,13 +57,64 @@ void execute_pre_step(
                         continue;
                     }
 
-                    // Apply boundary values based on boundary condition type
-                    if (bc.type == "pressure") {
-                        p[idx] = bc.scalar_p;
-                    } else {
+                    // Apply boundary values strictly matching schema enum types:
+                    // "inflow", "outflow", "pressure", "no-slip", "free-slip"
+                    if (bc.type == "inflow") {
                         u[idx] = bc.u_val;
                         v[idx] = bc.v_val;
                         w[idx] = bc.w_val;
+                    } 
+                    else if (bc.type == "pressure" || bc.type == "outflow") {
+                        if (bc.type == "pressure") {
+                            p[idx] = bc.scalar_p;
+                        }
+
+                        // Zero-gradient Neumann velocity extrapolation across domain boundaries
+                        if (bc.location == "x_max" && i == nx - 1) {
+                            size_t int_idx = get_flat_index(nx - 2, j, k, nx, ny);
+                            u[idx] = u[int_idx]; v[idx] = v[int_idx]; w[idx] = w[int_idx];
+                        } else if (bc.location == "x_min" && i == 0) {
+                            size_t int_idx = get_flat_index(1, j, k, nx, ny);
+                            u[idx] = u[int_idx]; v[idx] = v[int_idx]; w[idx] = w[int_idx];
+                        } else if (bc.location == "y_max" && j == ny - 1) {
+                            size_t int_idx = get_flat_index(i, ny - 2, k, nx, ny);
+                            u[idx] = u[int_idx]; v[idx] = v[int_idx]; w[idx] = w[int_idx];
+                        } else if (bc.location == "y_min" && j == 0) {
+                            size_t int_idx = get_flat_index(i, 1, k, nx, ny);
+                            u[idx] = u[int_idx]; v[idx] = v[int_idx]; w[idx] = w[int_idx];
+                        } else if (bc.location == "z_max" && k == nz - 1) {
+                            size_t int_idx = get_flat_index(i, j, nz - 2, nx, ny);
+                            u[idx] = u[int_idx]; v[idx] = v[int_idx]; w[idx] = w[int_idx];
+                        } else if (bc.location == "z_min" && k == 0) {
+                            size_t int_idx = get_flat_index(i, j, 1, nx, ny);
+                            u[idx] = u[int_idx]; v[idx] = v[int_idx]; w[idx] = w[int_idx];
+                        }
+                    } 
+                    else if (bc.type == "no-slip") {
+                        u[idx] = 0.0;
+                        v[idx] = 0.0;
+                        w[idx] = 0.0;
+                    } 
+                    else if (bc.type == "free-slip") {
+                        if (bc.location == "x_max" && i == nx - 1) {
+                            size_t int_idx = get_flat_index(nx - 2, j, k, nx, ny);
+                            u[idx] = 0.0; v[idx] = v[int_idx]; w[idx] = w[int_idx];
+                        } else if (bc.location == "x_min" && i == 0) {
+                            size_t int_idx = get_flat_index(1, j, k, nx, ny);
+                            u[idx] = 0.0; v[idx] = v[int_idx]; w[idx] = w[int_idx];
+                        } else if (bc.location == "y_max" && j == ny - 1) {
+                            size_t int_idx = get_flat_index(i, ny - 2, k, nx, ny);
+                            u[idx] = u[int_idx]; v[idx] = 0.0; w[idx] = w[int_idx];
+                        } else if (bc.location == "y_min" && j == 0) {
+                            size_t int_idx = get_flat_index(i, 1, k, nx, ny);
+                            u[idx] = u[int_idx]; v[idx] = 0.0; w[idx] = w[int_idx];
+                        } else if (bc.location == "z_max" && k == nz - 1) {
+                            size_t int_idx = get_flat_index(i, j, nz - 2, nx, ny);
+                            u[idx] = u[int_idx]; v[idx] = v[int_idx]; w[idx] = 0.0;
+                        } else if (bc.location == "z_min" && k == 0) {
+                            size_t int_idx = get_flat_index(i, j, 1, nx, ny);
+                            u[idx] = u[int_idx]; v[idx] = v[int_idx]; w[idx] = 0.0;
+                        }
                     }
                 }
             }
