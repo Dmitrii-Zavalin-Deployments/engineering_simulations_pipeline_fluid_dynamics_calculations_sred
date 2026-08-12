@@ -9,3 +9,8 @@ build/
 dist/
 __pycache__/
 .pytest_cache/
+
+# GCC Code Coverage Files
+*.gcno
+*.gcda
+*.gcov
