@@ -1,3 +1,8 @@
+/**
+ * @file corrector.hpp
+ * @brief Header for the Corrector Step of Chorin's Projection Method.
+ */
+
 #ifndef CORRECTOR_HPP
 #define CORRECTOR_HPP
 
@@ -7,7 +12,7 @@ namespace navier_stokes_solver {
 
 /**
  * @brief Executes the Corrector Step of Chorin's Projection Method in parallel.
- * Projects tentative trial velocities onto a divergence-free vector field.
+ * Projects tentative trial velocities onto a divergence-free vector field using the updated pressure gradient.
  * 
  * @param u Output updated x-velocity field
  * @param v Output updated y-velocity field

@@ -1,3 +1,8 @@
+/**
+ * @file advection.hpp
+ * @brief Header for 3D Advection operator computation.
+ */
+
 #ifndef ADVECTION_HPP
 #define ADVECTION_HPP
 

@@ -1,9 +1,11 @@
+/**
+ * @file base_operator.hpp
+ * @brief Abstract base interface contract for numerical solver operators.
+ */
+
 #pragma once
 
 #include <cstddef>
-#include <cmath>
-#include <stdexcept>
-#include <iostream>
 
 namespace navier_stokes_solver {
 
@@ -11,7 +13,10 @@ class BaseOperator {
 public:
     virtual ~BaseOperator() = default;
 
-    // Pure virtual function acting as the structural interface contract
+    /**
+     * @brief Pure virtual function acting as the structural interface contract
+     *        for domain-wide operator execution.
+     */
     virtual void execute() = 0;
 };
 
