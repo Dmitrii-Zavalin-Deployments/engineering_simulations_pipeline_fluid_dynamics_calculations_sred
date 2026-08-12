@@ -29,9 +29,9 @@ void apply_neumann_pressure(
         throw std::invalid_argument("GEOMETRY ERROR: Grid spacing must be strictly positive in Neumann application.");
     }
 
-    double gx = (gravity.size() > 0) ? gravity[0] : 0.0;
-    double gy = (gravity.size() > 1) ? gravity[1] : 0.0;
-    double gz = (gravity.size() > 2) ? gravity[2] : 0.0;
+    const double gx = gravity[0];
+    const double gy = gravity[1];
+    const double gz = gravity[2];
 
     double dp_dx = density * gx;
     double dp_dy = density * gy;
