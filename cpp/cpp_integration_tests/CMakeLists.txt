@@ -102,3 +102,19 @@ target_link_libraries(test_free_slip_symmetry
 )
 
 add_test(NAME FreeSlipSymmetryTest COMMAND test_free_slip_symmetry)
+
+
+# --- Eulerian Cell Masking & Solid Wall Tests ---
+
+add_executable(test_solid_masking
+    test_solid_masking.cpp
+)
+
+target_link_libraries(test_solid_masking
+    PRIVATE
+        GTest::gtest_main
+        navier_stokes_core
+        nlohmann_json::nlohmann_json
+)
+
+add_test(NAME SolidMaskingTest COMMAND test_solid_masking)
