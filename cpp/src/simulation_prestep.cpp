@@ -69,23 +69,28 @@ void execute_pre_step(
                             p[idx] = bc.scalar_p;
                         }
 
-                        // Zero-gradient Neumann velocity extrapolation across domain boundaries
-                        if (bc.location == "x_max" && i == nx - 1) {
+                        // Zero-gradient Neumann velocity extrapolation across domain boundaries and generic walls
+                        if (bc.location == "x_max" || (bc.location == "wall" && i == nx - 1)) {
                             size_t int_idx = get_flat_index(nx - 2, j, k, nx, ny);
                             u[idx] = u[int_idx]; v[idx] = v[int_idx]; w[idx] = w[int_idx];
-                        } else if (bc.location == "x_min" && i == 0) {
+                        }
+                        if (bc.location == "x_min" || (bc.location == "wall" && i == 0)) {
                             size_t int_idx = get_flat_index(1, j, k, nx, ny);
                             u[idx] = u[int_idx]; v[idx] = v[int_idx]; w[idx] = w[int_idx];
-                        } else if (bc.location == "y_max" && j == ny - 1) {
+                        }
+                        if (bc.location == "y_max" || (bc.location == "wall" && j == ny - 1)) {
                             size_t int_idx = get_flat_index(i, ny - 2, k, nx, ny);
                             u[idx] = u[int_idx]; v[idx] = v[int_idx]; w[idx] = w[int_idx];
-                        } else if (bc.location == "y_min" && j == 0) {
+                        }
+                        if (bc.location == "y_min" || (bc.location == "wall" && j == 0)) {
                             size_t int_idx = get_flat_index(i, 1, k, nx, ny);
                             u[idx] = u[int_idx]; v[idx] = v[int_idx]; w[idx] = w[int_idx];
-                        } else if (bc.location == "z_max" && k == nz - 1) {
+                        }
+                        if (bc.location == "z_max" || (bc.location == "wall" && k == nz - 1)) {
                             size_t int_idx = get_flat_index(i, j, nz - 2, nx, ny);
                             u[idx] = u[int_idx]; v[idx] = v[int_idx]; w[idx] = w[int_idx];
-                        } else if (bc.location == "z_min" && k == 0) {
+                        }
+                        if (bc.location == "z_min" || (bc.location == "wall" && k == 0)) {
                             size_t int_idx = get_flat_index(i, j, 1, nx, ny);
                             u[idx] = u[int_idx]; v[idx] = v[int_idx]; w[idx] = w[int_idx];
                         }
@@ -96,22 +101,27 @@ void execute_pre_step(
                         w[idx] = 0.0;
                     } 
                     else if (bc.type == "free-slip") {
-                        if (bc.location == "x_max" && i == nx - 1) {
+                        if (bc.location == "x_max" || (bc.location == "wall" && i == nx - 1)) {
                             size_t int_idx = get_flat_index(nx - 2, j, k, nx, ny);
                             u[idx] = 0.0; v[idx] = v[int_idx]; w[idx] = w[int_idx];
-                        } else if (bc.location == "x_min" && i == 0) {
+                        }
+                        if (bc.location == "x_min" || (bc.location == "wall" && i == 0)) {
                             size_t int_idx = get_flat_index(1, j, k, nx, ny);
                             u[idx] = 0.0; v[idx] = v[int_idx]; w[idx] = w[int_idx];
-                        } else if (bc.location == "y_max" && j == ny - 1) {
+                        }
+                        if (bc.location == "y_max" || (bc.location == "wall" && j == ny - 1)) {
                             size_t int_idx = get_flat_index(i, ny - 2, k, nx, ny);
                             u[idx] = u[int_idx]; v[idx] = 0.0; w[idx] = w[int_idx];
-                        } else if (bc.location == "y_min" && j == 0) {
+                        }
+                        if (bc.location == "y_min" || (bc.location == "wall" && j == 0)) {
                             size_t int_idx = get_flat_index(i, 1, k, nx, ny);
                             u[idx] = u[int_idx]; v[idx] = 0.0; w[idx] = w[int_idx];
-                        } else if (bc.location == "z_max" && k == nz - 1) {
+                        }
+                        if (bc.location == "z_max" || (bc.location == "wall" && k == nz - 1)) {
                             size_t int_idx = get_flat_index(i, j, nz - 2, nx, ny);
                             u[idx] = u[int_idx]; v[idx] = v[int_idx]; w[idx] = 0.0;
-                        } else if (bc.location == "z_min" && k == 0) {
+                        }
+                        if (bc.location == "z_min" || (bc.location == "wall" && k == 0)) {
                             size_t int_idx = get_flat_index(i, j, 1, nx, ny);
                             u[idx] = u[int_idx]; v[idx] = v[int_idx]; w[idx] = 0.0;
                         }
