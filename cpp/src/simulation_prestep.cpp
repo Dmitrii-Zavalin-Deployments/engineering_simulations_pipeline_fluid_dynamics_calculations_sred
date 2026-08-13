@@ -7,6 +7,7 @@
 #include "simulation_prestep.hpp"
 #include "grid_math.hpp"
 #include <stdexcept>
+#include <iostream>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -38,9 +39,25 @@ void execute_pre_step(
     const std::vector<BoundaryCondition>& bc_list,
     int nx, int ny, int nz
 ) {
-    if (nx <= 0 || ny <= 0 || nz <= 0) {
-        throw std::invalid_argument("GEOMETRY CRASH: Invalid grid dimensions in execute_pre_step.");
+    if (nx < 3 || ny < 3 || nz < 3) {
+        throw std::invalid_argument("GEOMETRY ERROR: Grid dimensions must be at least 3x3x3 in execute_pre_step.");
     }
+
+    const size_t total_cells = static_cast<size_t>(nx) * ny * nz;
+    if (u.size() != total_cells || v.size() != total_cells || w.size() != total_cells || 
+        p.size() != total_cells || mask.size() != total_cells) {
+        throw std::invalid_argument("CONTRACT VIOLATION: Field vector size mismatch in execute_pre_step.");
+    }
+
+    #ifdef _OPENMP
+    int active_threads = omp_get_max_threads();
+    #else
+    int active_threads = 1;
+    #endif
+
+    std::cout << "[THREAD_TRACE] File: simulation_prestep.cpp | Operations (Cells): " << total_cells 
+              << " | Grid: " << nx << "x" << ny << "x" << nz 
+              << " | Active Threads: " << active_threads << "\n";
 
     // Iterate through all boundary configurations defined in the input schema array
     for (size_t b = 0; b < bc_list.size(); ++b) {
@@ -71,27 +88,27 @@ void execute_pre_step(
 
                         // Zero-gradient Neumann velocity extrapolation across domain boundaries and generic walls
                         if (bc.location == "x_max" || (bc.location == "wall" && i == nx - 1)) {
-                            size_t int_idx = get_flat_index(nx - 2, j, k, nx, ny);
+                            size_t int_idx = static_cast<size_t>(get_flat_index(nx - 2, j, k, nx, ny));
                             u[idx] = u[int_idx]; v[idx] = v[int_idx]; w[idx] = w[int_idx];
                         }
                         if (bc.location == "x_min" || (bc.location == "wall" && i == 0)) {
-                            size_t int_idx = get_flat_index(1, j, k, nx, ny);
+                            size_t int_idx = static_cast<size_t>(get_flat_index(1, j, k, nx, ny));
                             u[idx] = u[int_idx]; v[idx] = v[int_idx]; w[idx] = w[int_idx];
                         }
                         if (bc.location == "y_max" || (bc.location == "wall" && j == ny - 1)) {
-                            size_t int_idx = get_flat_index(i, ny - 2, k, nx, ny);
+                            size_t int_idx = static_cast<size_t>(get_flat_index(i, ny - 2, k, nx, ny));
                             u[idx] = u[int_idx]; v[idx] = v[int_idx]; w[idx] = w[int_idx];
                         }
                         if (bc.location == "y_min" || (bc.location == "wall" && j == 0)) {
-                            size_t int_idx = get_flat_index(i, 1, k, nx, ny);
+                            size_t int_idx = static_cast<size_t>(get_flat_index(i, 1, k, nx, ny));
                             u[idx] = u[int_idx]; v[idx] = v[int_idx]; w[idx] = w[int_idx];
                         }
                         if (bc.location == "z_max" || (bc.location == "wall" && k == nz - 1)) {
-                            size_t int_idx = get_flat_index(i, j, nz - 2, nx, ny);
+                            size_t int_idx = static_cast<size_t>(get_flat_index(i, j, nz - 2, nx, ny));
                             u[idx] = u[int_idx]; v[idx] = v[int_idx]; w[idx] = w[int_idx];
                         }
                         if (bc.location == "z_min" || (bc.location == "wall" && k == 0)) {
-                            size_t int_idx = get_flat_index(i, j, 1, nx, ny);
+                            size_t int_idx = static_cast<size_t>(get_flat_index(i, j, 1, nx, ny));
                             u[idx] = u[int_idx]; v[idx] = v[int_idx]; w[idx] = w[int_idx];
                         }
                     } 
@@ -102,27 +119,27 @@ void execute_pre_step(
                     } 
                     else if (bc.type == "free-slip") {
                         if (bc.location == "x_max" || (bc.location == "wall" && i == nx - 1)) {
-                            size_t int_idx = get_flat_index(nx - 2, j, k, nx, ny);
+                            size_t int_idx = static_cast<size_t>(get_flat_index(nx - 2, j, k, nx, ny));
                             u[idx] = 0.0; v[idx] = v[int_idx]; w[idx] = w[int_idx];
                         }
                         if (bc.location == "x_min" || (bc.location == "wall" && i == 0)) {
-                            size_t int_idx = get_flat_index(1, j, k, nx, ny);
+                            size_t int_idx = static_cast<size_t>(get_flat_index(1, j, k, nx, ny));
                             u[idx] = 0.0; v[idx] = v[int_idx]; w[idx] = w[int_idx];
                         }
                         if (bc.location == "y_max" || (bc.location == "wall" && j == ny - 1)) {
-                            size_t int_idx = get_flat_index(i, ny - 2, k, nx, ny);
+                            size_t int_idx = static_cast<size_t>(get_flat_index(i, ny - 2, k, nx, ny));
                             u[idx] = u[int_idx]; v[idx] = 0.0; w[idx] = w[int_idx];
                         }
                         if (bc.location == "y_min" || (bc.location == "wall" && j == 0)) {
-                            size_t int_idx = get_flat_index(i, 1, k, nx, ny);
+                            size_t int_idx = static_cast<size_t>(get_flat_index(i, 1, k, nx, ny));
                             u[idx] = u[int_idx]; v[idx] = 0.0; w[idx] = w[int_idx];
                         }
                         if (bc.location == "z_max" || (bc.location == "wall" && k == nz - 1)) {
-                            size_t int_idx = get_flat_index(i, j, nz - 2, nx, ny);
+                            size_t int_idx = static_cast<size_t>(get_flat_index(i, j, nz - 2, nx, ny));
                             u[idx] = u[int_idx]; v[idx] = v[int_idx]; w[idx] = 0.0;
                         }
                         if (bc.location == "z_min" || (bc.location == "wall" && k == 0)) {
-                            size_t int_idx = get_flat_index(i, j, 1, nx, ny);
+                            size_t int_idx = static_cast<size_t>(get_flat_index(i, j, 1, nx, ny));
                             u[idx] = u[int_idx]; v[idx] = v[int_idx]; w[idx] = 0.0;
                         }
                     }

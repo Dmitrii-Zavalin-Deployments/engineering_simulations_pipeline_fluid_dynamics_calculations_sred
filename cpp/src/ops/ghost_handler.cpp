@@ -1,6 +1,6 @@
 /**
  * @file ghost_handler.cpp
- * @brief Implementation of ghost trial buffer synchronization.
+ * @brief Implementation of ghost trial buffer synchronization with execution tracing.
  */
 
 #include "ghost_handler.hpp"
@@ -23,6 +23,15 @@ void sync_ghost_trial_buffers(
         std::cerr << "CONTRACT VIOLATION: Cell foundation pointers are null in ghost trial buffer sync.\n";
         throw std::invalid_argument("Ghost sync failed: Cell foundation is malformed.");
     }
+
+    #ifdef _OPENMP
+    int active_threads = omp_get_max_threads();
+    #else
+    int active_threads = 1;
+    #endif
+
+    std::cout << "[THREAD_TRACE] File: ghost_handler.cpp | Operations (Cells): " << total_cells 
+              << " | Active Threads: " << active_threads << "\n";
 
     // Direct buffer alignment across memory space without heap reallocations
     #pragma omp parallel for

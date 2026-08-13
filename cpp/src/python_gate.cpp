@@ -12,8 +12,14 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <cmath>
+#include <iostream>
 #include "orchestrator.hpp"
 #include "grid_math.hpp"
+
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
 using namespace navier_stokes_solver;
 
@@ -67,6 +73,16 @@ public:
         int ny = dims_.ny;
         int nz = dims_.nz;
         size_t total_cells = static_cast<size_t>(nx) * ny * nz;
+
+        #ifdef _OPENMP
+        int active_threads = omp_get_max_threads();
+        #else
+        int active_threads = 1;
+        #endif
+
+        std::cout << "[THREAD_TRACE] File: python_gate.cpp | Operations (Cells): " << total_cells 
+                  << " | Grid: " << nx << "x" << ny << "x" << nz 
+                  << " | Active Threads: " << active_threads << "\n";
 
         // 4. Extract Tensors & Buffers from sovereign state
         py::array_t<double> fields = state.attr("fields").cast<py::array_t<double>>(); // shape (4, nx, ny, nz)
@@ -136,12 +152,16 @@ public:
         // 10. Execute full time-step inside the C++ Orchestrator Core, passing 3D gravity vector
         orchestrator_->step(dt, mu, gravity, fx_vec, fy_vec, fz_vec, mask_vec, bc_list, u, v, w, p);
 
-        // 11. Copy modified fields back into the mutable Python NumPy array in-place,
+        // 11. Validate finiteness and copy modified fields back into the mutable Python NumPy array in-place,
         // respecting physical constraints (clamping velocity and pressure)
         for (int k = 0; k < nz; ++k) {
             for (int j = 0; j < ny; ++j) {
                 for (int i = 0; i < nx; ++i) {
                     size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
+
+                    if (!std::isfinite(u[idx]) || !std::isfinite(v[idx]) || !std::isfinite(w[idx]) || !std::isfinite(p[idx])) {
+                        throw std::runtime_error("SIMULATION FAILURE: Non-finite velocity or pressure field detected after time step.");
+                    }
                     
                     r_fields(0, i, j, k) = std::max(min_v, std::min(max_v, u[idx]));
                     r_fields(1, i, j, k) = std::max(min_v, std::min(max_v, v[idx]));

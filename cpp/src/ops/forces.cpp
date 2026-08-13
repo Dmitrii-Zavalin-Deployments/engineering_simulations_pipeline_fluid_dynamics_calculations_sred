@@ -1,12 +1,16 @@
 /**
  * @file forces.cpp
- * @brief Implementation of body force validation and retrieval.
+ * @brief Implementation of body force validation and retrieval with execution tracing.
  */
 
 #include "forces.hpp"
 #include <cmath>
 #include <stdexcept>
 #include <iostream>
+
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
 namespace navier_stokes_solver {
 
@@ -17,6 +21,15 @@ std::array<double, 3> validate_and_get_forces(const std::vector<double>& forces)
                   << ". Expected 3 components (Fx, Fy, Fz).\n";
         throw std::invalid_argument("Invalid body force vector size.");
     }
+
+    #ifdef _OPENMP
+    int active_threads = omp_get_max_threads();
+    #else
+    int active_threads = 1;
+    #endif
+
+    std::cout << "[THREAD_TRACE] File: forces.cpp | Operations (Forces): 3" 
+              << " | Active Threads: " << active_threads << "\n";
 
     // 2. Forensic Numerical Audit (Rule 7 equivalent)
     for (size_t i = 0; i < 3; ++i) {

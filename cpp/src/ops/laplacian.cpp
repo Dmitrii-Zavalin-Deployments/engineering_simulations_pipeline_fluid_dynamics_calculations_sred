@@ -28,6 +28,17 @@ void compute_laplacian(
     }
 
     const long long total_cells = static_cast<long long>(Nx) * Ny * Nz;
+
+    #ifdef _OPENMP
+    int active_threads = omp_get_max_threads();
+    #else
+    int active_threads = 1;
+    #endif
+
+    std::cout << "[THREAD_TRACE] File: laplacian.cpp | Operations (Cells): " << total_cells 
+              << " | Grid: " << Nx << "x" << Ny << "x" << Nz 
+              << " | Active Threads: " << active_threads << "\n";
+
     const double dx2 = dx * dx;
     const double dy2 = dy * dy;
     const double dz2 = dz * dz;

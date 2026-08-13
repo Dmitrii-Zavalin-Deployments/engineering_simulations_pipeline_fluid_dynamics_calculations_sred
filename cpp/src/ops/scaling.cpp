@@ -1,12 +1,16 @@
 /**
  * @file scaling.cpp
- * @brief Implementation of scaling factors for Navier-Stokes solver.
+ * @brief Implementation of scaling factors for Navier-Stokes solver with execution tracing.
  */
 
 #include "scaling.hpp"
 #include <cmath>
 #include <stdexcept>
 #include <iostream>
+
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
 namespace navier_stokes_solver {
 
@@ -17,6 +21,15 @@ double get_dt_over_rho(double dt, double rho) {
                   << "Vacuum or negative density would cause infinite acceleration.\n";
         throw std::invalid_argument("Invalid density (rho <= 0) in scaling computation.");
     }
+
+    #ifdef _OPENMP
+    int active_threads = omp_get_max_threads();
+    #else
+    int active_threads = 1;
+    #endif
+
+    std::cout << "[THREAD_TRACE] File: scaling.cpp | Function: get_dt_over_rho"
+              << " | Active Threads: " << active_threads << "\n";
 
     double scaling = dt / rho;
 
@@ -36,6 +49,15 @@ double get_rho_over_dt(double dt, double rho) {
                   << "Zero or negative dt would cause infinite pressure source terms.\n";
         throw std::invalid_argument("Invalid time-step (dt <= 0) in scaling computation.");
     }
+
+    #ifdef _OPENMP
+    int active_threads = omp_get_max_threads();
+    #else
+    int active_threads = 1;
+    #endif
+
+    std::cout << "[THREAD_TRACE] File: scaling.cpp | Function: get_rho_over_dt"
+              << " | Active Threads: " << active_threads << "\n";
 
     double scaling = rho / dt;
 

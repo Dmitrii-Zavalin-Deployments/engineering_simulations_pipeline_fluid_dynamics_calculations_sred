@@ -1,6 +1,6 @@
 /**
  * @file predictor.cpp
- * @brief Implementation of Step 1 Predictor Trial Velocity Computation with 3D Gravity Integration.
+ * @brief Implementation of Step 1 Predictor Trial Velocity Computation with 3D Gravity Integration and execution tracing.
  */
 
 #include "predictor.hpp"
@@ -11,6 +11,7 @@
 #include <cmath>
 #include <vector>
 #include <algorithm>
+#include <iostream>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -71,6 +72,16 @@ void compute_trial_velocities(
     const size_t ny = dims.ny;
     const size_t nz = dims.nz;
     const size_t total_cells = nx * ny * nz;
+
+    #ifdef _OPENMP
+    int active_threads = omp_get_max_threads();
+    #else
+    int active_threads = 1;
+    #endif
+
+    std::cout << "[THREAD_TRACE] File: predictor.cpp | Operations (Cells): " << total_cells 
+              << " | Grid: " << dims.nx << "x" << dims.ny << "x" << dims.nz 
+              << " | Active Threads: " << active_threads << "\n";
 
     const int Nx_int = static_cast<int>(nx);
     const int Ny_int = static_cast<int>(ny);

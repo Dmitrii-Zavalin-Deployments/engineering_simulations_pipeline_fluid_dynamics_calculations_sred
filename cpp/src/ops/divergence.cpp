@@ -21,11 +21,21 @@ void compute_divergence(
     int Nx, int Ny, int Nz,
     double dx, double dy, double dz
 ) {
-    if (dx == 0.0 || dy == 0.0 || dz == 0.0) {
-        throw std::invalid_argument("GEOMETRY CRASH: Invalid zero dimensions provided for divergence calculation.");
+    if (dx <= 0.0 || dy <= 0.0 || dz <= 0.0) {
+        throw std::invalid_argument("GEOMETRY CRASH: Invalid grid dimensions provided for divergence calculation.");
     }
 
     const long long total_cells = static_cast<long long>(Nx) * Ny * Nz;
+
+    #ifdef _OPENMP
+    int active_threads = omp_get_max_threads();
+    #else
+    int active_threads = 1;
+    #endif
+
+    std::cout << "[THREAD_TRACE] File: divergence.cpp | Operations (Cells): " << total_cells 
+              << " | Grid: " << Nx << "x" << Ny << "x" << Nz 
+              << " | Active Threads: " << active_threads << "\n";
 
     bool has_error = false;
     int err_i = 0, err_j = 0, err_k = 0;

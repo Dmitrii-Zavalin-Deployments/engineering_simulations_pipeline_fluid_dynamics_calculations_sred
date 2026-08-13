@@ -1,7 +1,7 @@
 /**
  * @file pressure_poisson_solver.cpp
- * @brief Implementation of Step 3 Pressure Poisson Solver (Red-Black GS) with robust safety validation
- *        and hydrostatic pressure / body-force boundary balancing.
+ * @brief Implementation of Step 3 Pressure Poisson Solver (Red-Black GS) with robust safety validation,
+ *        hydrostatic pressure / body-force boundary balancing, and execution tracing.
  */
 
 #include "pressure_poisson_solver.hpp"
@@ -9,6 +9,7 @@
 #include <cmath>
 #include <stdexcept>
 #include <algorithm>
+#include <iostream>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -149,15 +150,29 @@ void solve_poisson_red_black_parallel(
         throw std::invalid_argument("CONTRACT VIOLATION: Pressure, RHS, or mask vector size mismatch.");
     }
 
+    #ifdef _OPENMP
+    int active_threads = omp_get_max_threads();
+    #else
+    int active_threads = 1;
+    #endif
+
+    std::cout << "[THREAD_TRACE] File: pressure_poisson_solver.cpp | Operations (Cells): " << total_cells 
+              << " | Grid: " << nx << "x" << ny << "x" << nz 
+              << " | Active Threads: " << active_threads << "\n";
+
     const double idx2 = 1.0 / (dx * dx);
     const double idy2 = 1.0 / (dy * dy);
     const double idz2 = 1.0 / (dz * dz);
     const double factor = 0.5 / (idx2 + idy2 + idz2);
 
+    bool has_error = false;
+    int err_i = 0, err_j = 0, err_k = 0;
+    double err_val = 0.0;
+
     for (int iter = 0; iter < max_iters; ++iter) {
         
         // --- PASS 1: Update RED Interior Fluid Cells ((i + j + k) % 2 == 0) ---
-        #pragma omp parallel for collapse(2) schedule(static)
+        #pragma omp parallel for collapse(2) schedule(static) if(total_cells > 1000)
         for (int k = 1; k < nz - 1; ++k) {
             for (int j = 1; j < ny - 1; ++j) {
                 int i_start = ((j + k) % 2 == 0) ? 2 : 1;
@@ -179,18 +194,33 @@ void solve_poisson_red_black_parallel(
                     const double p_down  = p[idx_down];
                     const double p_up    = p[idx_up];
 
-                    p[idx] = factor * (
+                    double p_new = factor * (
                         (p_east + p_west) * idx2 +
                         (p_north + p_south) * idy2 +
                         (p_up + p_down) * idz2 -
                         rhs[idx]
                     );
+
+                    if (!std::isfinite(p_new)) {
+                        #pragma omp critical
+                        {
+                            if (!has_error) {
+                                has_error = true;
+                                err_i = i;
+                                err_j = j;
+                                err_k = k;
+                                err_val = p_new;
+                            }
+                        }
+                    }
+
+                    p[idx] = p_new;
                 }
             }
         }
 
         // --- PASS 2: Update BLACK Interior Fluid Cells ((i + j + k) % 2 != 0) ---
-        #pragma omp parallel for collapse(2) schedule(static)
+        #pragma omp parallel for collapse(2) schedule(static) if(total_cells > 1000)
         for (int k = 1; k < nz - 1; ++k) {
             for (int j = 1; j < ny - 1; ++j) {
                 int i_start = ((j + k) % 2 == 0) ? 1 : 2;
@@ -212,14 +242,35 @@ void solve_poisson_red_black_parallel(
                     const double p_down  = p[idx_down];
                     const double p_up    = p[idx_up];
 
-                    p[idx] = factor * (
+                    double p_new = factor * (
                         (p_east + p_west) * idx2 +
                         (p_north + p_south) * idy2 +
                         (p_up + p_down) * idz2 -
                         rhs[idx]
                     );
+
+                    if (!std::isfinite(p_new)) {
+                        #pragma omp critical
+                        {
+                            if (!has_error) {
+                                has_error = true;
+                                err_i = i;
+                                err_j = j;
+                                err_k = k;
+                                err_val = p_new;
+                            }
+                        }
+                    }
+
+                    p[idx] = p_new;
                 }
             }
+        }
+
+        if (has_error) {
+            std::cerr << "MATH FAILURE: Non-finite pressure detected at grid index [" 
+                      << err_i << ", " << err_j << ", " << err_k << "] | Result: " << err_val << "\n";
+            throw std::runtime_error("Pressure Poisson solver exploded. Pressure field is non-finite.");
         }
 
         // --- PASS 3: Synchronize Boundaries & Solids Inside Iteration ---

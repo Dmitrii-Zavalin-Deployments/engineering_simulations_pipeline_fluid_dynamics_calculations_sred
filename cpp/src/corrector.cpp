@@ -1,11 +1,13 @@
 /**
  * @file corrector.cpp
- * @brief Implementation of Step 4 Corrector Velocity Projection with robust safety validation.
+ * @brief Implementation of Step 4 Corrector Velocity Projection with robust safety validation and execution tracing.
  */
 
 #include "corrector.hpp"
 #include "grid_math.hpp"
+#include <cmath>
 #include <stdexcept>
+#include <iostream>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -43,13 +45,27 @@ void solve_corrector_parallel(
         throw std::invalid_argument("CONTRACT VIOLATION: Vector size mismatch in corrector module.");
     }
 
+    #ifdef _OPENMP
+    int active_threads = omp_get_max_threads();
+    #else
+    int active_threads = 1;
+    #endif
+
+    std::cout << "[THREAD_TRACE] File: corrector.cpp | Operations (Cells): " << total_cells 
+              << " | Grid: " << nx << "x" << ny << "x" << nz 
+              << " | Active Threads: " << active_threads << "\n";
+
     const double coeff = dt / rho;
     const double idx_inv = 1.0 / dx;
     const double idy_inv = 1.0 / dy;
     const double idz_inv = 1.0 / dz;
 
+    bool has_error = false;
+    int err_i = 0, err_j = 0, err_k = 0;
+    double err_u = 0.0, err_v = 0.0, err_w = 0.0;
+
     // Execute corrector step strictly on active interior fluid cells (mask == 1)
-    #pragma omp parallel for collapse(3) schedule(static)
+    #pragma omp parallel for collapse(3) schedule(static) if(total_cells > 1000)
     for (int k = 1; k < nz - 1; ++k) {
         for (int j = 1; j < ny - 1; ++j) {
             for (int i = 1; i < nx - 1; ++i) {
@@ -75,11 +91,38 @@ void solve_corrector_parallel(
                 const double dp_dz = (p_up - p_center) * idz_inv;
 
                 // Project trial velocity onto divergence-free subspace (u^(n+1) = u* - (dt/rho) * grad(p))
-                u[idx_cell] = u_star[idx_cell] - coeff * dp_dx;
-                v[idx_cell] = v_star[idx_cell] - coeff * dp_dy;
-                w[idx_cell] = w_star[idx_cell] - coeff * dp_dz;
+                double new_u = u_star[idx_cell] - coeff * dp_dx;
+                double new_v = v_star[idx_cell] - coeff * dp_dy;
+                double new_w = w_star[idx_cell] - coeff * dp_dz;
+
+                // --- FORENSIC NUMERICAL AUDIT ---
+                if (!std::isfinite(new_u) || !std::isfinite(new_v) || !std::isfinite(new_w)) {
+                    #pragma omp critical
+                    {
+                        if (!has_error) {
+                            has_error = true;
+                            err_i = i;
+                            err_j = j;
+                            err_k = k;
+                            err_u = new_u;
+                            err_v = new_v;
+                            err_w = new_w;
+                        }
+                    }
+                }
+
+                u[idx_cell] = new_u;
+                v[idx_cell] = new_v;
+                w[idx_cell] = new_w;
             }
         }
+    }
+
+    if (has_error) {
+        std::cerr << "MATH FAILURE: Non-finite velocity projected at grid index [" 
+                  << err_i << ", " << err_j << ", " << err_k << "] | "
+                  << "Vel: [" << err_u << ", " << err_v << ", " << err_w << "]\n";
+        throw std::runtime_error("Corrector projection exploded. Velocity field is non-finite.");
     }
 }
 

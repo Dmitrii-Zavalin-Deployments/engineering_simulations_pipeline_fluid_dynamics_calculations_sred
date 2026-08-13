@@ -27,6 +27,16 @@ void compute_gradient(
 
     const long long total_cells = static_cast<long long>(Nx) * Ny * Nz;
 
+    #ifdef _OPENMP
+    int active_threads = omp_get_max_threads();
+    #else
+    int active_threads = 1;
+    #endif
+
+    std::cout << "[THREAD_TRACE] File: gradient.cpp | Operations (Cells): " << total_cells 
+              << " | Grid: " << Nx << "x" << Ny << "x" << Nz 
+              << " | Active Threads: " << active_threads << "\n";
+
     bool has_error = false;
     int err_i = 0, err_j = 0, err_k = 0;
     double err_gx = 0.0, err_gy = 0.0, err_gz = 0.0;

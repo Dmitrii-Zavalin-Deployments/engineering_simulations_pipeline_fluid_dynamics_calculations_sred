@@ -1,6 +1,6 @@
 /**
  * @file orchestrator.cpp
- * @brief Implementation of the Navier-Stokes Time-Stepping Orchestrator with 3D Hydrostatic Pressure Splitting.
+ * @brief Implementation of the Navier-Stokes Time-Stepping Orchestrator with 3D Hydrostatic Pressure Splitting and execution tracing.
  */
 
 #include "orchestrator.hpp"
@@ -10,6 +10,7 @@
 #include "corrector.hpp"
 #include "grid_math.hpp"
 #include <stdexcept>
+#include <iostream>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -43,6 +44,16 @@ void NavierStokesOrchestrator::step(
         throw std::invalid_argument("CONTRACT VIOLATION: gravity vector must have exactly 3 components.");
     }
 
+    #ifdef _OPENMP
+    int active_threads = omp_get_max_threads();
+    #else
+    int active_threads = 1;
+    #endif
+
+    std::cout << "[THREAD_TRACE] File: orchestrator.cpp | Operations (Cells): " << total_cells_ 
+              << " | Grid: " << dims_.nx << "x" << dims_.ny << "x" << dims_.nz 
+              << " | Active Threads: " << active_threads << "\n";
+
     // 1. PRE-STEP: Apply static Dirichlet velocity/pressure conditions on walls (mask == -1) and solids (mask == 0)
     execute_pre_step(u, v, w, p, mask, bc_list, dims_.nx, dims_.ny, dims_.nz);
 
@@ -69,7 +80,7 @@ void NavierStokesOrchestrator::step(
     // 3. PRESSURE POISSON STEP: Compute RHS divergence and solve pressure field iteratively
     const double scale = config_.density / dt;
 
-    #pragma omp parallel for collapse(3) schedule(static)
+    #pragma omp parallel for collapse(3) schedule(static) if(total_cells_ > 1000)
     for (int k = 0; k < dims_.nz; ++k) {
         for (int j = 0; j < dims_.ny; ++j) {
             for (int i = 0; i < dims_.nx; ++i) {
