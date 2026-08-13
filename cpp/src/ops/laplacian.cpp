@@ -32,14 +32,14 @@ void compute_laplacian(
     const double dy2 = dy * dy;
     const double dz2 = dz * dz;
 
-    int has_error_flag = 0;
+    bool has_error = false;
+    int err_i = 0, err_j = 0, err_k = 0;
+    double err_val = 0.0;
 
-    #pragma omp parallel for collapse(2) schedule(static) if(total_cells > 1000) reduction(max:has_error_flag)
+    #pragma omp parallel for collapse(3) schedule(static) if(total_cells > 1000)
     for (int k = 1; k < Nz - 1; ++k) {
         for (int j = 1; j < Ny - 1; ++j) {
             for (int i = 1; i < Nx - 1; ++i) {
-                if (has_error_flag) continue;
-
                 size_t c = get_flat_index(i, j, k, Nx, Ny);
 
                 double f_c  = field[c];
@@ -56,17 +56,28 @@ void compute_laplacian(
 
                 double lap_val = term_x + term_y + term_z;
 
+                // --- FORENSIC NUMERICAL AUDIT ---
                 if (!std::isfinite(lap_val)) {
-                    has_error_flag = 1;
-                } else {
-                    lap_out[c] = lap_val;
+                    #pragma omp critical
+                    {
+                        if (!has_error) {
+                            has_error = true;
+                            err_i = i;
+                            err_j = j;
+                            err_k = k;
+                            err_val = lap_val;
+                        }
+                    }
                 }
+
+                lap_out[c] = lap_val;
             }
         }
     }
 
-    if (has_error_flag != 0) {
-        std::cerr << "MATH FAILURE: Non-finite Laplacian detected in grid computation.\n";
+    if (has_error) {
+        std::cerr << "MATH FAILURE: Non-finite Laplacian detected at grid index [" 
+                  << err_i << ", " << err_j << ", " << err_k << "] | Result: " << err_val << "\n";
         throw std::runtime_error("Laplacian exploded in grid computation.");
     }
 }
