@@ -27,6 +27,10 @@ void compute_divergence(
 
     const long long total_cells = static_cast<long long>(Nx) * Ny * Nz;
 
+    bool has_error = false;
+    int err_i = 0, err_j = 0, err_k = 0;
+    double err_x = 0.0, err_y = 0.0, err_z = 0.0, err_val = 0.0;
+
     #pragma omp parallel for collapse(3) schedule(static) if(total_cells > 1000)
     for (int i = 1; i < Nx - 1; ++i) {
         for (int j = 1; j < Ny - 1; ++j) {
@@ -44,17 +48,30 @@ void compute_divergence(
                 if (!std::isfinite(divergence_val)) {
                     #pragma omp critical
                     {
-                        std::cerr << "MATH FAILURE: Non-finite divergence at grid index [" 
-                                  << i << ", " << j << ", " << k << "] | "
-                                  << "Components [dx:" << div_x << ", dy:" << div_y << ", dz:" << div_z << "] | "
-                                  << "Result: " << divergence_val << "\n";
-                        throw std::runtime_error("Divergence exploded. PPE source term is poisoned.");
+                        if (!has_error) {
+                            has_error = true;
+                            err_i = i;
+                            err_j = j;
+                            err_k = k;
+                            err_x = div_x;
+                            err_y = div_y;
+                            err_z = div_z;
+                            err_val = divergence_val;
+                        }
                     }
                 }
 
                 div_out[c] = divergence_val;
             }
         }
+    }
+
+    if (has_error) {
+        std::cerr << "MATH FAILURE: Non-finite divergence at grid index [" 
+                  << err_i << ", " << err_j << ", " << err_k << "] | "
+                  << "Components [dx:" << err_x << ", dy:" << err_y << ", dz:" << err_z << "] | "
+                  << "Result: " << err_val << "\n";
+        throw std::runtime_error("Divergence exploded. PPE source term is poisoned.");
     }
 }
 
