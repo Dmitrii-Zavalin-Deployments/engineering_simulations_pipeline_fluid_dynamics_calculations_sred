@@ -208,6 +208,8 @@ TEST_F(CanonicalFlowsTest, LidDrivenCavityRe100) {
 
     bool reached_steady_state = false;
 
+    std::cout << "[LID_DRIVEN_CAVITY] Starting simulation loop up to " << max_steps << " steps..." << std::endl;
+
     for (int step = 0; step < max_steps; ++step) {
         std::vector<double> u_old = u;
         std::vector<double> v_old = v;
@@ -225,8 +227,18 @@ TEST_F(CanonicalFlowsTest, LidDrivenCavityRe100) {
         }
 
         double residue = ComputeSteadyStateResidue(u, v, u_old, v_old, dt, total_cells);
+
+        // Live progress reporting every 100 steps
+        if (step % 100 == 0) {
+            std::cout << "[LID_DRIVEN_CAVITY] Step: " << step 
+                      << " | Residue: " << residue 
+                      << " | Max Div: " << current_div << std::endl;
+        }
+
         if (step > 50 && residue < residue_threshold) {
             reached_steady_state = true;
+            std::cout << "[LID_DRIVEN_CAVITY] Steady-state converged at step " << step 
+                      << " with residue: " << residue << std::endl;
             break;
         }
     }
@@ -332,6 +344,8 @@ TEST_F(CanonicalFlowsTest, PlanePoiseuilleFlowRe10) {
     const int max_steps = 1000;
     const double residue_threshold = 1e-5;
 
+    std::cout << "[POISEUILLE_FLOW] Starting simulation loop up to " << max_steps << " steps..." << std::endl;
+
     for (int step = 0; step < max_steps; ++step) {
         std::vector<double> u_old = u;
         std::vector<double> v_old = v;
@@ -339,7 +353,16 @@ TEST_F(CanonicalFlowsTest, PlanePoiseuilleFlowRe10) {
         orchestrator.step(dt, mu, gravity, fx, fy, fz, mask, bc_list, u, v, w, p);
 
         double residue = ComputeSteadyStateResidue(u, v, u_old, v_old, dt, total_cells);
+
+        // Live progress reporting every 50 steps
+        if (step % 50 == 0) {
+            std::cout << "[POISEUILLE_FLOW] Step: " << step 
+                      << " | Residue: " << residue << std::endl;
+        }
+
         if (residue < residue_threshold) {
+            std::cout << "[POISEUILLE_FLOW] Converged at step " << step 
+                      << " with residue: " << residue << std::endl;
             break;
         }
     }
