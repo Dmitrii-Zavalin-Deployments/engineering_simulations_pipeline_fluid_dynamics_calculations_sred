@@ -21,14 +21,15 @@ void compute_gradient(
     int Nx, int Ny, int Nz,
     double dx, double dy, double dz
 ) {
-    // Geometry Guard (Rule 7 equivalent)
-    if (dx <= 0.0 || dy <= 0.0 || dz <= 0.0) {
-        std::cerr << "GEOMETRY CRASH: Invalid grid dimensions provided for gradient calculation (dx=" 
-                  << dx << ", dy=" << dy << ", dz=" << dz << ").\n";
-        throw std::invalid_argument("Invalid grid spacing in gradient kernel.");
+    if (dx == 0.0 || dy == 0.0 || dz == 0.0) {
+        throw std::invalid_argument("GEOMETRY CRASH: Invalid zero dimensions provided for gradient calculation.");
     }
 
     const long long total_cells = static_cast<long long>(Nx) * Ny * Nz;
+
+    bool has_error = false;
+    int err_i = 0, err_j = 0, err_k = 0;
+    double err_gx = 0.0, err_gy = 0.0, err_gz = 0.0;
 
     #pragma omp parallel for collapse(3) schedule(static) if(total_cells > 1000)
     for (int i = 1; i < Nx - 1; ++i) {
@@ -36,7 +37,7 @@ void compute_gradient(
             for (int k = 1; k < Nz - 1; ++k) {
                 size_t c = get_flat_index(i, j, k, Nx, Ny);
 
-                // 1. Second-order central difference components: ∂p/∂x, ∂p/∂y, ∂p/∂z
+                // Central difference components: ∂field/∂x, ∂field/∂y, ∂field/∂z
                 double gx = (field[get_flat_index(i+1, j, k, Nx, Ny)] - field[get_flat_index(i-1, j, k, Nx, Ny)]) / (2.0 * dx);
                 double gy = (field[get_flat_index(i, j+1, k, Nx, Ny)] - field[get_flat_index(i, j-1, k, Nx, Ny)]) / (2.0 * dy);
                 double gz = (field[get_flat_index(i, j, k+1, Nx, Ny)] - field[get_flat_index(i, j, k-1, Nx, Ny)]) / (2.0 * dz);
@@ -45,10 +46,15 @@ void compute_gradient(
                 if (!std::isfinite(gx) || !std::isfinite(gy) || !std::isfinite(gz)) {
                     #pragma omp critical
                     {
-                        std::cerr << "MATH FAILURE: Gradient exploded at grid index [" 
-                                  << i << ", " << j << ", " << k << "] | "
-                                  << "Components: [" << gx << ", " << gy << ", " << gz << "]\n";
-                        throw std::runtime_error("Pressure gradient is non-finite in grid computation.");
+                        if (!has_error) {
+                            has_error = true;
+                            err_i = i;
+                            err_j = j;
+                            err_k = k;
+                            err_gx = gx;
+                            err_gy = gy;
+                            err_gz = gz;
+                        }
                     }
                 }
 
@@ -57,6 +63,13 @@ void compute_gradient(
                 grad_z_out[c] = gz;
             }
         }
+    }
+
+    if (has_error) {
+        std::cerr << "MATH FAILURE: Gradient exploded at grid index [" 
+                  << err_i << ", " << err_j << ", " << err_k << "] | "
+                  << "Components: [" << err_gx << ", " << err_gy << ", " << err_gz << "]\n";
+        throw std::runtime_error("Pressure gradient is non-finite in grid computation.");
     }
 }
 
