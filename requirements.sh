@@ -14,7 +14,7 @@ python -m pip install -r requirements.txt
 echo "⚙ Compiling base C++ solver extension..."
 mkdir -p bin
 # Compile core sources and nested ops/ directory using find to ensure complete coverage
-g++ -O3 -march=native -shared -fPIC \
+g++ -O3 -march=native -shared -fPIC -fopenmp \
   $(find cpp/src -name "*.cpp") \
   -Icpp/include \
   $(python3 -m pybind11 --includes) \

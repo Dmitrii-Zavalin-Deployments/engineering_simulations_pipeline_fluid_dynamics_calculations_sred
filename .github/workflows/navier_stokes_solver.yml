@@ -17,7 +17,7 @@ jobs:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
       # Define the 'Gold Standard' test command here (e.g. # pytest -s tests/ -vv --cov=src --cov-report=term-missing)
       TEST_COMMAND: "pytest -s tests/ -vv --cov=src --cov-report=term-missing"
-    
+
     steps:
       - name: 🗂️ Checkout Repository
         uses: actions/checkout@v4
@@ -67,7 +67,7 @@ jobs:
 
           # 1. Compile C++ Unit Tests (from flat cpp/cpp_unit_tests/ folder)
           echo "⚙️ Compiling Unit Tests..."
-          g++ --coverage -O0 -std=c++17 $CPP_SOURCES \
+          g++ --coverage -O0 -std=c++17 -fopenmp $CPP_SOURCES \
             /usr/src/googletest/googletest/src/gtest-all.cc \
             /usr/src/googletest/googletest/src/gtest_main.cc \
             $(find cpp/cpp_unit_tests -name "*.cpp") \
@@ -78,7 +78,7 @@ jobs:
 
           # 2. Compile C++ Integration Tests (from flat cpp/cpp_integration_tests/ folder)
           echo "⚙️ Compiling Integration Tests..."
-          g++ --coverage -O0 -std=c++17 $CPP_SOURCES \
+          g++ --coverage -O0 -std=c++17 -fopenmp $CPP_SOURCES \
             /usr/src/googletest/googletest/src/gtest-all.cc \
             /usr/src/googletest/googletest/src/gtest_main.cc \
             $(find cpp/cpp_integration_tests -name "*.cpp") \
@@ -90,7 +90,7 @@ jobs:
           # 3. Compile Python shared module with bindings and coverage (MUST include python_gate.cpp)
           echo "⚙️ Compiling Python pybind11 module..."
           ALL_CPP_SOURCES=$(find cpp/src -name "*.cpp")
-          g++ --coverage -O0 -std=c++17 -shared -fPIC \
+          g++ --coverage -O0 -std=c++17 -shared -fPIC -fopenmp \
             $ALL_CPP_SOURCES \
             -Icpp/include \
             $(python3 -m pybind11 --includes) \
@@ -150,12 +150,12 @@ jobs:
           echo "CRITICAL: Dead code detected in src/. Review the Vulture logs above."
           echo "Rule 2 (Zero-Debt Mandate) violation: Delete unused code before merging."
           exit 1
-       
+
       - name: 🧪 Run Logic & Scientific Verification
         run: |
           echo "🚀 Initiating: $TEST_COMMAND inside virtual frame buffer"
           xvfb-run --auto-servernum $TEST_COMMAND
-      
+
       - name: 🔍 Forensic Audit
         if: always()
         run: |
@@ -186,7 +186,7 @@ jobs:
             # xvfb-run --auto-servernum $TEST_COMMAND || true
             exit 1
           fi
-      
+
       - name: 🧹 Sync Forensic Reset
         # This only runs if the '🔍 Forensic Audit' step and tests passed
         if: success()
@@ -263,7 +263,7 @@ jobs:
   #       run: |
   #         # Initialize background performance tracker to capture accurate trends
   #         rm -f /tmp/cpu_track.log /tmp/memory_profile.log
-          
+
   #         echo "Starting asynchronous background compute metrics sampler..."
   #         while true; do
   #           # Evaluates active utilization delta (user + system space) every second
@@ -271,26 +271,26 @@ jobs:
   #           sleep 1
   #         done &
   #         SAMPLER_PID=$!
-          
+
   #         INPUT_FILE="data/testing-input-output/navier_stokes_solver_input.json"
   #         if [ ! -f "$INPUT_FILE" ]; then
   #           echo "❌ CRITICAL ERROR: Input file context missing at $INPUT_FILE."
   #           exit 1
   #         fi
-          
+
   #         # # Run core execution module under verbose tool monitoring to record Peak Resident Set Size (RSS)
   #         # /usr/bin/time -v xvfb-run --auto-servernum python src/main.py \
   #         #   --input_output_folder "${GITHUB_WORKSPACE}/data/testing-input-output/" \
   #         #   --input_file_name "navier_stokes_solver_input.json" \
   #         #   --output_file_name "navier_stokes_output.zip" 2> /tmp/memory_profile.log
-          
+
   #         # Unwind profile monitoring immediately post-execution 
   #         kill $SAMPLER_PID
-          
+
   #         # Standardize and isolate peak payload metric thresholds
   #         PEAK_CPU=$(sort -n /tmp/cpu_track.log | tail -n 1)
   #         if [ -z "$PEAK_CPU" ]; then PEAK_CPU="0.0"; fi
-          
+
   #         # Parse Peak Memory footprint values from verbose execution dump
   #         MAX_RSS_KB=$(grep "Maximum resident set size" /tmp/memory_profile.log | awk '{print $6}')
   #         if [ -z "$MAX_RSS_KB" ]; then
@@ -299,7 +299,7 @@ jobs:
   #           MAX_RSS_MB=$((MAX_RSS_KB / 1024))
   #         fi
   #         TOTAL_MEM_MB=$(free -m | awk '/Mem:/ { print $2 }')
-          
+
   #         # Inject peak thresholds directly into environment runtime variables context
   #         echo "PEAK_COMPUTE_LOAD=${PEAK_CPU}%" >> $GITHUB_ENV
   #         echo "PEAK_MEM_USAGE=${MAX_RSS_MB}/${TOTAL_MEM_MB}MB" >> $GITHUB_ENV
@@ -310,7 +310,7 @@ jobs:
   #       run: |
   #         chmod +x src/upload_to_dropbox.sh
   #         ./src/upload_to_dropbox.sh
-          
+
   #         echo "--- Final Audit: testing-input-output folder content ---"
   #         ls -R data/testing-input-output/
 
@@ -359,7 +359,7 @@ jobs:
   #         RUN_DATE=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
   #         STATUS="${{ job.status }}"
   #         CURRENT_BRANCH=${GITHUB_REF##*/}
-          
+
   #         # Parse high-fidelity metrics populated during live engine load, fallback to idle if missing
   #         CPU_LOAD="${PEAK_COMPUTE_LOAD:-$(top -bn1 | grep "Cpu(s)" | awk '{print $2 + $4 "%"}')}"
   #         MEM_USAGE="${PEAK_MEM_USAGE:-$(free -m | awk '/Mem:/ { print $3 "/" $2 "MB" }')}"
@@ -445,7 +445,7 @@ jobs:
   #         else
   #           echo "No ledger changes."
   #         fi
-          
+
   #     - name: 🔍 Forensic Audit
   #       if: always()
   #       run: |
@@ -473,7 +473,7 @@ jobs:
   #           fi
   #           exit 1
   #         fi
-      
+
   #     - name: 🧹 Sync Forensic Reset
   #       # This only runs if the '🔍 Forensic Audit' step and tests passed
   #       if: success()
@@ -502,7 +502,7 @@ jobs:
   #       if: always()
   #       run: |
   #         echo "--- Starting Retroactive Git Notes Audit (All History) ---"
-          
+
   #         # 1. Fetch remote notes first to ensure accurate state
   #         git fetch origin refs/notes/commits:refs/notes/commits || true
 
@@ -520,7 +520,7 @@ jobs:
 
   #           for COMMIT in $COMMIT_HASHES; do
   #             TOTAL_COMMITS=$((TOTAL_COMMITS + 1))
-              
+
   #             # 4. Check if the commit already has a git note
   #             if ! git notes show "$COMMIT" >/dev/null 2>&1; then
   #               echo "⚠️ Missing note detected for commit: $COMMIT. Adding note..."
