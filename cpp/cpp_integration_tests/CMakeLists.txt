@@ -118,3 +118,51 @@ target_link_libraries(test_solid_masking
 )
 
 add_test(NAME SolidMaskingTest COMMAND test_solid_masking)
+
+
+# --- Grid Staggering & Discretization Tests ---
+
+add_executable(test_staggered_mac_grid
+    test_staggered_mac_grid.cpp
+)
+
+target_link_libraries(test_staggered_mac_grid
+    PRIVATE
+        GTest::gtest_main
+        navier_stokes_core
+        nlohmann_json::nlohmann_json
+)
+
+add_test(NAME StaggeredMacGridTest COMMAND test_staggered_mac_grid)
+
+
+# --- Stability & CFL Condition Tests ---
+
+add_executable(test_cfl_and_stability
+    test_cfl_and_stability.cpp
+)
+
+target_link_libraries(test_cfl_and_stability
+    PRIVATE
+        GTest::gtest_main
+        navier_stokes_core
+        nlohmann_json::nlohmann_json
+)
+
+add_test(NAME CflAndStabilityTest COMMAND test_cfl_and_stability)
+
+
+# --- Canonical CFD Benchmarks ---
+
+add_executable(test_canonical_flows
+    test_canonical_flows.cpp
+)
+
+target_link_libraries(test_canonical_flows
+    PRIVATE
+        GTest::gtest_main
+        navier_stokes_core
+        nlohmann_json::nlohmann_json
+)
+
+add_test(NAME CanonicalFlowsTest COMMAND test_canonical_flows)
