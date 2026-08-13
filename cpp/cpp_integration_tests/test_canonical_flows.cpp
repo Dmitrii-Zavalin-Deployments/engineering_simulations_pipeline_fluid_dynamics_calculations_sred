@@ -1,7 +1,8 @@
 /**
  * @file test_canonical_flows.cpp
  * @brief Integration tests verifying physical convergence and mathematical invariants 
- *        against canonical CFD benchmarks (2D Lid-Driven Cavity and Plane Poiseuille Flow).
+ *        against canonical CFD benchmarks (2D Lid-Driven Cavity and Plane Poiseuille Flow)
+ *        utilizing schema-compliant boundary condition structures.
  * 
  * LITERATE TESTING NARRATIVE & MATHEMATICAL GOVERNING EQUATIONS:
  * ---------------------------------------------------------------------------------
@@ -12,20 +13,24 @@
  *       dv/dt + (v · grad)v = - (1/rho) grad(p) + nu laplacian(v) + f
  *       grad · v = 0
  * 
- * SCENARIO 7.1: Lid-Driven Cavity Benchmark (Re = 100)
+ * SCENARIO 7.1: Lid-Driven Cavity Benchmark ($\text{Re} = 100$)
  *   - Domain: [0, 1] x [0, 1] x [0, dz]
- *   - Boundary Conditions: u = v = w = 0 on bottom/left/right walls; u_lid = 1.0 m/s at top wall.
+ *   - Boundary Conditions: 
+ *       * location = "wall", type = "no-slip" for stationary boundaries
+ *       * location = "y_max", type = "inflow", values.u = 1.0 for the moving top lid
  *   - Re = (U_lid * L) / nu = (1.0 * 1.0) / 0.01 = 100.
  *   - Physical Invariant: Recirculating primary vortex center aligns with Ghia et al. (1982)
- *     benchmark data at (x_v, y_v) = (0.6172, 0.7344) within 1.5% spatial tolerance.
+ *     benchmark data at $(x_v, y_v) = (0.6172, 0.7344)$ within $1.5\%$ spatial tolerance.
  * 
- * SCENARIO 7.2: Plane Poiseuille Channel Flow Benchmark (Re = 10)
+ * SCENARIO 7.2: Plane Poiseuille Channel Flow Benchmark ($\text{Re} = 10$)
  *   - Domain: [0, L] x [0, H] x [0, dz]
- *   - Boundary Conditions: No-slip at y = 0 and y = H; parabolic profile inlet at x = 0;
- *     zero-gradient pressure outlet at x = L.
- *   - Analytical Solution: Fully developed velocity profile u(y) = 4 * u_max * (y/H) * (1 - y/H).
+ *   - Boundary Conditions: 
+ *       * location = "wall", type = "no-slip" at $y=0$ and $y=H$
+ *       * location = "x_min", type = "inflow" with parabolic profile $u(y)$
+ *       * location = "x_max", type = "outflow"
+ *   - Analytical Solution: Fully developed velocity profile $u(y) = 4 u_{\max} \frac{y}{H} \left(1 - \frac{y}{H}\right)$.
  *   - Physical Invariant: Mid-channel numerical velocity profile matches exact analytical 
- *     solution with relative L2 error norm < 1.0%.
+ *     solution with relative $L_2$ error norm $< 1.0\%$.
  * ---------------------------------------------------------------------------------
  */
 
@@ -117,7 +122,6 @@ protected:
                 double du_dy = (u[idx_py] - u[idx_ny]) / (2.0 * dy);
                 double vorticity = dv_dx - du_dy; // 2D vorticity component omega_z
 
-                // Recirculating primary vortex in lid-driven cavity generates negative vorticity peak
                 if (vorticity < min_vorticity) {
                     min_vorticity = vorticity;
                     best_i = i;
@@ -138,44 +142,45 @@ protected:
 TEST_F(CanonicalFlowsTest, LidDrivenCavityRe100) {
     const int nx = 32;
     const int ny = 32;
-    const int nz = 3; // 2D simulation mid-plane at k = 1
-    const double dx = 1.0 / nx; // 0.03125 m
-    const double dy = 1.0 / ny; // 0.03125 m
+    const int nz = 3;
+    const double dx = 1.0 / nx;
+    const double dy = 1.0 / ny;
     const double dz = 0.03125;
 
     GridDimensions dims{nx, ny, nz, dx, dy, dz};
     size_t total_cells = static_cast<size_t>(nx) * ny * nz;
 
     SolverConfig config;
-    config.density = 1.0; // rho = 1.0 kg/m^3
+    config.density = 1.0;
     config.max_poisson_iterations = 2000;
     config.poisson_tolerance = 1e-7;
 
     NavierStokesOrchestrator orchestrator(dims, config);
 
-    const double nu = 0.01; // kinematic viscosity ==> Re = U*L/nu = 1.0*1.0/0.01 = 100
+    const double nu = 0.01;
     const double mu = config.density * nu;
     const std::vector<double> gravity = {0.0, 0.0, 0.0};
 
-    std::vector<int> mask(total_cells, 1); // Entirely fluid grid
+    std::vector<int> mask(total_cells, 1);
     std::vector<double> fx(total_cells, 0.0), fy(total_cells, 0.0), fz(total_cells, 0.0);
 
-    // Set up Boundary Conditions: No-slip walls on left/right/bottom, moving lid on top
+    // Schema-compliant boundary conditions
     std::vector<BoundaryCondition> bc_list;
     
+    // Stationary walls
     BoundaryCondition bc_wall;
     bc_wall.location = "wall";
     bc_wall.type = "no-slip";
-    bc_wall.u_val = 0.0; bc_wall.v_val = 0.0; bc_wall.w_val = 0.0;
+    bc_wall.values = {0.0, 0.0, 0.0, 0.0};
     bc_list.push_back(bc_wall);
 
+    // Moving top lid at y_max
     BoundaryCondition bc_lid;
-    bc_lid.location = "top";
-    bc_lid.type = "dirichlet";
-    bc_lid.u_val = 1.0; bc_lid.v_val = 0.0; bc_lid.w_val = 0.0; // u_lid = 1.0 m/s
+    bc_lid.location = "y_max";
+    bc_lid.type = "inflow";
+    bc_lid.values = {1.0, 0.0, 0.0, 0.0}; // u_lid = 1.0 m/s
     bc_list.push_back(bc_lid);
 
-    // Velocity & Pressure Fields initialization
     std::vector<double> u(total_cells, 0.0);
     std::vector<double> v(total_cells, 0.0);
     std::vector<double> w(total_cells, 0.0);
@@ -187,18 +192,13 @@ TEST_F(CanonicalFlowsTest, LidDrivenCavityRe100) {
 
     bool reached_steady_state = false;
 
-    // Time-marching loop to steady state
     for (int step = 0; step < max_steps; ++step) {
         std::vector<double> u_old = u;
         std::vector<double> v_old = v;
 
-        EXPECT_NO_THROW({
-            orchestrator.step(dt, mu, gravity, fx, fy, fz, mask, bc_list, u, v, w, p);
-        }) << "Orchestrator step failed at iteration " << step;
+        orchestrator.step(dt, mu, gravity, fx, fy, fz, mask, bc_list, u, v, w, p);
 
         double residue = ComputeSteadyStateResidue(u, v, u_old, v_old, dt, total_cells);
-        
-        // Assert divergence remains bounded in every iteration step
         double current_div = ComputeMaxDivergence(u, v, w, nx, ny, nz, dx, dy, dz);
         ASSERT_LE(current_div, 1e-4) << "Divergence blow-up detected at step " << step;
 
@@ -209,15 +209,11 @@ TEST_F(CanonicalFlowsTest, LidDrivenCavityRe100) {
     }
 
     EXPECT_TRUE(reached_steady_state) 
-        << "Lid-driven cavity flow failed to reach steady-state residue threshold (" << residue_threshold << ").";
+        << "Lid-driven cavity flow failed to reach steady-state residue threshold.";
 
-    // Assertion 1: Verify global divergence norm across all interior cells
     double max_div_steady = ComputeMaxDivergence(u, v, w, nx, ny, nz, dx, dy, dz);
-    EXPECT_LE(max_div_steady, 1e-5) 
-        << "Steady-state solenoidal invariant violation: max div = " << max_div_steady;
+    EXPECT_LE(max_div_steady, 1e-5);
 
-    // Assertion 2: Verify primary vortex center against canonical Ghia et al. (1982) benchmark
-    // Ghia et al. (Re=100) primary vortex center: (x_ghia, y_ghia) = (0.6172, 0.7344)
     const double x_ghia = 0.6172;
     const double y_ghia = 0.7344;
     
@@ -226,8 +222,8 @@ TEST_F(CanonicalFlowsTest, LidDrivenCavityRe100) {
     double x_err = std::abs(x_vortex - x_ghia) / x_ghia;
     double y_err = std::abs(y_vortex - y_ghia) / y_ghia;
 
-    EXPECT_LE(x_err, 0.15) << "Vortex x-coordinate (" << x_vortex << ") deviated from Ghia benchmark (" << x_ghia << ").";
-    EXPECT_LE(y_err, 0.15) << "Vortex y-coordinate (" << y_vortex << ") deviated from Ghia benchmark (" << y_ghia << ").";
+    EXPECT_LE(x_err, 0.15);
+    EXPECT_LE(y_err, 0.15);
 }
 
 // =================================================================================
@@ -238,7 +234,7 @@ TEST_F(CanonicalFlowsTest, PlanePoiseuilleFlowRe10) {
     const int ny = 16;
     const int nz = 3;
     const double dx = 0.01;
-    const double dy = 0.01; // Height H = ny * dy = 0.16 m
+    const double dy = 0.01;
     const double dz = 0.01;
     const double H = ny * dy;
 
@@ -252,35 +248,34 @@ TEST_F(CanonicalFlowsTest, PlanePoiseuilleFlowRe10) {
 
     NavierStokesOrchestrator orchestrator(dims, config);
 
-    const double mu = 0.001; // Viscosity Pa·s
-    const double u_max = 0.1; // Peak inlet velocity m/s
+    const double mu = 0.001;
+    const double u_max = 0.1;
     const std::vector<double> gravity = {0.0, 0.0, 0.0};
 
     std::vector<int> mask(total_cells, 1);
     std::vector<double> fx(total_cells, 0.0), fy(total_cells, 0.0), fz(total_cells, 0.0);
 
-    // Boundary Conditions
+    // Schema-compliant boundary conditions
     std::vector<BoundaryCondition> bc_list;
 
     BoundaryCondition bc_wall;
     bc_wall.location = "wall";
     bc_wall.type = "no-slip";
-    bc_wall.u_val = 0.0; bc_wall.v_val = 0.0; bc_wall.w_val = 0.0;
+    bc_wall.values = {0.0, 0.0, 0.0, 0.0};
     bc_list.push_back(bc_wall);
 
     BoundaryCondition bc_inlet;
-    bc_inlet.location = "inlet";
-    bc_inlet.type = "dirichlet";
-    bc_inlet.u_val = u_max; bc_inlet.v_val = 0.0; bc_inlet.w_val = 0.0;
+    bc_inlet.location = "x_min";
+    bc_inlet.type = "inflow";
+    bc_inlet.values = {u_max, 0.0, 0.0, 0.0};
     bc_list.push_back(bc_inlet);
 
     BoundaryCondition bc_outlet;
-    bc_outlet.location = "outlet";
-    bc_outlet.type = "neumann";
-    bc_outlet.u_val = 0.0; bc_outlet.v_val = 0.0; bc_outlet.w_val = 0.0;
+    bc_outlet.location = "x_max";
+    bc_outlet.type = "outflow";
+    bc_outlet.values = {0.0, 0.0, 0.0, 0.0};
     bc_list.push_back(bc_outlet);
 
-    // Initialize velocity field with parabolic inlet profile at x = 0
     std::vector<double> u(total_cells, 0.0);
     std::vector<double> v(total_cells, 0.0);
     std::vector<double> w(total_cells, 0.0);
@@ -299,7 +294,6 @@ TEST_F(CanonicalFlowsTest, PlanePoiseuilleFlowRe10) {
     const int max_steps = 8000;
     const double residue_threshold = 1e-6;
 
-    // March flow to fully developed steady state
     for (int step = 0; step < max_steps; ++step) {
         std::vector<double> u_old = u;
         std::vector<double> v_old = v;
@@ -312,13 +306,9 @@ TEST_F(CanonicalFlowsTest, PlanePoiseuilleFlowRe10) {
         }
     }
 
-    // Assertion 1: Solenoidal invariant check
     double max_div = ComputeMaxDivergence(u, v, w, nx, ny, nz, dx, dy, dz);
-    EXPECT_LE(max_div, 1e-5) 
-        << "Poiseuille channel divergence invariant violated: max div = " << max_div;
+    EXPECT_LE(max_div, 1e-5);
 
-    // Assertion 2: Verify mid-channel velocity profile u(y) against analytical solution
-    // Analytical profile: u_exact(y) = 4 * u_max * (y / H) * (1 - y / H)
     int mid_x = nx / 2;
     int k_plane = 1;
 
@@ -338,8 +328,5 @@ TEST_F(CanonicalFlowsTest, PlanePoiseuilleFlowRe10) {
     }
 
     double relative_l2_error = std::sqrt(diff_l2_sq / exact_l2_sq);
-
-    EXPECT_LE(relative_l2_error, 0.01) 
-        << "Poiseuille velocity profile deviated from exact analytical solution. Relative L2 error: " 
-        << (relative_l2_error * 100.0) << "% (Threshold: < 1.0%).";
+    EXPECT_LE(relative_l2_error, 0.01);
 }
