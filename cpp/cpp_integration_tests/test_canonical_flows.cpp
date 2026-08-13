@@ -171,14 +171,22 @@ TEST_F(CanonicalFlowsTest, LidDrivenCavityRe100) {
     BoundaryCondition bc_wall;
     bc_wall.location = "wall";
     bc_wall.type = "no-slip";
-    bc_wall.values = {0.0, 0.0, 0.0, 0.0};
+    bc_wall.u_val = 0.0; bc_wall.v_val = 0.0; bc_wall.w_val = 0.0;
+    bc_wall.values.has_u = true; bc_wall.values.u = 0.0;
+    bc_wall.values.has_v = true; bc_wall.values.v = 0.0;
+    bc_wall.values.has_w = true; bc_wall.values.w = 0.0;
+    bc_wall.values.has_p = false;
     bc_list.push_back(bc_wall);
 
     // Moving top lid at y_max
     BoundaryCondition bc_lid;
     bc_lid.location = "y_max";
     bc_lid.type = "inflow";
-    bc_lid.values = {1.0, 0.0, 0.0, 0.0}; // u_lid = 1.0 m/s
+    bc_lid.u_val = 1.0; bc_lid.v_val = 0.0; bc_lid.w_val = 0.0;
+    bc_lid.values.has_u = true; bc_lid.values.u = 1.0;
+    bc_lid.values.has_v = true; bc_lid.values.v = 0.0;
+    bc_lid.values.has_w = true; bc_lid.values.w = 0.0;
+    bc_lid.values.has_p = false;
     bc_list.push_back(bc_lid);
 
     std::vector<double> u(total_cells, 0.0);
@@ -261,19 +269,31 @@ TEST_F(CanonicalFlowsTest, PlanePoiseuilleFlowRe10) {
     BoundaryCondition bc_wall;
     bc_wall.location = "wall";
     bc_wall.type = "no-slip";
-    bc_wall.values = {0.0, 0.0, 0.0, 0.0};
+    bc_wall.u_val = 0.0; bc_wall.v_val = 0.0; bc_wall.w_val = 0.0;
+    bc_wall.values.has_u = true; bc_wall.values.u = 0.0;
+    bc_wall.values.has_v = true; bc_wall.values.v = 0.0;
+    bc_wall.values.has_w = true; bc_wall.values.w = 0.0;
+    bc_wall.values.has_p = false;
     bc_list.push_back(bc_wall);
 
     BoundaryCondition bc_inlet;
     bc_inlet.location = "x_min";
     bc_inlet.type = "inflow";
-    bc_inlet.values = {u_max, 0.0, 0.0, 0.0};
+    bc_inlet.u_val = u_max; bc_inlet.v_val = 0.0; bc_inlet.w_val = 0.0;
+    bc_inlet.values.has_u = true; bc_inlet.values.u = u_max;
+    bc_inlet.values.has_v = true; bc_inlet.values.v = 0.0;
+    bc_inlet.values.has_w = true; bc_inlet.values.w = 0.0;
+    bc_inlet.values.has_p = false;
     bc_list.push_back(bc_inlet);
 
     BoundaryCondition bc_outlet;
     bc_outlet.location = "x_max";
     bc_outlet.type = "outflow";
-    bc_outlet.values = {0.0, 0.0, 0.0, 0.0};
+    bc_outlet.u_val = 0.0; bc_outlet.v_val = 0.0; bc_outlet.w_val = 0.0;
+    bc_outlet.values.has_u = false;
+    bc_outlet.values.has_v = false;
+    bc_outlet.values.has_w = false;
+    bc_outlet.values.has_p = true; bc_outlet.values.p = 0.0;
     bc_list.push_back(bc_outlet);
 
     std::vector<double> u(total_cells, 0.0);
