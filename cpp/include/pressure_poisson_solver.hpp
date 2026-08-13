@@ -47,7 +47,8 @@ void apply_neumann_pressure(
 void apply_solid_neumann_pressure_parallel(
     std::vector<double>& p, 
     const std::vector<int>& mask, 
-    int nx, int ny, int nz
+    int nx, int ny, int nz,
+    double dx, double dy, double dz
 );
 
 } // namespace navier_stokes_solver
