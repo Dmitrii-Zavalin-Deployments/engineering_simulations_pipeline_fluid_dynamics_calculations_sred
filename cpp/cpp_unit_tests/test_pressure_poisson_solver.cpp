@@ -137,7 +137,8 @@ TEST(PressurePoissonTest, SolidNeumannPressureAveraging) {
     p[i + nx * (j + ny * (k - 1))] = 5.0; // down
     p[i + nx * (j + ny * (k + 1))] = 6.0; // up
 
-    apply_solid_neumann_pressure_parallel(p, mask, nx, ny, nz);
+    double dx = 1.0, dy = 1.0, dz = 1.0;
+    apply_solid_neumann_pressure_parallel(p, mask, nx, ny, nz, dx, dy, dz);
 
     // Expected average: (1 + 3 + 2 + 4 + 5 + 6) / 6 = 21 / 6 = 3.5
     EXPECT_NEAR(p[idx_solid], 3.5, 1e-12);
