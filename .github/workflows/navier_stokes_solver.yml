@@ -99,8 +99,9 @@ jobs:
           echo "🧪 Executing native C++ Unit Test suite..."
           ./build/tests/unit_tests
 
-          # echo "🌊 Executing native C++ Integration Test suite..."
+          echo "🌊 Executing native C++ Integration Test suite..."
           # ./build/tests/integration_tests
+          ./build/tests/integration_tests --gtest_filter=WaterfallDiagnosticTest.*
 
           echo "🐍 Executing Python C++ bridge tests from cpp/python_bridge_tests/..."
           pytest cpp/python_bridge_tests/ -v
