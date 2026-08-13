@@ -8,6 +8,7 @@
 #include <cmath>
 #include <algorithm>
 #include "orchestrator.hpp"
+#include "corrector.hpp"
 #include "grid_math.hpp"
 #include "boundary_condition.hpp"
 
@@ -67,10 +68,9 @@ TEST(StaggeredMacGridTest, CheckerboardPressureSuppression) {
     bc_list.push_back(bc_wall);
 
     SolverConfig config{2000, 1e-8, density};
-    NavierStokesOrchestrator orchestrator(dims, config);
 
-    // Execute 1 step to project the pressure gradient onto velocities via the corrector step
-    orchestrator.step(dt, mu, gravity, fx, fy, fz, mask, bc_list, u, v, w, p);
+    // Execute direct corrector projection step to evaluate MAC staggering response to checkerboard gradients
+    solve_corrector_parallel(u, v, w, u, v, w, p, mask, nx, ny, nz, dx, dy, dz, dt, density);
 
     // Assertion 1: Verify that velocities responded immediately to adjacent cell pressure differences (non-zero u, v, w updates)
     bool velocities_responded = false;
