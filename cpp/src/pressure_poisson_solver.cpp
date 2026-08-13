@@ -156,13 +156,12 @@ void solve_poisson_red_black_parallel(
 
     for (int iter = 0; iter < max_iters; ++iter) {
         
-        // --- PASS 1: Update RED Interior Fluid Cells ---
-        #pragma omp parallel for collapse(3) schedule(static)
+        // --- PASS 1: Update RED Interior Fluid Cells ((i + j + k) % 2 == 0) ---
+        #pragma omp parallel for collapse(2) schedule(static)
         for (int k = 1; k < nz - 1; ++k) {
             for (int j = 1; j < ny - 1; ++j) {
-                for (int i = 1; i < nx - 1; ++i) {
-                    if ((i + j + k) % 2 != 0) continue;
-                    
+                int i_start = ((j + k) % 2 == 0) ? 2 : 1;
+                for (int i = i_start; i < nx - 1; i += 2) {
                     const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
                     if (mask[idx] != 1) continue;
 
@@ -190,13 +189,12 @@ void solve_poisson_red_black_parallel(
             }
         }
 
-        // --- PASS 2: Update BLACK Interior Fluid Cells ---
-        #pragma omp parallel for collapse(3) schedule(static)
+        // --- PASS 2: Update BLACK Interior Fluid Cells ((i + j + k) % 2 != 0) ---
+        #pragma omp parallel for collapse(2) schedule(static)
         for (int k = 1; k < nz - 1; ++k) {
             for (int j = 1; j < ny - 1; ++j) {
-                for (int i = 1; i < nx - 1; ++i) {
-                    if ((i + j + k) % 2 == 0) continue;
-                    
+                int i_start = ((j + k) % 2 == 0) ? 1 : 2;
+                for (int i = i_start; i < nx - 1; i += 2) {
                     const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
                     if (mask[idx] != 1) continue;
 

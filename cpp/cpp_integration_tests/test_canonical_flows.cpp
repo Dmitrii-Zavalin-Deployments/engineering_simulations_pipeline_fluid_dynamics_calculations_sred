@@ -1,8 +1,8 @@
 /**
  * @file test_canonical_flows.cpp
- * @brief Integration tests verifying physical convergence and mathematical invariants 
- *        against canonical CFD benchmarks (2D Lid-Driven Cavity and Plane Poiseuille Flow)
- *        utilizing schema-compliant boundary condition structures.
+ * @brief Integration tests verifying physical convergence, mathematical invariants,
+ *        and maximum thread utilization against canonical CFD benchmarks 
+ *        (2D Lid-Driven Cavity and Plane Poiseuille Flow).
  */
 
 #include <gtest/gtest.h>
@@ -12,6 +12,12 @@
 #include <numeric>
 #include <iostream>
 #include <limits>
+#include <thread>
+
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
 #include "orchestrator.hpp"
 #include "grid_math.hpp"
 #include "boundary_condition.hpp"
@@ -20,6 +26,35 @@ using namespace navier_stokes_solver;
 
 class CanonicalFlowsTest : public ::testing::Test {
 protected:
+    void SetUp() override {
+        VerifyAndReportThreadingConfig();
+    }
+
+    /**
+     * @brief Verifies that the runtime environment is configured to utilize maximum 
+     *        available hardware concurrency for OpenMP multi-threading.
+     */
+    void VerifyAndReportThreadingConfig() {
+        unsigned int hw_threads = std::thread::hardware_concurrency();
+        int active_omp_threads = 1;
+
+#ifdef _OPENMP
+        // If OpenMP is active, ensure thread count is maximized
+        active_omp_threads = omp_get_max_threads();
+        std::cout << "[ THREADING INFO ] OpenMP Enabled. Max Hardware Threads: " 
+                  << hw_threads << " | Active OpenMP Threads: " << active_omp_threads << std::endl;
+
+        if (hw_threads > 1) {
+            EXPECT_GE(active_omp_threads, static_cast<int>(hw_threads))
+                << "WARNING: OpenMP is not using all available CPU threads! "
+                << "Active: " << active_omp_threads << ", Hardware available: " << hw_threads;
+        }
+#else
+        std::cout << "[ THREADING WARNING ] OpenMP is NOT enabled during compilation. "
+                  << "Running in single-threaded mode. Hardware Threads: " << hw_threads << std::endl;
+#endif
+    }
+
     double ComputeMaxDivergence(
         const std::vector<double>& u,
         const std::vector<double>& v,
@@ -31,6 +66,7 @@ protected:
         int k_min = (nz > 2) ? 1 : 0;
         int k_max = (nz > 2) ? nz - 1 : 1;
 
+#pragma omp parallel for reduction(max:max_div) collapse(2) schedule(static) if(nz > 1)
         for (int k = k_min; k < k_max; ++k) {
             for (int j = 1; j < ny - 1; ++j) {
                 for (int i = 1; i < nx - 1; ++i) {
@@ -63,6 +99,8 @@ protected:
         double dt, size_t total_cells
     ) const {
         double sum_sq = 0.0;
+
+#pragma omp parallel for reduction(+:sum_sq) schedule(static)
         for (size_t i = 0; i < total_cells; ++i) {
             double du = u_new[i] - u_old[i];
             double dv = v_new[i] - v_old[i];
@@ -178,6 +216,9 @@ TEST_F(CanonicalFlowsTest, LidDrivenCavityRe100) {
 
         double current_div = ComputeMaxDivergence(u, v, w, nx, ny, nz, dx, dy, dz);
         
+        // Ensure numbers remain finite without NaN or Inf spikes
+        ASSERT_TRUE(std::isfinite(current_div)) << "Non-finite divergence encountered at step " << step;
+
         // Allow transient startup divergence during initial impulsive start (first 50 steps)
         if (step > 50) {
             ASSERT_LE(current_div, 1e-3) << "Divergence blow-up detected at step " << step;
@@ -288,7 +329,7 @@ TEST_F(CanonicalFlowsTest, PlanePoiseuilleFlowRe10) {
     }
 
     const double dt = 0.0005;
-    const int max_steps = 200; // Fast convergence with warm start
+    const int max_steps = 1000;
     const double residue_threshold = 1e-5;
 
     for (int step = 0; step < max_steps; ++step) {

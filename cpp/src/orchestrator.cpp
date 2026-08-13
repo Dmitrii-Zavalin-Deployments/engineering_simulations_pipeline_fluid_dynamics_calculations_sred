@@ -46,6 +46,13 @@ void NavierStokesOrchestrator::step(
     // 1. PRE-STEP: Apply static Dirichlet velocity/pressure conditions on walls (mask == -1) and solids (mask == 0)
     execute_pre_step(u, v, w, p, mask, bc_list, dims_.nx, dims_.ny, dims_.nz);
 
+    // 1.5. GHOST & BOUNDARY SYNCHRONIZATION: Sync buffers BEFORE predictor step to prevent uninitialized i=0 stencils (X:inf)
+    sync_ghost_trial_buffers(
+        u.data(), v.data(), w.data(), p.data(),
+        u_star_.data(), v_star_.data(), w_star_.data(), rhs_.data(),
+        total_cells_
+    );
+
     // 2. PREDICTOR STEP: Compute trial velocities (u*, v*, w*) for active fluid cells (mask == 1)
     // Under hydrostatic pressure splitting, gravity g is analytically balanced by the hydrostatic 
     // pressure gradient (rho * g), so net dynamic body acceleration excludes uncompensated gravity.
@@ -106,7 +113,7 @@ void NavierStokesOrchestrator::step(
         dt, config_.density
     );
 
-    // 5. GHOST & TRIAL BUFFER SYNCHRONIZATION: Sync ghost/boundary memory regions across buffers
+    // 5. FINAL BUFFER SYNCHRONIZATION: Sync ghost/boundary memory regions across buffers for state continuity
     sync_ghost_trial_buffers(
         u.data(), v.data(), w.data(), p.data(),
         u_star_.data(), v_star_.data(), w_star_.data(), rhs_.data(),

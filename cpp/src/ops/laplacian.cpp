@@ -32,15 +32,13 @@ void compute_laplacian(
     const double dy2 = dy * dy;
     const double dz2 = dz * dz;
 
-    bool has_error = false;
-    int err_i = 0, err_j = 0, err_k = 0;
-    double err_fc = 0.0, err_tx = 0.0, err_ty = 0.0, err_tz = 0.0;
+    int has_error_flag = 0;
 
-    #pragma omp parallel for collapse(3) schedule(static) if(total_cells > 1000)
-    for (int i = 1; i < Nx - 1; ++i) {
+    #pragma omp parallel for collapse(2) schedule(static) if(total_cells > 1000) reduction(max:has_error_flag)
+    for (int k = 1; k < Nz - 1; ++k) {
         for (int j = 1; j < Ny - 1; ++j) {
-            for (int k = 1; k < Nz - 1; ++k) {
-                if (has_error) continue;
+            for (int i = 1; i < Nx - 1; ++i) {
+                if (has_error_flag) continue;
 
                 size_t c = get_flat_index(i, j, k, Nx, Ny);
 
@@ -58,21 +56,8 @@ void compute_laplacian(
 
                 double lap_val = term_x + term_y + term_z;
 
-                // --- FORENSIC NUMERICAL AUDIT ---
                 if (!std::isfinite(lap_val)) {
-                    #pragma omp critical
-                    {
-                        if (!has_error) {
-                            has_error = true;
-                            err_i = i;
-                            err_j = j;
-                            err_k = k;
-                            err_fc = f_c;
-                            err_tx = term_x;
-                            err_ty = term_y;
-                            err_tz = term_z;
-                        }
-                    }
+                    has_error_flag = 1;
                 } else {
                     lap_out[c] = lap_val;
                 }
@@ -80,11 +65,8 @@ void compute_laplacian(
         }
     }
 
-    if (has_error) {
-        std::cerr << "MATH FAILURE: Non-finite Laplacian at grid index [" 
-                  << err_i << ", " << err_j << ", " << err_k << "] | "
-                  << "Center Val: " << err_fc << " | "
-                  << "Terms [X:" << err_tx << ", Y:" << err_ty << ", Z:" << err_tz << "]\n";
+    if (has_error_flag != 0) {
+        std::cerr << "MATH FAILURE: Non-finite Laplacian detected in grid computation.\n";
         throw std::runtime_error("Laplacian exploded in grid computation.");
     }
 }
