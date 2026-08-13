@@ -1,6 +1,6 @@
 /**
  * @file corrector.hpp
- * @brief Header for the Corrector Step of Chorin's Projection Method for a staggered MAC grid.
+ * @brief Header for the Corrector Step of Chorin's Projection Method.
  */
 
 #ifndef CORRECTOR_HPP
@@ -11,17 +11,17 @@
 namespace navier_stokes_solver {
 
 /**
- * @brief Executes the Corrector Step of Chorin's Projection Method in parallel on a staggered MAC grid.
+ * @brief Executes the Corrector Step of Chorin's Projection Method in parallel.
  * Projects tentative trial velocities onto a divergence-free vector field using the updated pressure gradient.
  * 
- * @param u Output updated x-velocity field (face-centered, size: (nx + 1) * ny * nz)
- * @param v Output updated y-velocity field (face-centered, size: nx * (ny + 1) * nz)
- * @param w Output updated z-velocity field (face-centered, size: nx * ny * (nz + 1))
+ * @param u Output updated x-velocity field
+ * @param v Output updated y-velocity field
+ * @param w Output updated z-velocity field
  * @param u_star Tentative x-velocity from predictor step
  * @param v_star Tentative y-velocity from predictor step
  * @param w_star Tentative z-velocity from predictor step
- * @param p Updated pressure field from Poisson solver (cell-centered, size: nx * ny * nz)
- * @param mask Domain cell classification mask (1 = Fluid, 0 = Solid)
+ * @param p Updated pressure field from Poisson solver
+ * @param mask Domain cell classification mask (1 = Fluid, 0 = Solid, -1 = Wall)
  * @param nx Grid points in X direction
  * @param ny Grid points in Y direction
  * @param nz Grid points in Z direction
