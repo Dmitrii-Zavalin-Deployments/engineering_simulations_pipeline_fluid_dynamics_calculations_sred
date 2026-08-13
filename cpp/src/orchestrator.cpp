@@ -11,6 +11,10 @@
 #include "grid_math.hpp"
 #include <stdexcept>
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
 namespace navier_stokes_solver {
 
 NavierStokesOrchestrator::NavierStokesOrchestrator(const GridDimensions& dims, const SolverConfig& config)
@@ -57,22 +61,22 @@ void NavierStokesOrchestrator::step(
 
     // 3. PRESSURE POISSON STEP: Compute RHS divergence and solve pressure field iteratively
     const double scale = config_.density / dt;
+
+    #pragma omp parallel for collapse(3) schedule(static)
     for (int k = 0; k < dims_.nz; ++k) {
         for (int j = 0; j < dims_.ny; ++j) {
             for (int i = 0; i < dims_.nx; ++i) {
                 const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, dims_.nx, dims_.ny));
-                if (mask[idx] == 1) {
-                    // Central difference divergence of u* / dx, v* / dy, w* / dz
-                    const size_t idx_east  = static_cast<size_t>(get_flat_index(i + 1, j, k, dims_.nx, dims_.ny));
+
+                if (mask[idx] == 1 && i > 0 && j > 0 && k > 0) {
+                    // Compute 1-cell MAC velocity divergence at cell center (i, j, k)
                     const size_t idx_west  = static_cast<size_t>(get_flat_index(i - 1, j, k, dims_.nx, dims_.ny));
-                    const size_t idx_north = static_cast<size_t>(get_flat_index(i, j + 1, k, dims_.nx, dims_.ny));
                     const size_t idx_south = static_cast<size_t>(get_flat_index(i, j - 1, k, dims_.nx, dims_.ny));
-                    const size_t idx_up    = static_cast<size_t>(get_flat_index(i, j, k + 1, dims_.nx, dims_.ny));
                     const size_t idx_down  = static_cast<size_t>(get_flat_index(i, j, k - 1, dims_.nx, dims_.ny));
 
-                    double dudx = (u_star_[idx_east]  - u_star_[idx_west])  / (2.0 * dims_.dx);
-                    double dvdy = (v_star_[idx_north] - v_star_[idx_south]) / (2.0 * dims_.dy);
-                    double dwdz = (w_star_[idx_up]    - w_star_[idx_down])  / (2.0 * dims_.dz);
+                    const double dudx = (u_star_[idx] - u_star_[idx_west])  / dims_.dx;
+                    const double dvdy = (v_star_[idx] - v_star_[idx_south]) / dims_.dy;
+                    const double dwdz = (w_star_[idx] - w_star_[idx_down])  / dims_.dz;
 
                     rhs_[idx] = scale * (dudx + dvdy + dwdz);
                 } else {

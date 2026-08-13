@@ -37,35 +37,48 @@ void apply_neumann_pressure(
     const double gy = gravity[1];
     const double gz = gravity[2];
 
-    double dp_dx = density * gx;
-    double dp_dy = density * gy;
-    double dp_dz = density * gz;
+    const double dp_dx = density * gx;
+    const double dp_dy = density * gy;
+    const double dp_dz = density * gz;
 
-    #pragma omp parallel for collapse(2) schedule(static)
+    #pragma omp parallel for collapse(3) schedule(static)
     for (int k = 0; k < nz; ++k) {
         for (int j = 0; j < ny; ++j) {
             for (int i = 0; i < nx; ++i) {
                 const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
 
-                if (location == "x_min" && i == 0) {
-                    p[idx] = p[static_cast<size_t>(get_flat_index(1, j, k, nx, ny))] - dp_dx * dx;
-                } else if (location == "x_max" && i == nx - 1) {
-                    p[idx] = p[static_cast<size_t>(get_flat_index(nx - 2, j, k, nx, ny))] + dp_dx * dx;
-                } else if (location == "y_min" && j == 0) {
-                    p[idx] = p[static_cast<size_t>(get_flat_index(i, 1, k, nx, ny))] - dp_dy * dy;
-                } else if (location == "y_max" && j == ny - 1) {
-                    p[idx] = p[static_cast<size_t>(get_flat_index(i, ny - 2, k, nx, ny))] + dp_dy * dy;
-                } else if (location == "z_min" && k == 0) {
-                    p[idx] = p[static_cast<size_t>(get_flat_index(i, j, 1, nx, ny))] - dp_dz * dz;
-                } else if (location == "z_max" && k == nz - 1) {
-                    p[idx] = p[static_cast<size_t>(get_flat_index(i, j, nz - 2, nx, ny))] + dp_dz * dz;
-                } else if (location == "wall") {
-                    if (i == 0)         p[idx] = p[static_cast<size_t>(get_flat_index(1, j, k, nx, ny))] - dp_dx * dx;
-                    else if (i == nx - 1) p[idx] = p[static_cast<size_t>(get_flat_index(nx - 2, j, k, nx, ny))] + dp_dx * dx;
-                    else if (j == 0)      p[idx] = p[static_cast<size_t>(get_flat_index(i, 1, k, nx, ny))] - dp_dy * dy;
-                    else if (j == ny - 1) p[idx] = p[static_cast<size_t>(get_flat_index(i, ny - 2, k, nx, ny))] + dp_dy * dy;
-                    else if (k == 0)      p[idx] = p[static_cast<size_t>(get_flat_index(i, j, 1, nx, ny))] - dp_dz * dz;
-                    else if (k == nz - 1) p[idx] = p[static_cast<size_t>(get_flat_index(i, j, nz - 2, nx, ny))] + dp_dz * dz;
+                int count = 0;
+                double val = 0.0;
+
+                // Accumulate normal pressure gradient conditions across all active boundary faces
+                if ((location == "x_min" || location == "wall") && i == 0) {
+                    val += p[static_cast<size_t>(get_flat_index(1, j, k, nx, ny))] - dp_dx * dx;
+                    count++;
+                }
+                if ((location == "x_max" || location == "wall") && i == nx - 1) {
+                    val += p[static_cast<size_t>(get_flat_index(nx - 2, j, k, nx, ny))] + dp_dx * dx;
+                    count++;
+                }
+                if ((location == "y_min" || location == "wall") && j == 0) {
+                    val += p[static_cast<size_t>(get_flat_index(i, 1, k, nx, ny))] - dp_dy * dy;
+                    count++;
+                }
+                if ((location == "y_max" || location == "wall") && j == ny - 1) {
+                    val += p[static_cast<size_t>(get_flat_index(i, ny - 2, k, nx, ny))] + dp_dy * dy;
+                    count++;
+                }
+                if ((location == "z_min" || location == "wall") && k == 0) {
+                    val += p[static_cast<size_t>(get_flat_index(i, j, 1, nx, ny))] - dp_dz * dz;
+                    count++;
+                }
+                if ((location == "z_max" || location == "wall") && k == nz - 1) {
+                    val += p[static_cast<size_t>(get_flat_index(i, j, nz - 2, nx, ny))] + dp_dz * dz;
+                    count++;
+                }
+
+                // If cell is on one or more boundaries, average the target boundary values
+                if (count > 0) {
+                    p[idx] = val / static_cast<double>(count);
                 }
             }
         }
@@ -75,9 +88,16 @@ void apply_neumann_pressure(
 void apply_solid_neumann_pressure_parallel(
     std::vector<double>& p, 
     const std::vector<int>& mask, 
-    int nx, int ny, int nz
+    int nx, int ny, int nz,
+    double dx, double dy, double dz
 ) {
     if (nx <= 2 || ny <= 2 || nz <= 2) return;
+    if (dx <= 0.0 || dy <= 0.0 || dz <= 0.0) return;
+
+    const double idx2 = 1.0 / (dx * dx);
+    const double idy2 = 1.0 / (dy * dy);
+    const double idz2 = 1.0 / (dz * dz);
+    const double factor = 0.5 / (idx2 + idy2 + idz2);
 
     #pragma omp parallel for collapse(3) schedule(static)
     for (int k = 1; k < nz - 1; ++k) {
@@ -93,7 +113,11 @@ void apply_solid_neumann_pressure_parallel(
                 const size_t idx_down  = static_cast<size_t>(get_flat_index(i, j, k - 1, nx, ny));
                 const size_t idx_up    = static_cast<size_t>(get_flat_index(i, j, k + 1, nx, ny));
 
-                p[idx] = (p[idx_east] + p[idx_west] + p[idx_north] + p[idx_south] + p[idx_up] + p[idx_down]) / 6.0;
+                p[idx] = factor * (
+                    (p[idx_east] + p[idx_west]) * idx2 +
+                    (p[idx_north] + p[idx_south]) * idy2 +
+                    (p[idx_up] + p[idx_down]) * idz2
+                );
             }
         }
     }
@@ -208,7 +232,7 @@ void solve_poisson_red_black_parallel(
             }
         }
 
-        apply_solid_neumann_pressure_parallel(p, mask, nx, ny, nz);
+        apply_solid_neumann_pressure_parallel(p, mask, nx, ny, nz, dx, dy, dz);
     }
 }
 

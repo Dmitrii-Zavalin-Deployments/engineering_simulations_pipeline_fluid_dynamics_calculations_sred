@@ -44,9 +44,9 @@ void solve_corrector_parallel(
     }
 
     const double coeff = dt / rho;
-    const double idx_inv = 1.0 / (2.0 * dx);
-    const double idy_inv = 1.0 / (2.0 * dy);
-    const double idz_inv = 1.0 / (2.0 * dz);
+    const double idx_inv = 1.0 / dx;
+    const double idy_inv = 1.0 / dy;
+    const double idz_inv = 1.0 / dz;
 
     // Execute corrector step strictly on active interior fluid cells (mask == 1)
     #pragma omp parallel for collapse(3) schedule(static)
@@ -59,25 +59,20 @@ void solve_corrector_parallel(
                 // Skip solid cells (mask == 0) and wall boundaries (mask == -1)
                 if (mask[idx_cell] != 1) continue;
 
-                // Compute neighbor indices via unified grid_math SSoT
-                const size_t idx_west  = static_cast<size_t>(get_flat_index(i - 1, j, k, nx, ny));
+                // Compute adjacent neighbor indices for 1-cell MAC face pressure gradients
                 const size_t idx_east  = static_cast<size_t>(get_flat_index(i + 1, j, k, nx, ny));
-                const size_t idx_south = static_cast<size_t>(get_flat_index(i, j - 1, k, nx, ny));
                 const size_t idx_north = static_cast<size_t>(get_flat_index(i, j + 1, k, nx, ny));
-                const size_t idx_down  = static_cast<size_t>(get_flat_index(i, j, k - 1, nx, ny));
                 const size_t idx_up    = static_cast<size_t>(get_flat_index(i, j, k + 1, nx, ny));
 
-                // Compute central pressure gradients: dp/dx, dp/dy, dp/dz
-                const double p_west  = p[idx_west];
-                const double p_east  = p[idx_east];
-                const double p_south = p[idx_south];
-                const double p_north = p[idx_north];
-                const double p_down  = p[idx_down];
-                const double p_up    = p[idx_up];
+                const double p_center = p[idx_cell];
+                const double p_east   = p[idx_east];
+                const double p_north  = p[idx_north];
+                const double p_up     = p[idx_up];
 
-                const double dp_dx = (p_east - p_west) * idx_inv;
-                const double dp_dy = (p_north - p_south) * idy_inv;
-                const double dp_dz = (p_up - p_down) * idz_inv;
+                // Compute 1-cell MAC face pressure gradients: dp/dx, dp/dy, dp/dz
+                const double dp_dx = (p_east - p_center) * idx_inv;
+                const double dp_dy = (p_north - p_center) * idy_inv;
+                const double dp_dz = (p_up - p_center) * idz_inv;
 
                 // Project trial velocity onto divergence-free subspace (u^(n+1) = u* - (dt/rho) * grad(p))
                 u[idx_cell] = u_star[idx_cell] - coeff * dp_dx;
