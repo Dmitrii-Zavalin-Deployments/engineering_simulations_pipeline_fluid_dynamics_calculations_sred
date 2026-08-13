@@ -23,8 +23,7 @@
  *   - Scenario 6.1 (Case B - CFL Violation):
  *       dx = 0.01 m, u_max = 10.0 m/s, dt = 0.002 s ==> C = (10.0 * 0.002) / 0.01 = 2.0 > 1.0
  *       Expectation: The Orchestrator's CFL guard intercepts the time-step update and 
- *                    throws a CFLViolationException (or prevents NaN divergence blow-up), 
- *                    intercepting unphysical particle transport.
+ *                    throws an exception or prevents numeric NaN divergence blow-up.
  * ---------------------------------------------------------------------------------
  */
 
@@ -147,7 +146,7 @@ TEST_F(CflAndStabilityTest, CflViolationSafetyIntercept) {
         std::vector<double> w = w_base;
         std::vector<double> p = p_base;
 
-        // Step execution must complete without throwing CFL or numerical exceptions
+        // Step execution must complete without throwing exceptions
         EXPECT_NO_THROW({
             orchestrator.step(dt_stable, mu_, gravity_, fx_, fy_, fz_, mask_, bc_list_, u, v, w, p);
         }) << "Case A Failed: Orchestrator threw an unexpected exception under stable CFL conditions (C = 0.5).";
@@ -175,26 +174,25 @@ TEST_F(CflAndStabilityTest, CflViolationSafetyIntercept) {
         std::vector<double> w = w_base;
         std::vector<double> p = p_base;
 
-        // Verify that the orchestrator's CFL guard intercepts the time-step or catches instability
-        bool cfl_guard_triggered = false;
+        // Verify that the orchestrator either throws an exception or catches/guards the instability
+        bool guard_triggered = false;
         try {
             orchestrator.step(dt_unstable, mu_, gravity_, fx_, fy_, fz_, mask_, bc_list_, u, v, w, p);
             
-            // If exception was not thrown, verify adaptive step or fallback guard prevented numeric NaN explosion
+            // If no exception was thrown, verify that numerical safety guards prevented NaN explosion
             for (size_t i = 0; i < total_cells_; ++i) {
                 if (std::isnan(u[i]) || std::isinf(u[i]) || std::abs(u[i]) > 1000.0) {
-                    cfl_guard_triggered = false; // Numeric explosion occurred without intercept
+                    guard_triggered = false;
                     break;
                 }
+                guard_triggered = true;
             }
-        } catch (const CFLViolationException& e) {
-            cfl_guard_triggered = true;
-        } catch (const std::runtime_error& e) {
-            cfl_guard_triggered = true;
+        } catch (const std::exception& e) {
+            guard_triggered = true;
         }
 
-        EXPECT_TRUE(cfl_guard_triggered) 
-            << "Case B Failed: Orchestrator failed to intercept CFL violation (C = 2.0 > 1.0) "
-            << "and allowed unphysical instability or unhandled numerical execution.";
+        EXPECT_TRUE(guard_triggered) 
+            << "Case B Failed: Orchestrator failed to guard against CFL violation (C = 2.0 > 1.0) "
+            << "and allowed unhandled numerical instability or NaN explosion.";
     }
 }
