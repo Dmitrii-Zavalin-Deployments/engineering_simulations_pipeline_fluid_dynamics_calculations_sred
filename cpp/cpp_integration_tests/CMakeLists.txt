@@ -4,6 +4,7 @@ project(NavierStokesIntegrationTests)
 find_package(GTest REQUIRED)
 find_package(Threads REQUIRED)
 find_package(nlohmann_json REQUIRED)
+find_package(OpenMP REQUIRED)
 
 file(COPY data DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
@@ -16,6 +17,7 @@ target_link_libraries(test_projection_pipeline
         GTest::gtest_main
         navier_stokes_core
         nlohmann_json::nlohmann_json
+        OpenMP::OpenMP_CXX
 )
 
 add_test(NAME ProjectionPipelineTest COMMAND test_projection_pipeline)
@@ -29,6 +31,7 @@ target_link_libraries(test_static_pool_equilibrium
         GTest::gtest_main
         navier_stokes_core
         nlohmann_json::nlohmann_json
+        OpenMP::OpenMP_CXX
 )
 
 add_test(NAME StaticPoolDiagnosticTest COMMAND test_static_pool_equilibrium)
@@ -42,6 +45,7 @@ target_link_libraries(test_waterfall_inflow
         GTest::gtest_main
         navier_stokes_core
         nlohmann_json::nlohmann_json
+        OpenMP::OpenMP_CXX
 )
 
 add_test(NAME WaterfallDiagnosticTest COMMAND test_waterfall_inflow)
@@ -57,6 +61,7 @@ target_link_libraries(test_velocity_inlet_outlet
         GTest::gtest_main
         navier_stokes_core
         nlohmann_json::nlohmann_json
+        OpenMP::OpenMP_CXX
 )
 
 add_test(NAME VelocityInletOutletTest COMMAND test_velocity_inlet_outlet)
@@ -71,6 +76,7 @@ target_link_libraries(test_pressure_driven_channel
         GTest::gtest_main
         navier_stokes_core
         nlohmann_json::nlohmann_json
+        OpenMP::OpenMP_CXX
 )
 
 add_test(NAME PressureDrivenChannelTest COMMAND test_pressure_driven_channel)
@@ -85,6 +91,7 @@ target_link_libraries(test_no_slip_wall_shear
         GTest::gtest_main
         navier_stokes_core
         nlohmann_json::nlohmann_json
+        OpenMP::OpenMP_CXX
 )
 
 add_test(NAME NoSlipWallShearTest COMMAND test_no_slip_wall_shear)
@@ -99,6 +106,7 @@ target_link_libraries(test_free_slip_symmetry
         GTest::gtest_main
         navier_stokes_core
         nlohmann_json::nlohmann_json
+        OpenMP::OpenMP_CXX
 )
 
 add_test(NAME FreeSlipSymmetryTest COMMAND test_free_slip_symmetry)
@@ -115,6 +123,7 @@ target_link_libraries(test_solid_masking
         GTest::gtest_main
         navier_stokes_core
         nlohmann_json::nlohmann_json
+        OpenMP::OpenMP_CXX
 )
 
 add_test(NAME SolidMaskingTest COMMAND test_solid_masking)
@@ -131,6 +140,7 @@ target_link_libraries(test_staggered_mac_grid
         GTest::gtest_main
         navier_stokes_core
         nlohmann_json::nlohmann_json
+        OpenMP::OpenMP_CXX
 )
 
 add_test(NAME StaggeredMacGridTest COMMAND test_staggered_mac_grid)
@@ -147,6 +157,7 @@ target_link_libraries(test_cfl_and_stability
         GTest::gtest_main
         navier_stokes_core
         nlohmann_json::nlohmann_json
+        OpenMP::OpenMP_CXX
 )
 
 add_test(NAME CflAndStabilityTest COMMAND test_cfl_and_stability)
@@ -163,6 +174,7 @@ target_link_libraries(test_canonical_flows
         GTest::gtest_main
         navier_stokes_core
         nlohmann_json::nlohmann_json
+        OpenMP::OpenMP_CXX
 )
 
 add_test(NAME CanonicalFlowsTest COMMAND test_canonical_flows)
