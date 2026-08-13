@@ -21,8 +21,8 @@ void compute_gradient(
     int Nx, int Ny, int Nz,
     double dx, double dy, double dz
 ) {
-    if (dx == 0.0 || dy == 0.0 || dz == 0.0) {
-        throw std::invalid_argument("GEOMETRY CRASH: Invalid zero dimensions provided for gradient calculation.");
+    if (dx <= 0.0 || dy <= 0.0 || dz <= 0.0) {
+        throw std::invalid_argument("GEOMETRY CRASH: Invalid grid dimensions provided for gradient calculation.");
     }
 
     const long long total_cells = static_cast<long long>(Nx) * Ny * Nz;

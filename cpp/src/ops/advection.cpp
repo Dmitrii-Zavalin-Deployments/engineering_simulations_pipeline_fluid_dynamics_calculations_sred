@@ -21,8 +21,8 @@ void compute_advection(
     int Nx, int Ny, int Nz,
     double dx, double dy, double dz
 ) {
-    if (dx == 0.0 || dy == 0.0 || dz == 0.0) {
-        throw std::invalid_argument("GEOMETRY CRASH: Invalid zero dimensions provided for advection calculation.");
+    if (dx <= 0.0 || dy <= 0.0 || dz <= 0.0) {
+        throw std::invalid_argument("GEOMETRY CRASH: Invalid grid dimensions provided for advection calculation.");
     }
 
     const long long total_cells = static_cast<long long>(Nx) * Ny * Nz;
@@ -46,7 +46,7 @@ void compute_advection(
                 double dfield_dy = (field[get_flat_index(i, j+1, k, Nx, Ny)] - field[get_flat_index(i, j-1, k, Nx, Ny)]) / (2.0 * dy);
                 double dfield_dz = (field[get_flat_index(i, j, k+1, Nx, Ny)] - field[get_flat_index(i, j, k-1, Nx, Ny)]) / (2.0 * dz);
 
-                double advection_val = -(ui * dfield_dx + vi * dfield_dy + wi * dfield_dz);
+                double advection_val = (ui * dfield_dx + vi * dfield_dy + wi * dfield_dz);
 
                 // --- FORENSIC NUMERICAL AUDIT ---
                 if (!std::isfinite(advection_val) || !std::isfinite(ui) || !std::isfinite(vi) || !std::isfinite(wi)) {
