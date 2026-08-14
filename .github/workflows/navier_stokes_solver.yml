@@ -100,8 +100,7 @@ jobs:
           ./build/tests/unit_tests
 
           echo "🌊 Executing native C++ Integration Test suite..."
-          # ./build/tests/integration_tests
-          ./build/tests/integration_tests --gtest_filter=WaterfallDiagnosticTest.*
+          ./build/tests/integration_tests
 
           echo "🐍 Executing Python C++ bridge tests from cpp/python_bridge_tests/..."
           pytest cpp/python_bridge_tests/ -v
