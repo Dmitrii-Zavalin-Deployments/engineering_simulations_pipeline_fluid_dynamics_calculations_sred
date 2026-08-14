@@ -213,5 +213,5 @@ TEST(StaticPoolDiagnosticTest, StaticPoolEquilibrium) {
 
     // Assert that spurious velocity currents remain strictly below the discretization error threshold:
     //     $\max |v| < 6 \times 10^{-3} \, \text{m/s}$
-    EXPECT_LT(max_v_final, 6e-3) << "Static Pool Failure: Spurious currents generated in equilibrium.";
+    ASSERT_LT(max_v_final, 6e-3) << "Static Pool Failure: Spurious currents generated in equilibrium.";
 }
