@@ -239,7 +239,7 @@ TEST_F(ProjectionPipelineTest, LongHorizonTimeIntegrationStability) {
     // The peak velocity magnitude across 50 time steps must remain physically bounded:
     //       peak_velocity_magnitude < 1000.0 m/s
     // -----------------------------------------------------------------------------
-    EXPECT_LT(peak_velocity_magnitude, 1000.0)
+    ASSERT_LT(peak_velocity_magnitude, 1000.0)
         << "Assertion 1 Failed: Velocity field experienced unphysical numerical blow-up.";
 
     // -----------------------------------------------------------------------------
@@ -247,7 +247,7 @@ TEST_F(ProjectionPipelineTest, LongHorizonTimeIntegrationStability) {
     // The pressure-correction projection must stably bound velocity divergence:
     //       max_observed_div < 1.05
     // -----------------------------------------------------------------------------
-    EXPECT_LT(max_observed_div, 1.05)
+    ASSERT_LT(max_observed_div, 1.05)
         << "Assertion 2 Failed: Divergence grew unbounded over 50 time steps (max div: " << max_observed_div << ").";
 
     // -----------------------------------------------------------------------------
@@ -261,6 +261,6 @@ TEST_F(ProjectionPipelineTest, LongHorizonTimeIntegrationStability) {
         double delta_v = std::abs(v[i] - v_initial[i]);
         max_field_displacement = std::max({max_field_displacement, delta_u, delta_v});
     }
-    EXPECT_GT(max_field_displacement, 0.0)
+    ASSERT_GT(max_field_displacement, 0.0)
         << "Assertion 3 Failed: Velocity buffers remained static; time-integration loop did not advance state.";
 }
