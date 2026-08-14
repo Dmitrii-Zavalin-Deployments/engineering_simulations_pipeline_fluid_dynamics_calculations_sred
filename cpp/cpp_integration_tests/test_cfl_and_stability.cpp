@@ -149,8 +149,8 @@ TEST_F(CflAndStabilityTest, CflViolationSafetyIntercept) {
         // Measure initial divergence before step execution
         double initial_div = ComputeMaxDivergence(u, v, w);
 
-        // Step execution must complete without throwing exceptions
-        EXPECT_NO_THROW({
+        // Step execution must complete without throwing exceptions (using ASSERT for fail-fast)
+        ASSERT_NO_THROW({
             orchestrator.step(dt_stable, mu_, gravity_, fx_, fy_, fz_, mask_, bc_list_, u, v, w, p);
         }) << "Case A Failed: Orchestrator threw an unexpected exception under stable CFL conditions (C = 0.5).";
 
@@ -164,7 +164,7 @@ TEST_F(CflAndStabilityTest, CflViolationSafetyIntercept) {
         // Verify invariant: The pressure projection and solver must successfully suppress or 
         // bound the initial divergence spike rather than letting it amplify or explode.
         double final_div = ComputeMaxDivergence(u, v, w);
-        EXPECT_LE(final_div, initial_div) 
+        ASSERT_LE(final_div, initial_div) 
             << "Case A Failed: Divergence grew from " << initial_div << " to " << final_div 
             << " under stable CFL conditions, violating solver stability bounds.";
     }
@@ -196,7 +196,7 @@ TEST_F(CflAndStabilityTest, CflViolationSafetyIntercept) {
             guard_triggered = true;
         }
 
-        EXPECT_TRUE(guard_triggered) 
+        ASSERT_TRUE(guard_triggered) 
             << "Case B Failed: Orchestrator failed to guard against CFL violation (C = 2.0 > 1.0) "
             << "and allowed unhandled numerical instability or NaN explosion.";
     }
