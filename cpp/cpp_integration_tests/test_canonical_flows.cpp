@@ -217,26 +217,29 @@ TEST_F(CanonicalFlowsTest, LidDrivenCavityRe100) {
 
         orchestrator.step(dt, mu, gravity, fx, fy, fz, mask, bc_list, u, v, w, p);
 
-        // INVARIANT 1: Divergence must remain finite and bounded on every step
+        // INVARIANT 1: Divergence must remain finite and bounded on every step (FATAL ASSERTION)
         double current_div = ComputeMaxDivergence(u, v, w, nx, ny, nz, dx, dy, dz);
-        ASSERT_TRUE(std::isfinite(current_div)) << "Non-finite divergence encountered at step " << step;
-        EXPECT_LT(current_div, 10.0) << "Divergence safety ceiling exceeded at step " << step;
+        ASSERT_TRUE(std::isfinite(current_div)) << "[FATAL] Non-finite divergence encountered at step " << step;
+        ASSERT_LT(current_div, 10.0) << "[FATAL] Divergence safety ceiling exceeded at step " << step 
+                                     << " | Divergence Value: " << current_div;
 
-        // INVARIANT 2: Velocity components must remain bounded and finite on every step
+        // INVARIANT 2: Velocity components must remain bounded and finite on every step (FATAL ASSERTION)
         double max_vel = 0.0;
         for (size_t i = 0; i < total_cells; ++i) {
-            ASSERT_TRUE(std::isfinite(u[i])) << "Non-finite velocity u detected at step " << step;
-            ASSERT_TRUE(std::isfinite(v[i])) << "Non-finite velocity v detected at step " << step;
+            ASSERT_TRUE(std::isfinite(u[i])) << "[FATAL] Non-finite velocity u detected at step " << step;
+            ASSERT_TRUE(std::isfinite(v[i])) << "[FATAL] Non-finite velocity v detected at step " << step;
             max_vel = std::max({max_vel, std::abs(u[i]), std::abs(v[i])});
         }
-        EXPECT_LT(max_vel, 10.0) << "Catastrophic velocity blow-up/explosion detected at step " << step;
+        ASSERT_LT(max_vel, 10.0) << "[FATAL] Catastrophic velocity blow-up/explosion detected at step " << step 
+                                  << " | Max Velocity: " << max_vel;
 
-        // INVARIANT 3: Per-step transient residue with dynamic startup envelope
+        // INVARIANT 3: Per-step transient residue with dynamic startup envelope (FATAL ASSERTION)
         double residue = ComputeTransientResidue(u, u_old, v, v_old, total_cells);
         double allowed_residue = (step <= 60) ? 0.40 : 0.10;
-        EXPECT_LT(residue, allowed_residue) 
-            << "Numerical spike / instability detected at step " << step 
-            << " (Residue: " << residue << ", Allowed: " << allowed_residue << ")";
+        ASSERT_LT(residue, allowed_residue) 
+            << "[FATAL] Numerical spike / instability detected at step " << step 
+            << " | Actual Residue: " << residue 
+            << " | Allowed Ceiling: " << allowed_residue;
 
         if (step % 100 == 0) {
             std::cout << "[LID_DRIVEN_CAVITY] Step: " << step 
@@ -349,24 +352,29 @@ TEST_F(CanonicalFlowsTest, PlanePoiseuilleFlowRe10) {
 
         orchestrator.step(dt, mu, gravity, fx, fy, fz, mask, bc_list, u, v, w, p);
 
-        // Stability check: Divergence must remain finite and bounded on every step
+        // Stability check: Divergence must remain finite and bounded on every step (FATAL ASSERTION)
         double current_div = ComputeMaxDivergence(u, v, w, nx, ny, nz, dx, dy, dz);
-        ASSERT_TRUE(std::isfinite(current_div)) << "Non-finite divergence encountered at step " << step;
-        EXPECT_LT(current_div, 10.0) << "Divergence safety ceiling exceeded at step " << step;
+        ASSERT_TRUE(std::isfinite(current_div)) << "[FATAL] Non-finite divergence encountered at step " << step;
+        ASSERT_LT(current_div, 10.0) << "[FATAL] Divergence safety ceiling exceeded at step " << step 
+                                     << " | Divergence Value: " << current_div;
 
-        // Velocity bounds & explosion check on every step
+        // Velocity bounds & explosion check on every step (FATAL ASSERTION)
         double max_vel = 0.0;
         for (size_t i = 0; i < total_cells; ++i) {
-            ASSERT_TRUE(std::isfinite(u[i])) << "Non-finite u detected at step " << step;
-            ASSERT_TRUE(std::isfinite(v[i])) << "Non-finite v detected at step " << step;
+            ASSERT_TRUE(std::isfinite(u[i])) << "[FATAL] Non-finite u detected at step " << step;
+            ASSERT_TRUE(std::isfinite(v[i])) << "[FATAL] Non-finite v detected at step " << step;
             max_vel = std::max({max_vel, std::abs(u[i]), std::abs(v[i])});
         }
-        EXPECT_LT(max_vel, 10.0) << "Catastrophic velocity blow-up detected at step " << step;
+        ASSERT_LT(max_vel, 10.0) << "[FATAL] Catastrophic velocity blow-up detected at step " << step 
+                                  << " | Max Velocity: " << max_vel;
 
-        // Spike-free transient check on every step with dynamic startup envelope
+        // Spike-free transient check on every step with dynamic startup envelope (FATAL ASSERTION)
         double residue = ComputeTransientResidue(u, u_old, v, v_old, total_cells);
         double allowed_residue = (step <= 15) ? 0.25 : 0.08;
-        EXPECT_LT(residue, allowed_residue) << "Poiseuille spike/instability detected at step " << step;
+        ASSERT_LT(residue, allowed_residue) 
+            << "[FATAL] Poiseuille spike/instability detected at step " << step 
+            << " | Actual Residue: " << residue 
+            << " | Allowed Ceiling: " << allowed_residue;
 
         if (step % 25 == 0) {
             std::cout << "[POISEUILLE_FLOW] Step: " << step 
