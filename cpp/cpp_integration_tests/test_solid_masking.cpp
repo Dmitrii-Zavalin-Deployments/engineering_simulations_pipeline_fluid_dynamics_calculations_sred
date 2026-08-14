@@ -117,9 +117,9 @@ TEST(SolidMaskingTest, InternalSolidObjectMasking) {
 
     // Assertion 1: Verify strictly internal solid cells remain untouched (hold sentinel value)
     if (mask[internal_solid_idx] == 0) {
-        EXPECT_EQ(u[internal_solid_idx], sentinel_val) << "Internal solid cell modified by solver.";
-        EXPECT_EQ(v[internal_solid_idx], sentinel_val) << "Internal solid cell modified by solver.";
-        EXPECT_EQ(w[internal_solid_idx], sentinel_val) << "Internal solid cell modified by solver.";
+        ASSERT_EQ(u[internal_solid_idx], sentinel_val) << "Internal solid cell modified by solver.";
+        ASSERT_EQ(v[internal_solid_idx], sentinel_val) << "Internal solid cell modified by solver.";
+        ASSERT_EQ(w[internal_solid_idx], sentinel_val) << "Internal solid cell modified by solver.";
     }
 
     // Assertion 2: Verify domain boundary / wall cells are properly enforced to 0.0 (no-slip)
@@ -128,9 +128,9 @@ TEST(SolidMaskingTest, InternalSolidObjectMasking) {
             for (int i = 0; i < nx; ++i) {
                 if (k == 0 || k == nz - 1 || j == 0 || j == ny - 1 || i == 0 || i == nx - 1) {
                     size_t idx = get_flat_index(i, j, k, nx, ny);
-                    EXPECT_NEAR(u[idx], 0.0, 1e-6);
-                    EXPECT_NEAR(v[idx], 0.0, 1e-6);
-                    EXPECT_NEAR(w[idx], 0.0, 1e-6);
+                    ASSERT_NEAR(u[idx], 0.0, 1e-6);
+                    ASSERT_NEAR(v[idx], 0.0, 1e-6);
+                    ASSERT_NEAR(w[idx], 0.0, 1e-6);
                 }
             }
         }
@@ -144,5 +144,5 @@ TEST(SolidMaskingTest, InternalSolidObjectMasking) {
             break;
         }
     }
-    EXPECT_TRUE(pressure_valid) << "Vacuum trap failure: Solid cell pressure contains NaN values.";
+    ASSERT_TRUE(pressure_valid) << "Vacuum trap failure: Solid cell pressure contains NaN values.";
 }
