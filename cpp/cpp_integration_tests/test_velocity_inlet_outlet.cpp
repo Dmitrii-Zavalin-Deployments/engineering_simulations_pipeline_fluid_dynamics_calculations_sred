@@ -18,45 +18,42 @@
 
 using namespace navier_stokes_solver;
 
-class BoundaryConditionsTest : public ::testing::Test {
-protected:
-    double ComputeMaxDivergence(
-        const std::vector<double>& u,
-        const std::vector<double>& v,
-        const std::vector<double>& w,
-        int nx, int ny, int nz,
-        double dx, double dy, double dz
-    ) const {
-        double max_div = 0.0;
-        int k_min = (nz > 2) ? 1 : 0;
-        int k_max = (nz > 2) ? nz - 1 : 1;
+static double ComputeMaxDivergence(
+    const std::vector<double>& u,
+    const std::vector<double>& v,
+    const std::vector<double>& w,
+    int nx, int ny, int nz,
+    double dx, double dy, double dz
+) {
+    double max_div = 0.0;
+    int k_min = (nz > 2) ? 1 : 0;
+    int k_max = (nz > 2) ? nz - 1 : 1;
 
-        for (int k = k_min; k < k_max; ++k) {
-            for (int j = 1; j < ny - 1; ++j) {
-                for (int i = 1; i < nx - 1; ++i) {
-                    size_t idx_px = (i + 1) + static_cast<size_t>(nx) * (j + ny * k);
-                    size_t idx_nx = (i - 1) + static_cast<size_t>(nx) * (j + ny * k);
-                    size_t idx_py = i + static_cast<size_t>(nx) * ((j + 1) + ny * k);
-                    size_t idx_ny = i + static_cast<size_t>(nx) * ((j - 1) + ny * k);
+    for (int k = k_min; k < k_max; ++k) {
+        for (int j = 1; j < ny - 1; ++j) {
+            for (int i = 1; i < nx - 1; ++i) {
+                size_t idx_px = (i + 1) + static_cast<size_t>(nx) * (j + ny * k);
+                size_t idx_nx = (i - 1) + static_cast<size_t>(nx) * (j + ny * k);
+                size_t idx_py = i + static_cast<size_t>(nx) * ((j + 1) + ny * k);
+                size_t idx_ny = i + static_cast<size_t>(nx) * ((j - 1) + ny * k);
 
-                    double du_dx = (u[idx_px] - u[idx_nx]) / (2.0 * dx);
-                    double dv_dy = (v[idx_py] - v[idx_ny]) / (2.0 * dy);
-                    
-                    double dw_dz = 0.0;
-                    if (nz > 2) {
-                        size_t idx_pz = i + static_cast<size_t>(nx) * (j + ny * (k + 1));
-                        size_t idx_nz = i + static_cast<size_t>(nx) * (j + ny * (k - 1));
-                        dw_dz = (w[idx_pz] - w[idx_nz]) / (2.0 * dz);
-                    }
-
-                    double div = std::abs(du_dx + dv_dy + dw_dz);
-                    max_div = std::max(max_div, div);
+                double du_dx = (u[idx_px] - u[idx_nx]) / (2.0 * dx);
+                double dv_dy = (v[idx_py] - v[idx_ny]) / (2.0 * dy);
+                
+                double dw_dz = 0.0;
+                if (nz > 2) {
+                    size_t idx_pz = i + static_cast<size_t>(nx) * (j + ny * (k + 1));
+                    size_t idx_nz = i + static_cast<size_t>(nx) * (j + ny * (k - 1));
+                    dw_dz = (w[idx_pz] - w[idx_nz]) / (2.0 * dz);
                 }
+
+                double div = std::abs(du_dx + dv_dy + dw_dz);
+                max_div = std::max(max_div, div);
             }
         }
-        return max_div;
     }
-};
+    return max_div;
+}
 
 TEST(BoundaryConditionsTest, VelocityInletPressureOutlet) {
     const int nx = 10;
@@ -74,7 +71,7 @@ TEST(BoundaryConditionsTest, VelocityInletPressureOutlet) {
     const double nu = mu / density;
     const double dt = 0.001;
     const double U_0 = 1.0;
-    const int total_steps = 200;
+    const int total_steps = 200; // Optimized step count for rapid integration test execution
 
     SolverConfig config;
     config.density = density;
@@ -84,7 +81,7 @@ TEST(BoundaryConditionsTest, VelocityInletPressureOutlet) {
     NavierStokesOrchestrator orchestrator(dims, config);
 
     std::vector<int> mask(total_cells, 1);
-    std::vector<double> u(total_cells, U_0);
+    std::vector<double> u(total_cells, U_0); // Initialize domain with U_0 to establish baseline mass flux
     std::vector<double> v(total_cells, 0.0);
     std::vector<double> w(total_cells, 0.0);
     std::vector<double> p(total_cells, 0.0);
@@ -118,6 +115,7 @@ TEST(BoundaryConditionsTest, VelocityInletPressureOutlet) {
     for (int step = 0; step < total_steps; ++step) {
         orchestrator.step(dt, nu, gravity, fx, fy, fz, mask, bc_list, u, v, w, p);
 
+        // Stability check: Divergence safety check on every step
         double current_div = ComputeMaxDivergence(u, v, w, nx, ny, nz, dx, dy, dz);
         ASSERT_TRUE(std::isfinite(current_div)) << "[FATAL] Non-finite divergence encountered at step " << step;
         ASSERT_LT(current_div, 10.0) << "[FATAL] Divergence safety ceiling exceeded at step " << step 
