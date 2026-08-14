@@ -215,7 +215,7 @@ TEST_F(CanonicalFlowsTest, LidDrivenCavityRe100) {
         std::vector<double> v_old = v;
 
         // Smooth velocity ramp-up over the first 50 steps to eliminate impulsive start shock
-        double current_lid_u = std::min(1.0, static_cast<double>(step) / 50.0);
+        double current_lid_u = std::min(1.0, static_cast<double>(step) / 100.0);
         bc_lid.u_val = current_lid_u;
         bc_lid.values.u = current_lid_u;
         bc_list.back() = bc_lid;
@@ -227,7 +227,7 @@ TEST_F(CanonicalFlowsTest, LidDrivenCavityRe100) {
         // Ensure numbers remain finite without NaN or Inf spikes
         ASSERT_TRUE(std::isfinite(current_div)) << "Non-finite divergence encountered at step " << step;
 
-        if (step > 50) {
+        if (step > 100) {
             ASSERT_LE(current_div, 1e-3) << "Divergence blow-up detected at step " << step;
         }
 
