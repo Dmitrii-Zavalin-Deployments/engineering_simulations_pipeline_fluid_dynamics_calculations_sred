@@ -58,7 +58,7 @@ protected:
     }
 };
 
-TEST_F(BoundaryConditionsTest, VelocityInletPressureOutlet) {
+TEST(BoundaryConditionsTest, VelocityInletPressureOutlet) {
     const int nx = 10;
     const int ny = 8;
     const int nz = 8;
@@ -74,7 +74,7 @@ TEST_F(BoundaryConditionsTest, VelocityInletPressureOutlet) {
     const double nu = mu / density;
     const double dt = 0.001;
     const double U_0 = 1.0;
-    const int total_steps = 200; // Optimized step count for rapid integration test execution
+    const int total_steps = 200;
 
     SolverConfig config;
     config.density = density;
@@ -84,7 +84,7 @@ TEST_F(BoundaryConditionsTest, VelocityInletPressureOutlet) {
     NavierStokesOrchestrator orchestrator(dims, config);
 
     std::vector<int> mask(total_cells, 1);
-    std::vector<double> u(total_cells, U_0); // Initialize domain with U_0 to establish baseline mass flux
+    std::vector<double> u(total_cells, U_0);
     std::vector<double> v(total_cells, 0.0);
     std::vector<double> w(total_cells, 0.0);
     std::vector<double> p(total_cells, 0.0);
@@ -118,7 +118,6 @@ TEST_F(BoundaryConditionsTest, VelocityInletPressureOutlet) {
     for (int step = 0; step < total_steps; ++step) {
         orchestrator.step(dt, nu, gravity, fx, fy, fz, mask, bc_list, u, v, w, p);
 
-        // Stability check: Divergence safety check on every step
         double current_div = ComputeMaxDivergence(u, v, w, nx, ny, nz, dx, dy, dz);
         ASSERT_TRUE(std::isfinite(current_div)) << "[FATAL] Non-finite divergence encountered at step " << step;
         ASSERT_LT(current_div, 10.0) << "[FATAL] Divergence safety ceiling exceeded at step " << step 
