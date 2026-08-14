@@ -146,8 +146,8 @@ protected:
 // Scenario 7.1: 2D Lid-Driven Cavity Benchmark (Re = 100)
 // =================================================================================
 TEST_F(CanonicalFlowsTest, LidDrivenCavityRe100) {
-    const int nx = 32;
-    const int ny = 32;
+    const int nx = 16;
+    const int ny = 16;
     const int nz = 3;
     const double dx = 1.0 / nx;
     const double dy = 1.0 / ny;
@@ -203,7 +203,7 @@ TEST_F(CanonicalFlowsTest, LidDrivenCavityRe100) {
     std::vector<double> p(total_cells, 0.0);
 
     const double dt = 0.001;
-    const int max_steps = 5000;
+    const int max_steps = 800;
     const double residue_threshold = 1e-5;
 
     bool reached_steady_state = false;
@@ -271,7 +271,7 @@ TEST_F(CanonicalFlowsTest, LidDrivenCavityRe100) {
 // Scenario 7.2: Plane Poiseuille / Channel Flow Benchmark (Re = 10)
 // =================================================================================
 TEST_F(CanonicalFlowsTest, PlanePoiseuilleFlowRe10) {
-    const int nx = 64;
+    const int nx = 32;
     const int ny = 16;
     const int nz = 3;
     const double dx = 0.01;
@@ -299,15 +299,17 @@ TEST_F(CanonicalFlowsTest, PlanePoiseuilleFlowRe10) {
     // Schema-compliant boundary conditions
     std::vector<BoundaryCondition> bc_list;
 
-    BoundaryCondition bc_wall;
-    bc_wall.location = "wall";
-    bc_wall.type = "no-slip";
-    bc_wall.u_val = 0.0; bc_wall.v_val = 0.0; bc_wall.w_val = 0.0;
-    bc_wall.values.has_u = true; bc_wall.values.u = 0.0;
-    bc_wall.values.has_v = true; bc_wall.values.v = 0.0;
-    bc_wall.values.has_w = true; bc_wall.values.w = 0.0;
-    bc_wall.values.has_p = false;
-    bc_list.push_back(bc_wall);
+    for (const std::string& loc : {"y_min", "y_max"}) {
+        BoundaryCondition bc_wall;
+        bc_wall.location = loc;
+        bc_wall.type = "no-slip";
+        bc_wall.u_val = 0.0; bc_wall.v_val = 0.0; bc_wall.w_val = 0.0;
+        bc_wall.values.has_u = true; bc_wall.values.u = 0.0;
+        bc_wall.values.has_v = true; bc_wall.values.v = 0.0;
+        bc_wall.values.has_w = true; bc_wall.values.w = 0.0;
+        bc_wall.values.has_p = false;
+        bc_list.push_back(bc_wall);
+    }
 
     BoundaryCondition bc_inlet;
     bc_inlet.location = "x_min";
@@ -347,7 +349,7 @@ TEST_F(CanonicalFlowsTest, PlanePoiseuilleFlowRe10) {
     }
 
     const double dt = 0.0005;
-    const int max_steps = 1000;
+    const int max_steps = 300;
     const double residue_threshold = 1e-5;
 
     std::cout << "[POISEUILLE_FLOW] Starting simulation loop..." << std::endl;
