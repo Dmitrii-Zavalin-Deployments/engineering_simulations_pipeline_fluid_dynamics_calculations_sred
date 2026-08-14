@@ -142,6 +142,6 @@ TEST(BoundaryConditionsTest, PressureDrivenChannelFlow) {
     }
     double mean_u = center_u_sum / count;
 
-    EXPECT_GT(mean_u, 0.0) 
+    ASSERT_GT(mean_u, 0.0) 
         << "Pressure-driven channel failed to accelerate fluid from high to low pressure.";
 }
