@@ -131,6 +131,6 @@ TEST(BoundaryConditionsTest, VelocityInletPressureOutlet) {
         }
     }
 
-    EXPECT_NEAR(inlet_mass_flow, outlet_mass_flow, 1e-2)
+    ASSERT_NEAR(inlet_mass_flow, outlet_mass_flow, 1e-2)
         << "Mass flow conservation failure: Inlet mass rate does not match outlet mass rate.";
 }
