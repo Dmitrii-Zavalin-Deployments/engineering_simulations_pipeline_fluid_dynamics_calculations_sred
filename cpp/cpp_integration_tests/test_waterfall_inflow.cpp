@@ -49,6 +49,7 @@ TEST(WaterfallDiagnosticTest, WaterfallInflowDynamics) {
     
     double density = 1000.0;
     double mu = 0.001;
+    double nu = mu / density;
     double dt = 0.001;
 
     SolverConfig config;
@@ -108,7 +109,7 @@ TEST(WaterfallDiagnosticTest, WaterfallInflowDynamics) {
     // 4. Execute Step via NavierStokesOrchestrator
     // =========================================================================
     NavierStokesOrchestrator orchestrator(dims, config);
-    orchestrator.step(dt, mu, gravity, fx, fy, fz, mask, bc_list, u, v, w, p);
+    orchestrator.step(dt, nu, gravity, fx, fy, fz, mask, bc_list, u, v, w, p);
 
     // =========================================================================
     // 5. Downstream Flow Verification & Assertion
@@ -120,5 +121,5 @@ TEST(WaterfallDiagnosticTest, WaterfallInflowDynamics) {
         }
     }
 
-    EXPECT_LT(min_v_downstream, -0.01) << "Waterfall Failure: Gravity/inflow failed to drive downward stream dynamics.";
+    ASSERT_LT(min_v_downstream, -0.01) << "Waterfall Failure: Gravity/inflow failed to drive downward stream dynamics.";
 }
