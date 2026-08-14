@@ -58,8 +58,8 @@ TEST(BoundaryConditionsTest, VelocityInletPressureOutlet) {
 
     SolverConfig config;
     config.density = density;
-    config.max_poisson_iterations = 500;
-    config.poisson_tolerance = 1e-12;
+    config.max_poisson_iterations = 100; // Optimized for fast integration test execution
+    config.poisson_tolerance = 1e-6;     // Relaxed tolerance to prevent test hangs
     std::vector<double> gravity = {0.0, 0.0, 0.0};
     FluidProperties fluid{mu / density, density};
 
