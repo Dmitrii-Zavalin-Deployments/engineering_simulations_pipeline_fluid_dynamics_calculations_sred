@@ -47,7 +47,7 @@ TEST(BoundaryConditionsTest, FreeSlipSymmetryPlane) {
     for (int k = 0; k < nz; ++k) {
         for (int i = 0; i < nx; ++i) {
             size_t boundary_idx = get_flat_index(i, top_j, k, nx, ny);
-            EXPECT_DOUBLE_EQ(v[boundary_idx], 0.0)
+            ASSERT_DOUBLE_EQ(v[boundary_idx], 0.0)
                 << "Free-slip symmetry failure: Normal velocity v is non-zero at y_max symmetry boundary.";
         }
     }
