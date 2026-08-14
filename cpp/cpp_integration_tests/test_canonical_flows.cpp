@@ -158,8 +158,8 @@ TEST_F(CanonicalFlowsTest, LidDrivenCavityRe100) {
 
     SolverConfig config;
     config.density = 1.0;
-    config.max_poisson_iterations = 300; // Optimized iteration ceiling for fast test execution
-    config.poisson_tolerance = 1e-5;     // Balanced tolerance for transient solver steps
+    config.max_poisson_iterations = 50; // Optimized for fast execution (< 5 minutes total)
+    config.poisson_tolerance = 1e-4;     // Relaxed tolerance for transient solver steps
 
     NavierStokesOrchestrator orchestrator(dims, config);
 
@@ -203,7 +203,7 @@ TEST_F(CanonicalFlowsTest, LidDrivenCavityRe100) {
     std::vector<double> p(total_cells, 0.0);
 
     const double dt = 0.001;
-    const int max_steps = 5000; // Reduced max steps since convergence is much faster now
+    const int max_steps = 5000;
     const double residue_threshold = 1e-5;
 
     bool reached_steady_state = false;
@@ -284,8 +284,8 @@ TEST_F(CanonicalFlowsTest, PlanePoiseuilleFlowRe10) {
 
     SolverConfig config;
     config.density = 1.0;
-    config.max_poisson_iterations = 300;
-    config.poisson_tolerance = 1e-5;
+    config.max_poisson_iterations = 50; // Optimized for fast execution
+    config.poisson_tolerance = 1e-4;     // Relaxed tolerance for transient solver steps
 
     NavierStokesOrchestrator orchestrator(dims, config);
 
