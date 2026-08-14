@@ -54,7 +54,7 @@ TEST(BoundaryConditionsTest, NoSlipWallShearBoundary) {
     for (int k = 0; k < nz; ++k) {
         for (int i = 0; i < nx; ++i) {
             size_t idx = get_flat_index(i, 0, k, nx, ny);
-            EXPECT_DOUBLE_EQ(u[idx], 0.0) 
+            ASSERT_DOUBLE_EQ(u[idx], 0.0) 
                 << "No-slip violation: Non-zero velocity detected directly on wall boundary face.";
         }
     }
@@ -77,6 +77,6 @@ TEST(BoundaryConditionsTest, NoSlipWallShearBoundary) {
     size_t near_wall_idx = get_flat_index(2, 1, 2, nx, ny);
     size_t core_idx      = get_flat_index(2, 5, 2, nx, ny);
 
-    EXPECT_LT(u_star[near_wall_idx], u_star[core_idx])
+    ASSERT_LT(u_star[near_wall_idx], u_star[core_idx])
         << "Viscous boundary layer failure: Near-wall velocity did not decelerate relative to core flow.";
 }
