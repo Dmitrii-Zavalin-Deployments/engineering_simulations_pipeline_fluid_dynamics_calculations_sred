@@ -18,7 +18,7 @@
 
 using namespace navier_stokes_solver;
 
-class VelocityInletOutletTest : public ::testing::Test {
+class BoundaryConditionsTest : public ::testing::Test {
 protected:
     double ComputeMaxDivergence(
         const std::vector<double>& u,
@@ -58,7 +58,7 @@ protected:
     }
 };
 
-TEST_F(VelocityInletOutletTest, VelocityInletPressureOutlet) {
+TEST_F(BoundaryConditionsTest, VelocityInletPressureOutlet) {
     const int nx = 10;
     const int ny = 8;
     const int nz = 8;
