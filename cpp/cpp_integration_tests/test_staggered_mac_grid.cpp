@@ -80,7 +80,7 @@ TEST(StaggeredMacGridTest, CheckerboardPressureSuppression) {
             break;
         }
     }
-    EXPECT_TRUE(velocities_responded) << "MAC grid failure: Velocities did not respond to checkerboard pressure gradients.";
+    ASSERT_TRUE(velocities_responded) << "MAC grid failure: Velocities did not respond to checkerboard pressure gradients.";
 
     // Assertion 2: Verify pressure field remains bounded and finite
     bool pressure_bounded = true;
@@ -90,5 +90,5 @@ TEST(StaggeredMacGridTest, CheckerboardPressureSuppression) {
             break;
         }
     }
-    EXPECT_TRUE(pressure_bounded) << "Pressure instability detected during checkerboard suppression.";
+    ASSERT_TRUE(pressure_bounded) << "Pressure instability detected during checkerboard suppression.";
 }
