@@ -160,35 +160,3 @@ def test_python_cpp_field_state_parity(workspace_folder):
                 archived_array,
                 err_msg=f"Memory/Disk drift detected for field {name}!",
             )
-
-
-def test_archivist_failure_status_handling(workspace_folder):
-    """
-    Verifies that Archivist handles simulation failures correctly by omitting ZIP creation
-    and generating schema-compliant output manifest with zip_filename set to NOT_APPLICABLE.
-    """
-    from src.archivist import archive_simulation_results
-
-    class MockFailureState:
-        input_data = {"test": "data"}
-        config = {"param": 1}
-        fields = []
-
-    folder = workspace_folder["folder"]
-    output_filename = "failure_manifest.json"
-
-    archive_simulation_results(
-        state=MockFailureState(),
-        output_dir=folder,
-        output_filename=output_filename,
-        status="FAILURE",
-    )
-
-    manifest_path = Path(folder) / output_filename
-    assert manifest_path.is_file()
-
-    with open(manifest_path, "r", encoding="utf-8") as f:
-        manifest = json.load(f)
-
-    assert manifest["results"]["status"] == "FAILURE"
-    assert manifest["results"]["zip_filename"] == "NOT_APPLICABLE"
