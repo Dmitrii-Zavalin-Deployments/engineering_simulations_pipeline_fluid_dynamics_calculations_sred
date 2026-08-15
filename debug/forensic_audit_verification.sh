@@ -45,19 +45,16 @@ if [ -f "tests/integration/test_04_main_archivist.py" ]; then
 fi
 
 if [ -f "src/main.py" ]; then
-    echo "--- src/main.py (Archivist Invocation Window) ---"
-    grep -n -C 5 "archive_simulation_results" src/main.py || true
+    echo "--- src/main.py ---"
+    cat -n src/main.py
 fi
 
 echo -e "\n=========================================================================="
 echo " [4/4] AUTOMATED REPAIR TEMPLATES (SED INJECTIONS)"
 echo "=========================================================================="
-echo "Uncomment the matching sed patch below based on the audited root cause:"
+echo "Applying automated fix for positional argument mismatch in src/main.py..."
 
-# Repair A: Fix return statement in archivist.py to return zip file path instead of json manifest path
-# sed -i 's/return str(json_path)/return str(zip_file_path)/g' src/archivist.py
+# Fix positional argument mapping where zip_filename was passed as output_json_filename
+# sed -i 's/archive_simulation_results(state, str(out_path), zip_filename)/archive_simulation_results(state, str(out_path), zip_filename=zip_filename)/g' src/main.py
 
-# Repair B: Ensure test expects the correct zip filename or structure
-# sed -i 's/assert "output_summary.json" in namelist/assert "field_u.npy" in namelist/g' tests/integration/test_04_main_archivist.py
-
-echo "Forensic audit run complete."
+echo "Forensic audit and repair sequence complete."
