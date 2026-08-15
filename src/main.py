@@ -100,41 +100,16 @@ def run_simulation(
 def main() -> None:
     try:
         parser = argparse.ArgumentParser(description="Navier-Stokes Solver Execution Engine")
-        parser.add_argument("positional_input", nargs="?", default=None, help="Path to input JSON configuration file")
         parser.add_argument("--input_output_folder", type=str, default=None, help="Directory folder containing input/output artifacts")
         parser.add_argument("--input_file_name", type=str, default=None, help="File name of the input JSON configuration")
         parser.add_argument("--output_file_name", type=str, default=None, help="File name for the output JSON manifest")
 
         args = parser.parse_args()
 
-        has_folder = args.input_output_folder is not None
-        has_input_file = args.input_file_name is not None
-        has_output_file = args.output_file_name is not None
-        has_positional = args.positional_input is not None
-
-        if has_folder or has_input_file or has_output_file:
-            if not has_folder:
-                raise ValueError("FATAL PIPELINE ERROR: --input_output_folder must be explicitly provided.")
-            if not has_input_file:
-                raise ValueError("FATAL PIPELINE ERROR: --input_file_name must be explicitly provided.")
-            if not has_output_file:
-                raise ValueError("FATAL PIPELINE ERROR: --output_file_name must be explicitly provided.")
-
-            input_output_folder = Path(args.input_output_folder)
-            input_file_name = args.input_file_name
-            output_file_name = args.output_file_name
-        elif has_positional:
-            pos_path = Path(args.positional_input)
-            input_output_folder = pos_path.parent
-            input_file_name = pos_path.name
-            output_file_name = "navier_stokes_output.json"
-        else:
-            raise ValueError("FATAL PIPELINE ERROR: Must provide either positional <input_json> or all required flag arguments (--input_output_folder, --input_file_name, --output_file_name).")
-
         run_simulation(
-            input_output_folder=input_output_folder,
-            input_file_name=input_file_name,
-            output_file_name=output_file_name,
+            input_output_folder=args.input_output_folder,
+            input_file_name=args.input_file_name,
+            output_file_name=args.output_file_name,
         )
     except (
         FileNotFoundError,

@@ -282,7 +282,7 @@ jobs:
   #         # /usr/bin/time -v xvfb-run --auto-servernum python src/main.py \
   #         #   --input_output_folder "${GITHUB_WORKSPACE}/data/testing-input-output/" \
   #         #   --input_file_name "navier_stokes_solver_input.json" \
-  #         #   --output_file_name "navier_stokes_output.zip" 2> /tmp/memory_profile.log
+  #         #   --output_file_name "navier_stokes_output.json" 2> /tmp/memory_profile.log
 
   #         # Unwind profile monitoring immediately post-execution 
   #         kill $SAMPLER_PID
