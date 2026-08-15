@@ -7,7 +7,6 @@ import json
 import sys
 import zipfile
 from pathlib import Path
-from unittest.mock import patch
 
 
 def test_main_cli_archivist_stage(workspace_folder, monkeypatch):
@@ -23,10 +22,8 @@ def test_main_cli_archivist_stage(workspace_folder, monkeypatch):
     ]
     monkeypatch.setattr(sys, "argv", cli_args)
 
-    # Bypass image preview generation to isolate archivist pipeline
-    with patch("src.main.generate_snapshot_preview", return_value="mock_preview.png"):
-        from src.main import main
-        main()
+    from src.main import main
+    main()
 
     expected_zip = Path(folder) / output_zip
     assert expected_zip.exists()
