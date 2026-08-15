@@ -105,8 +105,12 @@ def main() -> None:
     else:
         raise ValueError("FATAL PIPELINE ERROR: Must provide either positional <input_json> or all required flag arguments (--input_output_folder, --input_file_name, --output_file_name).")
 
+    run_simulation(input_path=input_path, output_dir=output_dir, zip_filename=zip_filename)
+
+
+if __name__ == "__main__":  # pragma: no cover
     try:
-        run_simulation(input_path=input_path, output_dir=output_dir, zip_filename=zip_filename)
+        main()
         sys.exit(0)
     except (
         FileNotFoundError,
@@ -120,7 +124,3 @@ def main() -> None:
         print(f"FATAL PIPELINE ERROR: {e!s}", file=sys.stderr)
         traceback.print_exc()
         sys.exit(1)
-
-
-if __name__ == "__main__":
-    main()
