@@ -16,7 +16,7 @@ logger = logging.getLogger("Solver.State")
 class SolverState:
     """
     Simulation state container managing field arrays, grid parameters, 
-    and constraint evaluations across simulation iterations.
+    and constraint evaluations across simulation iterations under strict non-default policies.
     """
 
     def __init__(self, input_data: dict[str, Any], config_data: dict[str, Any]):
@@ -28,7 +28,7 @@ class SolverState:
         self.input_data: dict[str, Any] = input_data
         self.config: dict[str, Any] = config_data
 
-        # Grid parameters
+        # Grid parameters presence and value validation
         if "grid" not in input_data or input_data["grid"] is None:
             raise KeyError("Non-default policy violation: missing required 'grid' section in input_data.")
         grid = input_data["grid"]
@@ -69,35 +69,63 @@ class SolverState:
         self.grid: dict[str, Any] = grid
         self.fluid_properties: dict[str, Any] = input_data["fluid_properties"]
         self.initial_conditions: dict[str, Any] = input_data["initial_conditions"]
+        
+        ic = self.initial_conditions
+        for k in ["velocity", "pressure"]:
+            if k not in ic or ic[k] is None:
+                raise KeyError(f"Non-default policy violation in 'initial_conditions': missing required key '{k}'.")
+
         self.simulation_parameters: dict[str, Any] = input_data["simulation_parameters"]
+        sim_params = self.simulation_parameters
+        for k in ["time_step", "total_time", "output_interval"]:
+            if k not in sim_params or sim_params[k] is None:
+                raise KeyError(f"Non-default policy violation in 'simulation_parameters': missing required key '{k}'.")
+
         self.boundary_conditions: list[Any] = input_data["boundary_conditions"]
         self.external_forces: dict[str, Any] = input_data["external_forces"]
         self.domain_configuration: dict[str, Any] = input_data["domain_configuration"]
         self.physical_constraints: dict[str, Any] = input_data["physical_constraints"]
 
-        # 4D fields buffer: shape (4, nx, ny, nz) -> [0]: u, [1]: v, [2]: w, [3]: p
-        self.fields: np.ndarray = np.zeros((4, self.nx, self.ny, self.nz), dtype=np.float64)
+        pc = self.physical_constraints
+        for k in ["min_velocity", "max_velocity", "min_pressure", "max_pressure"]:
+            if k not in pc or pc[k] is None:
+                raise KeyError(f"Non-default policy violation in 'physical_constraints': missing required key '{k}'.")
+
+        # 4D fields buffer: shape (4, nx, ny, nz) -> [0]: u, [1]: v, [2]: w, [3]: p (C-contiguous for zero-copy C++ binding)
+        self.fields: np.ndarray = np.zeros((4, self.nx, self.ny, self.nz), dtype=np.float64, order='C')
         
-        ic_v = self.initial_conditions["velocity"]
+        ic_v = ic["velocity"]
+        if not isinstance(ic_v, (list, tuple)) or len(ic_v) < 3:
+            raise ValueError("Non-default policy violation: 'initial_conditions.velocity' must be a sequence of 3 components [u, v, w].")
+
         self.fields[0, :, :, :] = ic_v[0]
         self.fields[1, :, :, :] = ic_v[1]
         self.fields[2, :, :, :] = ic_v[2]
-        self.fields[3, :, :, :] = self.initial_conditions["pressure"]
+        self.fields[3, :, :, :] = ic["pressure"]
+
+        # Convenience slices sharing memory views with self.fields
+        self.u = self.fields[0]
+        self.v = self.fields[1]
+        self.w = self.fields[2]
+        self.p = self.fields[3]
 
         # Mask buffer: shape (nx, ny, nz)
-        self.mask: np.ndarray = np.array(input_data["mask"], dtype=np.int32).reshape(
+        self.mask: np.ndarray = np.array(input_data["mask"], dtype=np.int32, order='C').reshape(
             (self.nx, self.ny, self.nz)
         )
 
         # Simulation execution tracking
         self.current_iteration: int = 0
         self.current_time: float = 0.0
-        self.dt: float = float(self.simulation_parameters["time_step"])
-        self.total_time: float = float(self.simulation_parameters["total_time"])
+        self.dt: float = float(sim_params["time_step"])
+        self.total_time: float = float(sim_params["total_time"])
         self.total_iterations: int = round(self.total_time / self.dt)
-        self.output_interval: int = int(self.simulation_parameters["output_interval"])
+        self.output_interval: int = int(sim_params["output_interval"])
 
         self.history_logs: list[dict[str, Any]] = []
+        self._cpp_solver = None
+
+        logger.info(f"Initialized SolverState: Grid {self.nx}x{self.ny}x{self.nz}, Iterations: {self.total_iterations}")
 
     def enforce_physical_constraints(self) -> None:
         """
@@ -114,18 +142,11 @@ class SolverState:
             logger.critical(f"Non-finite values (NaN/Inf) detected at iteration {self.current_iteration}.")
             raise ArithmeticError("Numerical instability detected: fields contain NaN or Inf values.")
 
-        # Velocity clamping
-        u_clamped = np.clip(self.fields[0], min_v, max_v)
-        v_clamped = np.clip(self.fields[1], min_v, max_v)
-        w_clamped = np.clip(self.fields[2], min_v, max_v)
-
-        # Pressure clamping
-        p_clamped = np.clip(self.fields[3], min_p, max_p)
-
-        self.fields[0] = u_clamped
-        self.fields[1] = v_clamped
-        self.fields[2] = w_clamped
-        self.fields[3] = p_clamped
+        # In-place clamping across shared memory views
+        np.clip(self.u, min_v, max_v, out=self.u)
+        np.clip(self.v, min_v, max_v, out=self.v)
+        np.clip(self.w, min_v, max_v, out=self.w)
+        np.clip(self.p, min_p, max_p, out=self.p)
 
     def get_boundary_condition_dicts(self) -> list[dict[str, Any]]:
         """
