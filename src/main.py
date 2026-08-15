@@ -54,9 +54,6 @@ def run_simulation(input_path: str | Path, output_dir: str | Path, zip_filename:
     out_path = Path(output_dir)
     out_path.mkdir(parents=True, exist_ok=True)
 
-    # Record initial state snapshot (iteration 0)
-    state.record_snapshot()
-
     # Master time loop
     for _ in range(1, state.total_iterations + 1):
         # Execute physical step through C++ bridge
@@ -64,13 +61,6 @@ def run_simulation(input_path: str | Path, output_dir: str | Path, zip_filename:
 
         # Enforce physical constraints / bounds / stability checks
         state.enforce_physical_constraints()
-
-        # Record snapshot at intervals
-        if state.output_interval > 0 and (
-            state.current_iteration % state.output_interval == 0
-            or state.current_iteration == state.total_iterations
-        ):
-            state.record_snapshot()
 
         if state.current_iteration % max(1, state.total_iterations // 10) == 0:
             logger.info(

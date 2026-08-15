@@ -2,7 +2,7 @@
 src/state.py
 Sovereign Container Module.
 Maintains the complete operational state of the simulation, holding input metadata,
-dynamic 4D field buffers (u, v, w, p), snapshot logs, and physical boundary enforcement.
+dynamic 4D field buffers (u, v, w, p), and physical boundary enforcement.
 """
 
 import logging
@@ -98,7 +98,6 @@ class SolverState:
         self.output_interval: int = int(self.simulation_parameters["output_interval"])
 
         self.history_logs: list[dict[str, Any]] = []
-        self.snapshot_records: list[dict[str, Any]] = []
 
     def enforce_physical_constraints(self) -> None:
         """
@@ -127,22 +126,3 @@ class SolverState:
         self.fields[1] = v_clamped
         self.fields[2] = w_clamped
         self.fields[3] = p_clamped
-
-    def record_snapshot(self, preview_file_path: str | None = None) -> None:
-        """
-        Appends iteration summary statistics and associated preview metadata to snapshot records.
-        """
-        mag_v = np.sqrt(self.fields[0] ** 2 + self.fields[1] ** 2 + self.fields[2] ** 2)
-        snapshot = {
-            "iteration": self.current_iteration,
-            "time": self.current_time,
-            "min_velocity": float(np.min(mag_v)),
-            "max_velocity": float(np.max(mag_v)),
-            "mean_velocity": float(np.mean(mag_v)),
-            "min_pressure": float(np.min(self.fields[3])),
-            "max_pressure": float(np.max(self.fields[3])),
-            "mean_pressure": float(np.mean(self.fields[3])),
-            "preview_file": preview_file_path,
-        }
-        self.snapshot_records.append(snapshot)
-        logger.debug(f"Recorded state snapshot at iteration {self.current_iteration} (t={self.current_time:.4f}s)")
