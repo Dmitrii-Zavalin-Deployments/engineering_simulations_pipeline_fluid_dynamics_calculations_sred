@@ -52,7 +52,7 @@ def archive_simulation_results(
         timestamp_str = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         target_zip_name = f"{timestamp_str}.zip"
 
-        # 2. Export 1D field snapshots (u, v, w, p) matching C-order row-major indexing
+        # 2. Export 3D field snapshots (u, v, w, p) retaining spatial dimensions (nx, ny, nz)
         saved_snapshots: list[Path] = []
         field_names = ["field_u", "field_v", "field_w", "field_p"]
 
@@ -60,11 +60,11 @@ def archive_simulation_results(
         if fields is not None:
             for idx, name in enumerate(field_names):
                 if idx < len(fields):
-                    field_1d = fields[idx].ravel(order="C")
+                    field_data = fields[idx]
                     npy_path = out_path / f"{name}.npy"
-                    np.save(npy_path, field_1d)
+                    np.save(npy_path, field_data)
                     saved_snapshots.append(npy_path)
-                    logger.info(f"Exported field snapshot: {npy_path.name} (Length: {len(field_1d)})")
+                    logger.info(f"Exported field snapshot: {npy_path.name} (Shape: {field_data.shape})")
 
         # 3. Compress snapshot binaries into timestamped ZIP archive
         zip_file_path = out_path / target_zip_name
