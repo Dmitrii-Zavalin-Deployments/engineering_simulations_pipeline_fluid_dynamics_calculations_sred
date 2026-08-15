@@ -53,24 +53,26 @@ def test_full_pipeline_with_named_cli_args(workspace_folder, monkeypatch):
             assert snapshot in namelist, f"Missing {snapshot} in archive. Found: {namelist}"
 
 
-def test_full_pipeline_with_positional_cli_arg(workspace_folder, monkeypatch):
-    input_path = workspace_folder["input_path"]
+def test_full_pipeline_with_named_cli_args_explicit_output(workspace_folder, monkeypatch):
+    folder = workspace_folder["folder"]
+    input_file = workspace_folder["input_file_name"]
+    output_manifest_name = "navier_stokes_output.json"
 
     cli_args = [
         "main.py",
-        input_path,
+        "--input_output_folder", folder,
+        "--input_file_name", input_file,
+        "--output_file_name", output_manifest_name,
     ]
     monkeypatch.setattr(sys, "argv", cli_args)
 
     from src.main import main
     main()
 
-    # Search parent directory for output JSON manifest or generated zip archive
-    parent_dir = Path(input_path).parent
-    manifest_candidates = list(parent_dir.glob("*.json"))
-    assert len(manifest_candidates) > 0, f"No JSON manifest output generated in {parent_dir}"
+    parent_dir = Path(folder)
+    manifest_path = parent_dir / output_manifest_name
+    assert manifest_path.is_file(), f"Output JSON manifest missing: {manifest_path}"
 
-    manifest_path = manifest_candidates[0]
     with open(manifest_path, "r", encoding="utf-8") as f:
         manifest_data = json.load(f)
 
@@ -78,4 +80,4 @@ def test_full_pipeline_with_positional_cli_arg(workspace_folder, monkeypatch):
     assert zip_filename and zip_filename != "NOT_APPLICABLE"
 
     default_zip = parent_dir / zip_filename
-    assert default_zip.is_file(), f"Default output ZIP file missing: {default_zip}"
+    assert default_zip.is_file(), f"Output ZIP file missing: {default_zip}"
