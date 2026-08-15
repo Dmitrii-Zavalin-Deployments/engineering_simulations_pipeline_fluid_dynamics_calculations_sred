@@ -47,7 +47,6 @@ def archive_simulation_results(state: Any, output_dir: str, zip_filename: str) -
             "nz": state.nz,
         },
         "fluid_properties": state.fluid_properties,
-        "snapshots": state.snapshot_records,
     }
 
     # Write summary metadata JSON
