@@ -5,8 +5,8 @@ Executes unmocked CLI main entrypoint and validates ingestion configuration,
 solver execution, state integrity, and archivist manifest/binary outputs.
 """
 
-import json
 import io
+import json
 import sys
 import zipfile
 from pathlib import Path
