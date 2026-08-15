@@ -122,8 +122,8 @@ def test_python_cpp_field_state_parity(workspace_folder):
     and C++ exported binary snapshots written to the archived ZIP container.
     """
     from src.archivist import archive_simulation_results
-    from src.cpp_gate import execute_cpp_solver
-    from src.ingestion import ingest_simulation_data
+    from src.cpp_gate import step_simulation
+    from src.ingestion import load_and_validate_inputs
     from src.state import SolverState
 
     folder = workspace_folder["folder"]
@@ -131,9 +131,9 @@ def test_python_cpp_field_state_parity(workspace_folder):
     output_manifest_name = "parity_test_output.json"
 
     # Ingest data & run solver directly to hold SolverState handle
-    input_data, config_data = ingest_simulation_data(folder, input_file, "config.json")
+    input_data, config_data = load_and_validate_inputs(folder, input_file, "config.json")
     state = SolverState(input_data, config_data)
-    execute_cpp_solver(state)
+    step_simulation(state)
 
     # Export via Archivist
     archive_simulation_results(state, folder, output_manifest_name, status="SUCCESS")
