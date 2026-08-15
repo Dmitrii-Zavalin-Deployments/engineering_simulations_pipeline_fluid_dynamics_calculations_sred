@@ -85,14 +85,21 @@ def step_simulation(state: SolverState) -> None:
         # C++ reads and writes directly to state memory in-place via zero-copy binding.
         solver.step(state)
 
+        # Explicit synchronization check: if C++ solver exposes a post-step field sync method, invoke it here
+        if hasattr(solver, "sync_fields") and callable(solver.sync_fields):
+            solver.sync_fields(state)
+
         # Update sovereign state tracking metrics upon successful step completion under strict non-default policy
         try:
-            dt = float(getattr(state, "dt", state.input_data["simulation_parameters"]["time_step"]))
-        except (AttributeError, KeyError, TypeError) as err:
-            raise KeyError(
-                "FATAL ERROR: Simulation time step 'dt' or 'simulation_parameters.time_step' "
-                "must be explicitly provided (no defaults allowed)."
-            ) from err
+            dt = float(state.dt)
+        except (AttributeError, TypeError) as err:
+            try:
+                dt = float(state.input_data["simulation_parameters"]["time_step"])
+            except (AttributeError, KeyError, TypeError) as inner_err:
+                raise KeyError(
+                    "FATAL ERROR: Simulation time step 'dt' or 'simulation_parameters.time_step' "
+                    "must be explicitly provided (no defaults allowed)."
+                ) from inner_err
 
         state.current_iteration += 1
         state.current_time += dt

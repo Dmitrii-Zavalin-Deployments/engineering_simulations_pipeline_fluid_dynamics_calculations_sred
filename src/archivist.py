@@ -48,6 +48,15 @@ def archive_simulation_results(
     normalized_status = status.upper()
 
     if normalized_status == "SUCCESS":
+        # 0. Sync C++ solver fields back to state if bound
+        if hasattr(state, "_cpp_solver") and state._cpp_solver is not None:
+            if hasattr(state._cpp_solver, "sync_fields") and callable(state._cpp_solver.sync_fields):
+                state._cpp_solver.sync_fields(state)
+            elif hasattr(state._cpp_solver, "get_fields") and callable(state._cpp_solver.get_fields):
+                updated_fields = state._cpp_solver.get_fields()
+                if updated_fields is not None:
+                    state.fields = np.array(updated_fields, copy=True)
+
         # 1. Generate UTC timestamped ZIP archive filename (YYYYMMDD_HHMMSS.zip)
         timestamp_str = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         target_zip_name = f"{timestamp_str}.zip"
@@ -57,14 +66,24 @@ def archive_simulation_results(
         field_names = ["field_u", "field_v", "field_w", "field_p"]
 
         fields = getattr(state, "fields", None)
-        if fields is not None:
-            for idx, name in enumerate(field_names):
-                if idx < len(fields):
-                    field_data = fields[idx]
-                    npy_path = out_path / f"{name}.npy"
-                    np.save(npy_path, field_data)
-                    saved_snapshots.append(npy_path)
-                    logger.info(f"Exported field snapshot: {npy_path.name} (Shape: {field_data.shape})")
+        if fields is None:
+            u_f = getattr(state, "u", None)
+            v_f = getattr(state, "v", None)
+            w_f = getattr(state, "w", None)
+            p_f = getattr(state, "p", None)
+            if u_f is not None and v_f is not None and w_f is not None and p_f is not None:
+                fields = np.stack([u_f, v_f, w_f, p_f], axis=0)
+
+        if fields is None:
+            raise ValueError("FATAL ERROR: state.fields must be explicitly provided and populated (no defaults allowed).")
+
+        for idx, name in enumerate(field_names):
+            if idx < len(fields):
+                field_data = fields[idx]
+                npy_path = out_path / f"{name}.npy"
+                np.save(npy_path, field_data)
+                saved_snapshots.append(npy_path)
+                logger.info(f"Exported field snapshot: {npy_path.name} (Shape: {field_data.shape})")
 
         # 3. Compress snapshot binaries into timestamped ZIP archive
         zip_file_path = out_path / target_zip_name
@@ -80,9 +99,10 @@ def archive_simulation_results(
         logger.warning("Simulation marked as FAILURE. Skipping snapshot binary creation.")
 
     # 4. Construct Schema-Compliant Output JSON Payload matching navier_stokes_output.schema.json
+    config_obj = getattr(state, "config", getattr(state, "config_data", {}))
     output_payload: dict[str, Any] = {
         "inputs": getattr(state, "input_data", {}),
-        "config": getattr(state, "config", {}),
+        "config": config_obj,
         "results": {
             "status": normalized_status,
             "zip_filename": target_zip_name,
