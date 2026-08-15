@@ -2,8 +2,8 @@
 src/archivist.py
 Archivist Module.
 Serializes final field states (u, v, w, p), packages snapshot binaries into a timestamped
-ZIP archive on success, and generates canonical output JSON manifests adhering to 
-navier_stokes_output.schema.json for both success and failure states.
+ZIP archive on success, and generates canonical output JSON manifests adhering strictly
+to navier_stokes_output.schema.json for both success and failure states.
 """
 
 import json
@@ -56,14 +56,17 @@ def archive_simulation_results(
         saved_snapshots: list[Path] = []
         field_names = ["field_u", "field_v", "field_w", "field_p"]
 
-        for idx, name in enumerate(field_names):
-            field_1d = state.fields[idx].ravel(order="C")
-            npy_path = out_path / f"{name}.npy"
-            np.save(npy_path, field_1d)
-            saved_snapshots.append(npy_path)
-            logger.info(f"Exported field snapshot: {npy_path.name} (Length: {len(field_1d)})")
+        fields = getattr(state, "fields", None)
+        if fields is not None:
+            for idx, name in enumerate(field_names):
+                if idx < len(fields):
+                    field_1d = fields[idx].ravel(order="C")
+                    npy_path = out_path / f"{name}.npy"
+                    np.save(npy_path, field_1d)
+                    saved_snapshots.append(npy_path)
+                    logger.info(f"Exported field snapshot: {npy_path.name} (Length: {len(field_1d)})")
 
-        # 3. Compress snapshot binaries into ZIP archive
+        # 3. Compress snapshot binaries into timestamped ZIP archive
         zip_file_path = out_path / target_zip_name
         logger.info(f"Creating output ZIP archive: {zip_file_path}")
 
@@ -86,9 +89,8 @@ def archive_simulation_results(
         },
     }
 
-    # 5. Write output JSON manifest
-    json_path = out_path / output_filename
-    with open(json_path, "w", encoding="utf-8") as f:
+    json_file_path = out_path / output_filename
+    logger.info(f"Writing output JSON manifest to: {json_file_path}")
+    with open(json_file_path, "w", encoding="utf-8") as f:
         json.dump(output_payload, f, indent=2)
-
-    logger.info(f"Successfully written output JSON manifest to: {json_path}")
+    logger.info("Successfully wrote output JSON manifest")
