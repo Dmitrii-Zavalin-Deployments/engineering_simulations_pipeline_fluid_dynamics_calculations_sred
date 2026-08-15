@@ -1,32 +1,51 @@
-#!/usr/bin/env bash
-set -euo pipefail
+python3 -c "
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path.cwd()))
 
-echo "=========================================================="
-echo "🔍 STARTING FORENSIC AUDIT: Root Cause Analysis for Zero-Field Export Failure"
-echo "=========================================================="
+print('==========================================================================')
+print('      FORENSIC AUDIT & DIAGNOSTIC SUITE FOR NAVIER-STOKES PIPELINE')
+print('==========================================================================')
 
-echo -e "\n--- [1] Codebase Diagnostic Grep: Locating Field References ---"
-echo "Searching for 'fields' and velocity/pressure attributes across src/..."
-grep -rn "fields" src/ || echo "Keyword 'fields' not found."
-grep -rn "u" src/ --include="*.py" || echo "Attribute 'u' not found."
+print('\n[1] INSPECTING SOLVER STATE INITIALIZATION & FIELD ATTRIBUTES')
+print('--------------------------------------------------------------------------')
+try:
+    from src.state import SolverState
+    print('SolverState imported successfully.')
+    state_attrs = dir(SolverState)
+    print('SolverState relevant attributes:', [a for a in state_attrs if not a.startswith('__')])
+except Exception as e:
+    print(f'Error inspecting SolverState: {e}')
 
-echo -e "\n--- [2] Smoking-Gun Source Audits (cat -n) ---"
-echo "=== Auditing src/archivist.py ==="
-cat -n src/archivist.py
+print('\n[2] SMOKING-GUN SOURCE AUDIT: src/main.py (Time loop & Step execution)')
+print('--------------------------------------------------------------------------')
+main_path = Path('src/main.py')
+if main_path.is_file():
+    lines = main_path.read_text(encoding='utf-8').splitlines()
+    for idx, line in enumerate(lines, 1):
+        print(f'{idx:4d} | {line}')
 
-echo -e "\n=== Auditing src/state.py ==="
-cat -n src/state.py
+print('\n[3] SMOKING-GUN SOURCE AUDIT: src/cpp_gate.py (Step & Sync execution)')
+print('--------------------------------------------------------------------------')
+cpp_gate_path = Path('src/cpp_gate.py')
+if cpp_gate_path.is_file():
+    lines = cpp_gate_path.read_text(encoding='utf-8').splitlines()
+    for idx, line in enumerate(lines, 1):
+        print(f'{idx:4d} | {line}')
 
-echo -e "\n--- [3] Inspecting Recent Temporary Test Workspaces ---"
-find /tmp -name "*.npy" -o -name "*.json" 2>/dev/null | tail -n 20 || echo "No temporary artifacts found."
+print('\n[4] INSPECTING PYBIND11 C++ MODULE BINDINGS AND SYNC EXPOSURE')
+print('--------------------------------------------------------------------------')
+try:
+    import navier_stokes_cpp
+    print('navier_stokes_cpp C++ module imported successfully.')
+    print('Module contents:', dir(navier_stokes_cpp))
+    if hasattr(navier_stokes_cpp, 'NavierStokesSolver'):
+        solver_methods = dir(navier_stokes_cpp.NavierStokesSolver)
+        print('NavierStokesSolver exposed methods:', [m for m in solver_methods if not m.startswith('__')])
+except Exception as e:
+    print(f'Error inspecting C++ module: {e}')
 
-echo -e "\n=========================================================="
-echo "🛠️ AUTOMATED REPAIR PATTERNS (Inactive / Reference Only)"
-echo "=========================================================="
-
-# sed -i 's/fields = getattr(state, "fields", None)/fields = getattr(state, "fields", [getattr(state, "u", None), getattr(state, "v", None), getattr(state, "w", None), getattr(state, "p", None)])/g' src/archivist.py
-# sed -i 's/if fields is not None and idx < len(fields):/if fields is not None and isinstance(fields, (list, tuple)) and idx < len(fields) and fields[idx] is not None:/g' src/archivist.py
-
-echo "=========================================================="
-echo "🚀 Forensic audit execution completed successfully."
-echo "=========================================================="
+print('\n==========================================================================')
+print('                      FORENSIC AUDIT COMPLETE')
+print('==========================================================================')
+"
