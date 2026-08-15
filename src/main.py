@@ -74,44 +74,39 @@ def run_simulation(input_path: str | Path, output_dir: str | Path, zip_filename:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Navier-Stokes Solver Execution Engine")
-    parser.add_argument("positional_input", nargs="?", default=None, help="Path to input JSON configuration file")
-    parser.add_argument("--input_output_folder", type=str, default=None, help="Directory folder containing input/output artifacts")
-    parser.add_argument("--input_file_name", type=str, default=None, help="File name of the input JSON configuration")
-    parser.add_argument("--output_file_name", type=str, default=None, help="File name for the output archive zip")
-
-    args = parser.parse_args()
-
-    has_folder = args.input_output_folder is not None
-    has_input_file = args.input_file_name is not None
-    has_output_file = args.output_file_name is not None
-    has_positional = args.positional_input is not None
-
-    if has_folder or has_input_file or has_output_file:
-        if not has_folder:
-            raise ValueError("FATAL PIPELINE ERROR: --input_output_folder must be explicitly provided.")
-        if not has_input_file:
-            raise ValueError("FATAL PIPELINE ERROR: --input_file_name must be explicitly provided.")
-        if not has_output_file:
-            raise ValueError("FATAL PIPELINE ERROR: --output_file_name must be explicitly provided.")
-
-        input_path = Path(args.input_output_folder) / args.input_file_name
-        output_dir = Path(args.input_output_folder)
-        zip_filename = args.output_file_name
-    elif has_positional:
-        input_path = Path(args.positional_input)
-        output_dir = Path(args.positional_input).parent
-        zip_filename = "simulation_results.zip"
-    else:
-        raise ValueError("FATAL PIPELINE ERROR: Must provide either positional <input_json> or all required flag arguments (--input_output_folder, --input_file_name, --output_file_name).")
-
-    run_simulation(input_path=input_path, output_dir=output_dir, zip_filename=zip_filename)
-
-
-if __name__ == "__main__":  # pragma: no cover
     try:
-        main()
-        sys.exit(0)
+        parser = argparse.ArgumentParser(description="Navier-Stokes Solver Execution Engine")
+        parser.add_argument("positional_input", nargs="?", default=None, help="Path to input JSON configuration file")
+        parser.add_argument("--input_output_folder", type=str, default=None, help="Directory folder containing input/output artifacts")
+        parser.add_argument("--input_file_name", type=str, default=None, help="File name of the input JSON configuration")
+        parser.add_argument("--output_file_name", type=str, default=None, help="File name for the output archive zip")
+
+        args = parser.parse_args()
+
+        has_folder = args.input_output_folder is not None
+        has_input_file = args.input_file_name is not None
+        has_output_file = args.output_file_name is not None
+        has_positional = args.positional_input is not None
+
+        if has_folder or has_input_file or has_output_file:
+            if not has_folder:
+                raise ValueError("FATAL PIPELINE ERROR: --input_output_folder must be explicitly provided.")
+            if not has_input_file:
+                raise ValueError("FATAL PIPELINE ERROR: --input_file_name must be explicitly provided.")
+            if not has_output_file:
+                raise ValueError("FATAL PIPELINE ERROR: --output_file_name must be explicitly provided.")
+
+            input_path = Path(args.input_output_folder) / args.input_file_name
+            output_dir = Path(args.input_output_folder)
+            zip_filename = args.output_file_name
+        elif has_positional:
+            input_path = Path(args.positional_input)
+            output_dir = Path(args.positional_input).parent
+            zip_filename = "simulation_results.zip"
+        else:
+            raise ValueError("FATAL PIPELINE ERROR: Must provide either positional <input_json> or all required flag arguments (--input_output_folder, --input_file_name, --output_file_name).")
+
+        run_simulation(input_path=input_path, output_dir=output_dir, zip_filename=zip_filename)
     except (
         FileNotFoundError,
         ValueError,
@@ -124,3 +119,7 @@ if __name__ == "__main__":  # pragma: no cover
         print(f"FATAL PIPELINE ERROR: {e!s}", file=sys.stderr)
         traceback.print_exc()
         sys.exit(1)
+
+
+if __name__ == "__main__":  # pragma: no cover
+    main()
