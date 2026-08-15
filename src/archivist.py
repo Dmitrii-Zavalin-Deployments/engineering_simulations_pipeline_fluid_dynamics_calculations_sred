@@ -21,22 +21,17 @@ logger = logging.getLogger("Solver.Archivist")
 def archive_simulation_results(
     state: Any,
     output_dir: str | Path,
-    output_json_filename: str = "navier_stokes_output.json",
-    zip_filename: str | None = None,
+    output_filename: str = "simulation_results.zip",
     status: str = "SUCCESS",
-) -> str:
+) -> None:
     """
     Exports solved fields, builds schema-compliant JSON manifest, and packages artifacts.
 
     Args:
         state: Sovereign SolverState container holding simulation state.
         output_dir: Target directory path for output artifacts.
-        output_json_filename: File name for the output JSON manifest.
-        zip_filename: Optional name for the ZIP archive. If None, generates YYYYMMDD_HHMMSS.zip.
+        output_filename: File name for the output ZIP archive or output JSON manifest.
         status: Execution status string ("SUCCESS" or "FAILURE").
-
-    Returns:
-        Absolute string path to the generated output JSON manifest file.
     """
     if state is None:
         raise ValueError("FATAL ERROR: state must be explicitly provided (no defaults allowed).")
@@ -48,8 +43,15 @@ def archive_simulation_results(
 
     normalized_status = status.upper()
 
+    if output_filename.endswith(".json"):
+        output_json_filename = output_filename
+        zip_filename = None
+    else:
+        output_json_filename = "navier_stokes_output.json"
+        zip_filename = output_filename
+
     if normalized_status == "SUCCESS":
-        # 1. Determine ZIP archive filename (timestamped with UTC timezone to satisfy DTZ005)
+        # 1. Determine ZIP archive filename (timestamped UTC if zip_filename is None or ends with .json)
         if not zip_filename or zip_filename.endswith(".json"):
             timestamp_str = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
             target_zip_name = f"{timestamp_str}.zip"
@@ -96,4 +98,3 @@ def archive_simulation_results(
         json.dump(output_payload, f, indent=2)
 
     logger.info(f"Successfully written output JSON manifest to: {json_path}")
-    return str(json_path)

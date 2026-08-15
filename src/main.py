@@ -20,24 +20,31 @@ logger = logging.getLogger("Solver.Main")
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-def run_simulation(input_path: str | Path, output_dir: str | Path, zip_filename: str = "simulation_results.zip") -> str:
+def run_simulation(
+    input_output_folder: str | Path,
+    input_file_name: str,
+    output_file_name: str,
+) -> None:
     """
     Executes the complete Navier-Stokes simulation pipeline.
 
     Args:
-        input_path: Path to navier_stokes_input.json (mandatory, no defaults)
-        output_dir: Target directory path for output artifacts (mandatory, no defaults)
-        zip_filename: Name of the generated zip archive (mandatory, no defaults)
-
-    Returns:
-        Absolute path string to the generated archive.
+        input_output_folder: Directory path containing inputs and receiving output artifacts.
+        input_file_name: File name of the input JSON configuration.
+        output_file_name: File name for the output ZIP archive or JSON manifest.
     """
-    if input_path is None:
-        raise ValueError("FATAL ERROR: input_path must be explicitly provided (no defaults allowed).")
-    if output_dir is None:
-        raise ValueError("FATAL ERROR: output_dir must be explicitly provided (no defaults allowed).")
-    if zip_filename is None:
-        raise ValueError("FATAL ERROR: zip_filename must be explicitly provided (no defaults allowed).")
+    if input_output_folder is None:
+        raise ValueError("FATAL ERROR: input_output_folder must be explicitly provided (no defaults allowed).")
+    if input_file_name is None:
+        raise ValueError("FATAL ERROR: input_file_name must be explicitly provided (no defaults allowed).")
+    if output_file_name is None:
+        raise ValueError("FATAL ERROR: output_file_name must be explicitly provided (no defaults allowed).")
+
+    out_path = Path(input_output_folder).resolve()
+    input_path = out_path / input_file_name
+
+    if not input_path.is_file():
+        raise FileNotFoundError(f"Input configuration file not found at: {input_path}")
 
     config_path = BASE_DIR / "config" / "config.json"
     if not config_path.is_file():
@@ -51,7 +58,6 @@ def run_simulation(input_path: str | Path, output_dir: str | Path, zip_filename:
 
     logger.info(f"Starting master time-integration loop: {state.total_iterations} iterations, dt={state.dt}")
 
-    out_path = Path(output_dir)
     out_path.mkdir(parents=True, exist_ok=True)
 
     # Master time loop
@@ -68,9 +74,8 @@ def run_simulation(input_path: str | Path, output_dir: str | Path, zip_filename:
             )
 
     logger.info("Simulation completed successfully. Packaging results via Archivist...")
-    archive_path = archive_simulation_results(state, str(out_path), zip_filename)
-    logger.info(f"Simulation artifacts successfully archived at: {archive_path}")
-    return archive_path
+    archive_simulation_results(state, str(out_path), output_file_name)
+    logger.info("Simulation artifacts successfully archived")
 
 
 def main() -> None:
@@ -79,7 +84,7 @@ def main() -> None:
         parser.add_argument("positional_input", nargs="?", default=None, help="Path to input JSON configuration file")
         parser.add_argument("--input_output_folder", type=str, default=None, help="Directory folder containing input/output artifacts")
         parser.add_argument("--input_file_name", type=str, default=None, help="File name of the input JSON configuration")
-        parser.add_argument("--output_file_name", type=str, default=None, help="File name for the output archive zip")
+        parser.add_argument("--output_file_name", type=str, default=None, help="File name for the output archive zip or JSON manifest")
 
         args = parser.parse_args()
 
@@ -96,17 +101,22 @@ def main() -> None:
             if not has_output_file:
                 raise ValueError("FATAL PIPELINE ERROR: --output_file_name must be explicitly provided.")
 
-            input_path = Path(args.input_output_folder) / args.input_file_name
-            output_dir = Path(args.input_output_folder)
-            zip_filename = args.output_file_name
+            input_output_folder = Path(args.input_output_folder)
+            input_file_name = args.input_file_name
+            output_file_name = args.output_file_name
         elif has_positional:
-            input_path = Path(args.positional_input)
-            output_dir = Path(args.positional_input).parent
-            zip_filename = "simulation_results.zip"
+            pos_path = Path(args.positional_input)
+            input_output_folder = pos_path.parent
+            input_file_name = pos_path.name
+            output_file_name = "simulation_results.zip"
         else:
             raise ValueError("FATAL PIPELINE ERROR: Must provide either positional <input_json> or all required flag arguments (--input_output_folder, --input_file_name, --output_file_name).")
 
-        run_simulation(input_path=input_path, output_dir=output_dir, zip_filename=zip_filename)
+        run_simulation(
+            input_output_folder=input_output_folder,
+            input_file_name=input_file_name,
+            output_file_name=output_file_name,
+        )
     except (
         FileNotFoundError,
         ValueError,
