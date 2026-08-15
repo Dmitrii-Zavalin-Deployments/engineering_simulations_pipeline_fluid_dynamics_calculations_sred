@@ -21,8 +21,8 @@ logger = logging.getLogger("Solver.Archivist")
 def archive_simulation_results(
     state: Any,
     output_dir: str | Path,
-    output_filename: str = "simulation_results.zip",
-    status: str = "SUCCESS",
+    output_filename: str,
+    status: str,
 ) -> None:
     """
     Exports solved fields, builds schema-compliant JSON manifest, and packages artifacts.
@@ -30,33 +30,27 @@ def archive_simulation_results(
     Args:
         state: Sovereign SolverState container holding simulation state.
         output_dir: Target directory path for output artifacts.
-        output_filename: File name for the output ZIP archive or output JSON manifest.
+        output_filename: File name for the output JSON manifest (e.g. navier_stokes_output.json).
         status: Execution status string ("SUCCESS" or "FAILURE").
     """
     if state is None:
         raise ValueError("FATAL ERROR: state must be explicitly provided (no defaults allowed).")
     if output_dir is None:
         raise ValueError("FATAL ERROR: output_dir must be explicitly provided (no defaults allowed).")
+    if output_filename is None:
+        raise ValueError("FATAL ERROR: output_filename must be explicitly provided (no defaults allowed).")
+    if status is None:
+        raise ValueError("FATAL ERROR: status must be explicitly provided (no defaults allowed).")
 
     out_path = Path(output_dir).resolve()
     out_path.mkdir(parents=True, exist_ok=True)
 
     normalized_status = status.upper()
 
-    if output_filename.endswith(".json"):
-        output_json_filename = output_filename
-        zip_filename = None
-    else:
-        output_json_filename = "navier_stokes_output.json"
-        zip_filename = output_filename
-
     if normalized_status == "SUCCESS":
-        # 1. Determine ZIP archive filename (timestamped UTC if zip_filename is None or ends with .json)
-        if not zip_filename or zip_filename.endswith(".json"):
-            timestamp_str = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-            target_zip_name = f"{timestamp_str}.zip"
-        else:
-            target_zip_name = zip_filename if zip_filename.endswith(".zip") else f"{zip_filename}.zip"
+        # 1. Generate UTC timestamped ZIP archive filename (YYYYMMDD_HHMMSS.zip)
+        timestamp_str = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        target_zip_name = f"{timestamp_str}.zip"
 
         # 2. Export 1D field snapshots (u, v, w, p) matching C-order row-major indexing
         saved_snapshots: list[Path] = []
@@ -82,7 +76,7 @@ def archive_simulation_results(
         target_zip_name = "NOT_APPLICABLE"
         logger.warning("Simulation marked as FAILURE. Skipping snapshot binary creation.")
 
-    # 4. Construct Schema-Compliant Output JSON Payload
+    # 4. Construct Schema-Compliant Output JSON Payload matching navier_stokes_output.schema.json
     output_payload: dict[str, Any] = {
         "inputs": getattr(state, "input_data", {}),
         "config": getattr(state, "config", {}),
@@ -93,7 +87,7 @@ def archive_simulation_results(
     }
 
     # 5. Write output JSON manifest
-    json_path = out_path / output_json_filename
+    json_path = out_path / output_filename
     with open(json_path, "w", encoding="utf-8") as f:
         json.dump(output_payload, f, indent=2)
 

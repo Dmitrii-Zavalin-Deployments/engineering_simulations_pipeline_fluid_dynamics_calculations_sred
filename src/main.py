@@ -31,7 +31,7 @@ def run_simulation(
     Args:
         input_output_folder: Directory path containing inputs and receiving output artifacts.
         input_file_name: File name of the input JSON configuration.
-        output_file_name: File name for the output ZIP archive or JSON manifest.
+        output_file_name: File name for the output JSON manifest.
     """
     if input_output_folder is None:
         raise ValueError("FATAL ERROR: input_output_folder must be explicitly provided (no defaults allowed).")
@@ -55,27 +55,46 @@ def run_simulation(
 
     logger.info("Step 2: Initializing SolverState container...")
     state = SolverState(input_data, config_data)
-
-    logger.info(f"Starting master time-integration loop: {state.total_iterations} iterations, dt={state.dt}")
-
     out_path.mkdir(parents=True, exist_ok=True)
 
-    # Master time loop
-    for _ in range(1, state.total_iterations + 1):
-        # Execute physical step through C++ bridge
-        step_simulation(state)
+    try:
+        logger.info(f"Starting master time-integration loop: {state.total_iterations} iterations, dt={state.dt}")
 
-        # Enforce physical constraints / bounds / stability checks
-        state.enforce_physical_constraints()
+        # Master time loop
+        for _ in range(1, state.total_iterations + 1):
+            # Execute physical step through C++ bridge
+            step_simulation(state)
 
-        if state.current_iteration % max(1, state.total_iterations // 10) == 0:
-            logger.info(
-                f"Progress: Iteration {state.current_iteration}/{state.total_iterations} (t={state.current_time:.4f}s)"
+            # Enforce physical constraints / bounds / stability checks
+            state.enforce_physical_constraints()
+
+            if state.current_iteration % max(1, state.total_iterations // 10) == 0:
+                logger.info(
+                    f"Progress: Iteration {state.current_iteration}/{state.total_iterations} (t={state.current_time:.4f}s)"
+                )
+
+        logger.info("Simulation completed successfully. Packaging results via Archivist...")
+        archive_simulation_results(
+            state=state,
+            output_dir=out_path,
+            output_filename=output_file_name,
+            status="SUCCESS",
+        )
+        logger.info("Simulation artifacts successfully archived")
+
+    except Exception as exec_err:
+        logger.error(f"Simulation loop encountered unrecoverable failure: {exec_err}")
+        logger.info("Attempting to write failure manifest via Archivist...")
+        try:
+            archive_simulation_results(
+                state=state,
+                output_dir=out_path,
+                output_filename=output_file_name,
+                status="FAILURE",
             )
-
-    logger.info("Simulation completed successfully. Packaging results via Archivist...")
-    archive_simulation_results(state, str(out_path), output_file_name)
-    logger.info("Simulation artifacts successfully archived")
+        except Exception as archive_err:
+            logger.critical(f"Failed to write failure manifest: {archive_err}")
+        raise exec_err
 
 
 def main() -> None:
@@ -84,7 +103,7 @@ def main() -> None:
         parser.add_argument("positional_input", nargs="?", default=None, help="Path to input JSON configuration file")
         parser.add_argument("--input_output_folder", type=str, default=None, help="Directory folder containing input/output artifacts")
         parser.add_argument("--input_file_name", type=str, default=None, help="File name of the input JSON configuration")
-        parser.add_argument("--output_file_name", type=str, default=None, help="File name for the output archive zip or JSON manifest")
+        parser.add_argument("--output_file_name", type=str, default=None, help="File name for the output JSON manifest")
 
         args = parser.parse_args()
 
@@ -108,7 +127,7 @@ def main() -> None:
             pos_path = Path(args.positional_input)
             input_output_folder = pos_path.parent
             input_file_name = pos_path.name
-            output_file_name = "simulation_results.zip"
+            output_file_name = "navier_stokes_output.json"
         else:
             raise ValueError("FATAL PIPELINE ERROR: Must provide either positional <input_json> or all required flag arguments (--input_output_folder, --input_file_name, --output_file_name).")
 
