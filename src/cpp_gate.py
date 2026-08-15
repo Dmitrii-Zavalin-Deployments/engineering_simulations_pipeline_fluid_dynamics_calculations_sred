@@ -21,8 +21,6 @@ except ImportError as e:
 
 logger = logging.getLogger("Solver.CppGate")
 
-_cpp_solver_instance = None
-
 
 def _dict_to_boundary_condition(bc_dict: dict) -> Any:
     """Instantiates and populates a C++ BoundaryCondition object from a Python dict, mapping nested values to C++ fields."""
@@ -53,20 +51,19 @@ def _convert_boundary_conditions(state: SolverState) -> None:
 
 def _get_or_create_cpp_solver(state: SolverState) -> Any:
     """
-    Singleton initializer for the underlying C++ NavierStokesSolver engine.
-    Passes the complete sovereign SolverState container directly to the C++ constructor,
-    binding Python memory directly to the C++ execution engine.
+    Instance-bound initializer for the underlying C++ NavierStokesSolver engine.
+    Attaches the engine directly to the provided SolverState instance to guarantee 
+    zero-copy memory binding without cross-instance stale reference leaks.
     """
     if state is None:
         raise ValueError("FATAL ERROR: state must be explicitly provided (no defaults allowed).")
 
-    global _cpp_solver_instance
-    if _cpp_solver_instance is None:
+    if not hasattr(state, "_cpp_solver") or state._cpp_solver is None:
         _convert_boundary_conditions(state)
-        logger.info("Initializing C++ NavierStokesSolver engine instance with sovereign SolverState container...")
-        _cpp_solver_instance = navier_stokes_cpp.NavierStokesSolver(state)
+        logger.info("Initializing instance-bound C++ NavierStokesSolver engine for SolverState...")
+        state._cpp_solver = navier_stokes_cpp.NavierStokesSolver(state)
 
-    return _cpp_solver_instance
+    return state._cpp_solver
 
 
 def step_simulation(state: SolverState) -> None:
@@ -85,7 +82,7 @@ def step_simulation(state: SolverState) -> None:
 
     try:
         # Execute C++ core time integration step.
-        # C++ reads and writes directly to state.fields in-place via zero-copy memory binding.
+        # C++ reads and writes directly to state memory in-place via zero-copy binding.
         solver.step(state)
 
         # Update sovereign state tracking metrics upon successful step completion

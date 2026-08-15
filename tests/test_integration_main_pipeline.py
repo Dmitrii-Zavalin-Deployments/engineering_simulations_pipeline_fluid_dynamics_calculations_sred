@@ -131,7 +131,7 @@ def test_python_cpp_field_state_parity(workspace_folder):
     output_manifest_name = "parity_test_output.json"
 
     # Ingest data & run solver directly to hold SolverState handle
-    input_data, config_data = load_and_validate_inputs(folder, input_file, "config.json")
+    input_data, config_data = load_and_validate_inputs(Path(folder) / input_file, Path(folder) / "config.json")
     state = SolverState(input_data, config_data)
     step_simulation(state)
 
