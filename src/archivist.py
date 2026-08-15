@@ -2,7 +2,8 @@
 src/archivist.py
 Archivist Module.
 Serializes final field states (u, v, w, p), packages snapshot binaries into a timestamped
-ZIP archive, and generates the canonical output JSON manifest adhering to navier_stokes_output.schema.json.
+ZIP archive on success, and generates canonical output JSON manifests adhering to 
+navier_stokes_output.schema.json for both success and failure states.
 """
 
 import json
@@ -22,16 +23,17 @@ def archive_simulation_results(
     output_dir: str | Path,
     output_json_filename: str = "navier_stokes_output.json",
     zip_filename: str | None = None,
+    status: str = "SUCCESS",
 ) -> str:
     """
-    Exports solved fields to NPY snapshots, creates a timestamped ZIP archive,
-    and saves the schema-compliant output JSON file.
+    Exports solved fields, builds schema-compliant JSON manifest, and packages artifacts.
 
     Args:
-        state: Sovereign SolverState container holding final simulation state.
+        state: Sovereign SolverState container holding simulation state.
         output_dir: Target directory path for output artifacts.
         output_json_filename: File name for the output JSON manifest.
         zip_filename: Optional name for the ZIP archive. If None, generates YYYYMMDD_HHMMSS.zip.
+        status: Execution status string ("SUCCESS" or "FAILURE").
 
     Returns:
         Absolute string path to the generated output JSON manifest file.
@@ -44,40 +46,46 @@ def archive_simulation_results(
     out_path = Path(output_dir).resolve()
     out_path.mkdir(parents=True, exist_ok=True)
 
-    # 1. Determine ZIP archive filename (timestamped if not specified)
-    if not zip_filename or zip_filename.endswith(".json"):
-        timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-        target_zip_name = f"{timestamp_str}.zip"
+    normalized_status = status.upper()
+
+    if normalized_status == "SUCCESS":
+        # 1. Determine ZIP archive filename (timestamped if not specified)
+        if not zip_filename or zip_filename.endswith(".json"):
+            timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+            target_zip_name = f"{timestamp_str}.zip"
+        else:
+            target_zip_name = zip_filename if zip_filename.endswith(".zip") else f"{zip_filename}.zip"
+
+        # 2. Export 1D field snapshots (u, v, w, p) matching C-order row-major indexing
+        saved_snapshots: list[Path] = []
+        field_names = ["field_u", "field_v", "field_w", "field_p"]
+
+        for idx, name in enumerate(field_names):
+            field_1d = state.fields[idx].ravel(order="C")
+            npy_path = out_path / f"{name}.npy"
+            np.save(npy_path, field_1d)
+            saved_snapshots.append(npy_path)
+            logger.info(f"Exported field snapshot: {npy_path.name} (Length: {len(field_1d)})")
+
+        # 3. Compress snapshot binaries into ZIP archive
+        zip_file_path = out_path / target_zip_name
+        logger.info(f"Creating output ZIP archive: {zip_file_path}")
+
+        with zipfile.ZipFile(zip_file_path, "w", compression=zipfile.ZIP_DEFLATED) as zip_out:
+            for npy_file in saved_snapshots:
+                zip_out.write(npy_file, arcname=npy_file.name)
+
+        logger.info(f"Successfully archived snapshot binaries into: {zip_file_path.name}")
     else:
-        target_zip_name = zip_filename if zip_filename.endswith(".zip") else f"{zip_filename}.zip"
-
-    # 2. Export 1D field snapshots (u, v, w, p) matching C-order row-major indexing
-    saved_snapshots: list[Path] = []
-    field_names = ["field_u", "field_v", "field_w", "field_p"]
-
-    for idx, name in enumerate(field_names):
-        field_1d = state.fields[idx].ravel(order="C")
-        npy_path = out_path / f"{name}.npy"
-        np.save(npy_path, field_1d)
-        saved_snapshots.append(npy_path)
-        logger.info(f"Exported field snapshot: {npy_path.name} (Length: {len(field_1d)})")
-
-    # 3. Compress snapshot binaries into ZIP archive
-    zip_file_path = out_path / target_zip_name
-    logger.info(f"Creating output ZIP archive: {zip_file_path}")
-
-    with zipfile.ZipFile(zip_file_path, "w", compression=zipfile.ZIP_DEFLATED) as zip_out:
-        for npy_file in saved_snapshots:
-            zip_out.write(npy_file, arcname=npy_file.name)
-
-    logger.info(f"Successfully archived snapshot binaries into: {zip_file_path.name}")
+        target_zip_name = "NOT_APPLICABLE"
+        logger.warning("Simulation marked as FAILURE. Skipping snapshot binary creation.")
 
     # 4. Construct Schema-Compliant Output JSON Payload
     output_payload: dict[str, Any] = {
-        "inputs": state.input_data,
-        "config": state.config,
+        "inputs": getattr(state, "input_data", {}),
+        "config": getattr(state, "config", {}),
         "results": {
-            "status": "SUCCESS",
+            "status": normalized_status,
             "zip_filename": target_zip_name,
         },
     }

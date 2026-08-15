@@ -1,29 +1,24 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Final Solver Output Schema",
+  "title": "Final Solver Output Results Schema",
   "type": "object",
-  "additionalProperties": true,
+  "additionalProperties": false,
   "required": [
-    "manifest"
+    "status",
+    "zip_filename"
   ],
   "properties": {
-    "manifest": {
-      "type": "object",
-      "required": [
-        "output_directory",
-        "saved_snapshots"
+    "status": {
+      "type": "string",
+      "enum": [
+        "SUCCESS",
+        "FAILURE"
       ],
-      "properties": {
-        "output_directory": {
-          "type": "string"
-        },
-        "saved_snapshots": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        }
-      }
+      "description": "Execution status of the Navier-Stokes simulation run."
+    },
+    "zip_filename": {
+      "type": "string",
+      "description": "Filename of the generated output ZIP archive containing 1D field snapshots (u, v, w, p), or 'NOT_APPLICABLE' if execution failed."
     }
   }
 }

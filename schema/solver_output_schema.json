@@ -1,11 +1,10 @@
 {
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "navier_stokes_output.schema.json",
   "title": "Navier-Stokes Solver Output Schema",
   "type": "object",
   "additionalProperties": false,
-
   "properties": {
-
     "inputs": {
       "type": "object",
       "description": "Deterministic Navier-Stokes solver input used for this run. Echoed exactly as received.",
@@ -221,10 +220,18 @@
               "values": {
                 "type": "object",
                 "properties": {
-                  "u": { "type": "number" },
-                  "v": { "type": "number" },
-                  "w": { "type": "number" },
-                  "p": { "type": "number" }
+                  "u": {
+                    "type": "number"
+                  },
+                  "v": {
+                    "type": "number"
+                  },
+                  "w": {
+                    "type": "number"
+                  },
+                  "p": {
+                    "type": "number"
+                  }
                 },
                 "additionalProperties": false,
                 "minProperties": 1
@@ -237,7 +244,11 @@
           "description": "Canonical flattening: i + nx*(j + ny*k). Must match grid.nx*grid.ny*grid.nz length.",
           "items": {
             "type": "integer",
-            "enum": [-1, 0, 1]
+            "enum": [
+              -1,
+              0,
+              1
+            ]
           }
         },
         "external_forces": {
@@ -258,60 +269,52 @@
         }
       }
     },
-
     "config": {
       "type": "object",
-      "description": "Numerical configuration of the Navier-Stokes solver used for this run.",
       "additionalProperties": false,
-      "properties": {
-        "dt": { "type": "number" },
-        "dt_min_limit": { "type": "number" },
-        "ppe_tolerance": { "type": "number" },
-        "ppe_atol": { "type": "number" },
-        "ppe_max_iter": { "type": "integer" },
-        "ppe_omega": { "type": "number" },
-        "ppe_max_retries": { "type": "integer" },
-        "divergence_threshold": { "type": "number" }
-      },
       "required": [
-        "dt",
-        "dt_min_limit",
-        "ppe_tolerance",
-        "ppe_atol",
-        "ppe_max_iter",
-        "ppe_omega",
-        "ppe_max_retries",
-        "divergence_threshold"
-      ]
+        "max_poisson_iterations",
+        "poisson_tolerance"
+      ],
+      "properties": {
+        "max_poisson_iterations": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum number of iterations allowed for the Poisson pressure solver convergence."
+        },
+        "poisson_tolerance": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Convergence residual tolerance threshold for the Poisson pressure solver."
+        }
+      }
     },
-
     "results": {
       "type": "object",
-      "description": "Navier-Stokes solver output manifest and references to saved fields.",
-      "additionalProperties": true,
-      "required": ["manifest"],
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "zip_filename"
+      ],
       "properties": {
-        "manifest": {
-          "type": "object",
-          "required": [
-            "output_directory",
-            "saved_snapshots"
+        "status": {
+          "type": "string",
+          "enum": [
+            "SUCCESS",
+            "FAILURE"
           ],
-          "properties": {
-            "output_directory": {
-              "type": "string"
-            },
-            "saved_snapshots": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            }
-          }
+          "description": "Execution status of the Navier-Stokes simulation run."
+        },
+        "zip_filename": {
+          "type": "string",
+          "description": "Filename of the generated output ZIP archive containing 1D field snapshots (u, v, w, p), or 'NOT_APPLICABLE' if execution failed."
         }
       }
     }
   },
-
-  "required": ["inputs", "config", "results"]
+  "required": [
+    "inputs",
+    "config",
+    "results"
+  ]
 }

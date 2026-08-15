@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Solver Configuration Schema",
+  "description": "Deterministic system configuration parameters for the Navier-Stokes solver engine. No internal defaults permitted.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "max_poisson_iterations",
+    "poisson_tolerance"
+  ],
+  "properties": {
+    "max_poisson_iterations": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Maximum number of iterations allowed for the Poisson pressure solver convergence."
+    },
+    "poisson_tolerance": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "description": "Convergence residual tolerance threshold for the Poisson pressure solver."
+    }
+  }
+}
