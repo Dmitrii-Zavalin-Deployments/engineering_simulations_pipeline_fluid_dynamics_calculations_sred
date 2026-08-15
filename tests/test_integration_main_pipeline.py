@@ -1,5 +1,5 @@
 """
-tests/integration/test_main_pipeline.py
+tests/test_integration_main_pipeline.py
 Unified End-to-End Integration Test for Navier-Stokes Execution Engine.
 Executes unmocked CLI main entrypoint and validates ingestion configuration,
 solver execution, state integrity, and archivist manifest/binary outputs.
