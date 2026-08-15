@@ -1,51 +1,42 @@
-python3 -c "
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path.cwd()))
+#!/usr/bin/env bash
+set -euo pipefail
 
-print('==========================================================================')
-print('      FORENSIC AUDIT & DIAGNOSTIC SUITE FOR NAVIER-STOKES PIPELINE')
-print('==========================================================================')
+echo "======================================================================"
+echo "🔍 FORENSIC AUDIT: C++ Engine Memory Buffer & State Sync Diagnostics"
+echo "======================================================================"
 
-print('\n[1] INSPECTING SOLVER STATE INITIALIZATION & FIELD ATTRIBUTES')
-print('--------------------------------------------------------------------------')
-try:
-    from src.state import SolverState
-    print('SolverState imported successfully.')
-    state_attrs = dir(SolverState)
-    print('SolverState relevant attributes:', [a for a in state_attrs if not a.startswith('__')])
-except Exception as e:
-    print(f'Error inspecting SolverState: {e}')
+# 1. Search for memory pointer pass-through and writeback in C++ Gate
+echo -e "\n[1/5] Grepping C++ Gate memory references and step dispatch..."
+grep -rn -E "(fields|fields\[1\]|solver|step|ascontiguousarray|ctypes|get_v|copy)" src/cpp_gate.py || true
 
-print('\n[2] SMOKING-GUN SOURCE AUDIT: src/main.py (Time loop & Step execution)')
-print('--------------------------------------------------------------------------')
-main_path = Path('src/main.py')
-if main_path.is_file():
-    lines = main_path.read_text(encoding='utf-8').splitlines()
-    for idx, line in enumerate(lines, 1):
-        print(f'{idx:4d} | {line}')
+# 2. Search for array export/save sequence in Archivist and Main
+echo -e "\n[2/5] Grepping Archivist snapshot export pipeline..."
+grep -rn -E "(fields|field_v|npy|save|zip|v)" src/archivist.py src/main.py || true
 
-print('\n[3] SMOKING-GUN SOURCE AUDIT: src/cpp_gate.py (Step & Sync execution)')
-print('--------------------------------------------------------------------------')
-cpp_gate_path = Path('src/cpp_gate.py')
-if cpp_gate_path.is_file():
-    lines = cpp_gate_path.read_text(encoding='utf-8').splitlines()
-    for idx, line in enumerate(lines, 1):
-        print(f'{idx:4d} | {line}')
+# 3. Line-numbered source audits of core execution files
+echo -e "\n[3/5] Line-numbered audit: src/cpp_gate.py"
+if [ -f "src/cpp_gate.py" ]; then
+    cat -n src/cpp_gate.py
+fi
 
-print('\n[4] INSPECTING PYBIND11 C++ MODULE BINDINGS AND SYNC EXPOSURE')
-print('--------------------------------------------------------------------------')
-try:
-    import navier_stokes_cpp
-    print('navier_stokes_cpp C++ module imported successfully.')
-    print('Module contents:', dir(navier_stokes_cpp))
-    if hasattr(navier_stokes_cpp, 'NavierStokesSolver'):
-        solver_methods = dir(navier_stokes_cpp.NavierStokesSolver)
-        print('NavierStokesSolver exposed methods:', [m for m in solver_methods if not m.startswith('__')])
-except Exception as e:
-    print(f'Error inspecting C++ module: {e}')
+echo -e "\n[4/5] Line-numbered audit: step execution loop in src/main.py"
+if [ -f "src/main.py" ]; then
+    cat -n src/main.py | grep -C 15 -E "(step|solver|fields|archivist|save|run)" || true
+fi
 
-print('\n==========================================================================')
-print('                      FORENSIC AUDIT COMPLETE')
-print('==========================================================================')
-"
+# 4. Search for pytest workspace output archives for zero-value inspection
+echo -e "\n[5/5] Locating temporary pytest test outputs..."
+find /tmp/pytest-of-runner/ -name "navier_stokes_output.json" -o -name "*.npy" -o -name "*.zip" 2>/dev/null || true
+
+echo -e "\n======================================================================"
+echo "🛠️ REPAIR SED INJECTIONS (UNCOMMENT BEFORE EXECUTION TO APPLY)"
+echo "======================================================================"
+
+# Fix Strategy 1: Explicitly sync C++ field buffer back to state.fields after step loop in src/cpp_gate.py
+# sed -i '/self._cpp_solver.step()/a \        self.state.fields[:] = self._cpp_solver.get_fields()' src/cpp_gate.py
+
+# Fix Strategy 2: Direct view re-assignment if C++ updates native pointers in C++ gate
+# sed -i 's/self.state.fields/np.ascontiguousarray(self.state.fields, dtype=np.float64)/g' src/cpp_gate.py
+
+# Fix Strategy 3: Ensure C++ gate step passes explicit mutable state references during main step loop
+# sed -i '/solver.step()/a \        self.state.v[:] = self.state.fields[1]' src/main.py
