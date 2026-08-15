@@ -23,11 +23,19 @@ logger = logging.getLogger("Solver.CppGate")
 _cpp_solver_instance = None
 
 
+def _dict_to_boundary_condition(bc_dict: dict) -> navier_stokes_cpp.BoundaryCondition:
+    """Instantiates and populates a C++ BoundaryCondition object from a Python dict."""
+    bc_obj = navier_stokes_cpp.BoundaryCondition()
+    for key, value in bc_dict.items():
+        setattr(bc_obj, key, value)
+    return bc_obj
+
+
 def _convert_boundary_conditions(state: SolverState) -> None:
     """Converts dictionary boundary conditions to C++ BoundaryCondition objects in-place."""
     if hasattr(state, "boundary_conditions") and state.boundary_conditions:
         state.boundary_conditions = [
-            navier_stokes_cpp.BoundaryCondition(**bc) if isinstance(bc, dict) else bc
+            _dict_to_boundary_condition(bc) if isinstance(bc, dict) else bc
             for bc in state.boundary_conditions
         ]
 
