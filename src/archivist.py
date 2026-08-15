@@ -5,12 +5,12 @@ Serializes final field states (u, v, w, p), packages snapshot binaries into a ti
 ZIP archive, and generates the canonical output JSON manifest adhering to navier_stokes_output.schema.json.
 """
 
-from datetime import datetime
 import json
 import logging
+import zipfile
+from datetime import datetime
 from pathlib import Path
 from typing import Any
-import zipfile
 
 import numpy as np
 
