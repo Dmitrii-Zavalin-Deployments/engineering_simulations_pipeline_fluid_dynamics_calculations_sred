@@ -2,7 +2,7 @@
 tests/test_integration_main_pipeline.py
 Unified End-to-End Integration Test for Navier-Stokes Execution Engine.
 Executes unmocked CLI main entrypoint and validates ingestion configuration,
-solver execution, state integrity, and archivist manifest/binary outputs.
+solver execution, state integrity, field drift/parity, and archivist output artifacts.
 """
 
 import io
@@ -17,7 +17,7 @@ import numpy as np
 def test_main_full_pipeline_end_to_end(workspace_folder, monkeypatch):
     """
     Executes main() end-to-end without mocks through ingestion, C++ engine, and archivist,
-    validating input/config parity, manifest structure, and binary snapshot tensor shapes.
+    validating input/config parity, manifest structure, physical field evolution, and binary shapes.
     """
     folder = workspace_folder["folder"]
     input_file = workspace_folder["input_file_name"]
@@ -102,3 +102,93 @@ def test_main_full_pipeline_end_to_end(workspace_folder, monkeypatch):
             assert array_data.shape == (4, 4, 4), f"Unexpected shape {array_data.shape} for {snapshot}"
             assert not np.isnan(array_data).any(), f"NaN values detected in snapshot {snapshot}"
             assert not np.isinf(array_data).any(), f"Inf values detected in snapshot {snapshot}"
+
+            # PHYSICAL EVOLUTION VERIFICATION:
+            # Prevent false-positive passes on all-zero uninitialized buffers.
+            # Gravity is g_y = -9.81 m/s^2, so field_v MUST exhibit negative vertical acceleration.
+            if snapshot == "field_v.npy":
+                assert np.max(np.abs(array_data)) > 0.0, (
+                    "CRITICAL ERROR: field_v is identically zero. C++ solver failed to mutate field or transfer memory."
+                )
+                assert np.min(array_data) < 0.0, (
+                    f"CRITICAL ERROR: field_v minimum value ({np.min(array_data)}) is non-negative. "
+                    "Field failed to respond to gravity g_y = -9.81."
+                )
+
+
+def test_python_cpp_field_state_parity(workspace_folder):
+    """
+    Verifies zero-drift parity between Python SolverState in-memory numpy fields
+    and C++ exported binary snapshots written to the archived ZIP container.
+    """
+    from src.archivist import archive_simulation_results
+    from src.cpp_gate import execute_cpp_solver
+    from src.ingestion import ingest_simulation_data
+    from src.state import SolverState
+
+    folder = workspace_folder["folder"]
+    input_file = workspace_folder["input_file_name"]
+    output_manifest_name = "parity_test_output.json"
+
+    # Ingest data & run solver directly to hold SolverState handle
+    input_data, config_data = ingest_simulation_data(folder, input_file, "config.json")
+    state = SolverState(input_data, config_data)
+    execute_cpp_solver(state)
+
+    # Export via Archivist
+    archive_simulation_results(state, folder, output_manifest_name, status="SUCCESS")
+
+    manifest_path = Path(folder) / output_manifest_name
+    with open(manifest_path, "r", encoding="utf-8") as f:
+        manifest_data = json.load(f)
+
+    zip_filename = manifest_data["results"]["zip_filename"]
+    zip_path = Path(folder) / zip_filename
+
+    # Validate memory state exact equality with serialized binary snapshots
+    field_names = ["field_u", "field_v", "field_w", "field_p"]
+    with zipfile.ZipFile(zip_path, "r") as zf:
+        for idx, name in enumerate(field_names):
+            snapshot_filename = f"{name}.npy"
+            array_bytes = zf.read(snapshot_filename)
+            archived_array = np.load(io.BytesIO(array_bytes))
+            memory_array = state.fields[idx]
+
+            # Enforce exact floating point equality across memory and disk snapshot
+            np.testing.assert_array_equal(
+                memory_array,
+                archived_array,
+                err_msg=f"Memory/Disk drift detected for field {name}!",
+            )
+
+
+def test_archivist_failure_status_handling(workspace_folder):
+    """
+    Verifies that Archivist handles simulation failures correctly by omitting ZIP creation
+    and generating schema-compliant output manifest with zip_filename set to NOT_APPLICABLE.
+    """
+    from src.archivist import archive_simulation_results
+
+    class MockFailureState:
+        input_data = {"test": "data"}
+        config = {"param": 1}
+        fields = []
+
+    folder = workspace_folder["folder"]
+    output_filename = "failure_manifest.json"
+
+    archive_simulation_results(
+        state=MockFailureState(),
+        output_dir=folder,
+        output_filename=output_filename,
+        status="FAILURE",
+    )
+
+    manifest_path = Path(folder) / output_filename
+    assert manifest_path.is_file()
+
+    with open(manifest_path, "r", encoding="utf-8") as f:
+        manifest = json.load(f)
+
+    assert manifest["results"]["status"] == "FAILURE"
+    assert manifest["results"]["zip_filename"] == "NOT_APPLICABLE"

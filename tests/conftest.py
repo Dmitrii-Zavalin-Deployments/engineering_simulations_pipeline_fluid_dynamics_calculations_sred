@@ -88,7 +88,7 @@ def workspace_folder(tmp_path, valid_input_data):
         os.path.join(os.path.dirname(__file__), "..", "config", "config.json"),
         "config/config.json",
     ]
-    
+
     prod_config = None
     for candidate in prod_config_candidates:
         if os.path.exists(candidate):
@@ -107,5 +107,4 @@ def workspace_folder(tmp_path, valid_input_data):
         "input_file_name": input_file_name,
         "config_path": str(config_path),
         "input_path": str(input_path),
-        "output_zip_name": "simulation_results.zip",
     }
