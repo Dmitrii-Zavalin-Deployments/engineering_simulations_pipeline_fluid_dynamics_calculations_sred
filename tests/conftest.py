@@ -13,7 +13,7 @@ import pytest
 @pytest.fixture
 def valid_input_data():
     """Returns a valid 2x2x2 domain input configuration dictionary for manual inspection."""
-    nx, ny, nz = 2, 2, 2
+    nx, ny, nz = 3, 3, 3
     return {
         "physical_constraints": {
             "min_velocity": -10.0,

@@ -3,7 +3,7 @@ tests/test_integration_main_pipeline.py
 Unified End-to-End Integration Test for Navier-Stokes Execution Engine.
 Executes unmocked CLI main entrypoint and validates ingestion configuration,
 solver execution, state integrity, field drift/parity, archivist output artifacts,
-and Pybind11 C++/Python memory bridge pointer preservation on a 2x2x2 grid.
+and Pybind11 C++/Python memory bridge pointer preservation on a 3x3x3 grid.
 """
 
 import io
@@ -72,10 +72,10 @@ def test_main_full_pipeline_end_to_end(workspace_folder, monkeypatch):
     assert input_data["domain_configuration"]["type"] == "INTERNAL"
     assert input_data["domain_configuration"]["reference_velocity"] == [0.0, 0.0, 0.0]
 
-    # Grid & Fluid Properties (Compact 2x2x2)
-    assert input_data["grid"]["nx"] == 2
-    assert input_data["grid"]["ny"] == 2
-    assert input_data["grid"]["nz"] == 2
+    # Grid & Fluid Properties (Compact 3x3x3)
+    assert input_data["grid"]["nx"] == 3
+    assert input_data["grid"]["ny"] == 3
+    assert input_data["grid"]["nz"] == 3
     assert input_data["fluid_properties"]["density"] == 1.0
     assert input_data["fluid_properties"]["viscosity"] == 0.01
 
@@ -90,7 +90,7 @@ def test_main_full_pipeline_end_to_end(workspace_folder, monkeypatch):
     assert input_data["external_forces"]["gravity_vector"] == [0.0, -9.81, 0.0]
 
     # Production Config Integration
-    assert config_data["max_poisson_iterations"] == 2000
+    assert config_data["max_poisson_iterations"] == 3000
     assert config_data["poisson_tolerance"] == 1e-8
 
     # 6. Verify Results Status and Timestamped Output ZIP
@@ -110,10 +110,10 @@ def test_main_full_pipeline_end_to_end(workspace_folder, monkeypatch):
         for snapshot in expected_snapshots:
             assert snapshot in namelist, f"Missing snapshot binary '{snapshot}' in archive. Found: {namelist}"
 
-            # Load array directly from archive bytes and check spatial dimensions (2, 2, 2)
+            # Load array directly from archive bytes and check spatial dimensions (3, 3, 3)
             array_bytes = zf.read(snapshot)
             array_data = np.load(io.BytesIO(array_bytes))
-            assert array_data.shape == (2, 2, 2), f"Unexpected shape {array_data.shape} for {snapshot}"
+            assert array_data.shape == (3, 3, 3), f"Unexpected shape {array_data.shape} for {snapshot}"
             assert not np.isnan(array_data).any(), f"NaN values detected in snapshot {snapshot}"
             assert not np.isinf(array_data).any(), f"Inf values detected in snapshot {snapshot}"
 
