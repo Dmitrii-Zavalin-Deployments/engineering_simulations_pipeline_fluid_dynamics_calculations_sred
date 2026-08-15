@@ -7,6 +7,7 @@ and eliminate parameter drift.
 """
 
 import logging
+from typing import Any
 
 from src.state import SolverState
 
@@ -23,11 +24,21 @@ logger = logging.getLogger("Solver.CppGate")
 _cpp_solver_instance = None
 
 
-def _dict_to_boundary_condition(bc_dict: dict) -> navier_stokes_cpp.BoundaryCondition:
-    """Instantiates and populates a C++ BoundaryCondition object from a Python dict."""
+def _dict_to_boundary_condition(bc_dict: dict) -> Any:
+    """Instantiates and populates a C++ BoundaryCondition object from a Python dict, mapping nested values to C++ fields."""
     bc_obj = navier_stokes_cpp.BoundaryCondition()
     for key, value in bc_dict.items():
-        setattr(bc_obj, key, value)
+        if key == "values" and isinstance(value, dict):
+            if "u" in value and hasattr(bc_obj, "u_val"):
+                bc_obj.u_val = float(value["u"])
+            if "v" in value and hasattr(bc_obj, "v_val"):
+                bc_obj.v_val = float(value["v"])
+            if "w" in value and hasattr(bc_obj, "w_val"):
+                bc_obj.w_val = float(value["w"])
+            if "p" in value and hasattr(bc_obj, "scalar_p"):
+                bc_obj.scalar_p = float(value["p"])
+        elif hasattr(bc_obj, key):
+            setattr(bc_obj, key, value)
     return bc_obj
 
 
@@ -40,7 +51,7 @@ def _convert_boundary_conditions(state: SolverState) -> None:
         ]
 
 
-def _get_or_create_cpp_solver(state: SolverState) -> navier_stokes_cpp.NavierStokesSolver:
+def _get_or_create_cpp_solver(state: SolverState) -> Any:
     """
     Singleton initializer for the underlying C++ NavierStokesSolver engine.
     Passes the complete sovereign SolverState container directly to the C++ constructor,

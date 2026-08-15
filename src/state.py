@@ -70,7 +70,7 @@ class SolverState:
         self.fluid_properties: dict[str, Any] = input_data["fluid_properties"]
         self.initial_conditions: dict[str, Any] = input_data["initial_conditions"]
         self.simulation_parameters: dict[str, Any] = input_data["simulation_parameters"]
-        self.boundary_conditions: list[dict[str, Any]] = input_data["boundary_conditions"]
+        self.boundary_conditions: list[Any] = input_data["boundary_conditions"]
         self.external_forces: dict[str, Any] = input_data["external_forces"]
         self.domain_configuration: dict[str, Any] = input_data["domain_configuration"]
         self.physical_constraints: dict[str, Any] = input_data["physical_constraints"]
@@ -126,3 +126,25 @@ class SolverState:
         self.fields[1] = v_clamped
         self.fields[2] = w_clamped
         self.fields[3] = p_clamped
+
+    def get_boundary_condition_dicts(self) -> list[dict[str, Any]]:
+        """
+        Safely retrieves boundary conditions as dictionaries, 
+        handling both raw dicts and converted C++ BoundaryCondition objects.
+        """
+        bc_list = []
+        for bc in self.boundary_conditions:
+            if isinstance(bc, dict):
+                bc_list.append(bc)
+            else:
+                bc_list.append({
+                    "location": getattr(bc, "location", ""),
+                    "type": getattr(bc, "type", ""),
+                    "values": {
+                        "u": getattr(bc, "u_val", 0.0),
+                        "v": getattr(bc, "v_val", 0.0),
+                        "w": getattr(bc, "w_val", 0.0),
+                        "p": getattr(bc, "scalar_p", 0.0)
+                    }
+                })
+        return bc_list
