@@ -23,6 +23,15 @@ logger = logging.getLogger("Solver.CppGate")
 _cpp_solver_instance = None
 
 
+def _convert_boundary_conditions(state: SolverState) -> None:
+    """Converts dictionary boundary conditions to C++ BoundaryCondition objects in-place."""
+    if hasattr(state, "boundary_conditions") and state.boundary_conditions:
+        state.boundary_conditions = [
+            navier_stokes_cpp.BoundaryCondition(**bc) if isinstance(bc, dict) else bc
+            for bc in state.boundary_conditions
+        ]
+
+
 def _get_or_create_cpp_solver(state: SolverState) -> navier_stokes_cpp.NavierStokesSolver:
     """
     Singleton initializer for the underlying C++ NavierStokesSolver engine.
@@ -34,8 +43,8 @@ def _get_or_create_cpp_solver(state: SolverState) -> navier_stokes_cpp.NavierSto
 
     global _cpp_solver_instance
     if _cpp_solver_instance is None:
+        _convert_boundary_conditions(state)
         logger.info("Initializing C++ NavierStokesSolver engine instance with sovereign SolverState container...")
-        # Pass the complete state container object directly to the C++ binding
         _cpp_solver_instance = navier_stokes_cpp.NavierStokesSolver(state)
 
     return _cpp_solver_instance
@@ -52,10 +61,11 @@ def step_simulation(state: SolverState) -> None:
     if state is None:
         raise ValueError("FATAL ERROR: state must be explicitly provided (no defaults allowed).")
 
+    _convert_boundary_conditions(state)
     solver = _get_or_create_cpp_solver(state)
 
     try:
-        # Execute C++ core time integration step. 
+        # Execute C++ core time integration step.
         # C++ reads and writes directly to state.fields in-place via zero-copy memory binding.
         solver.step(state)
 
