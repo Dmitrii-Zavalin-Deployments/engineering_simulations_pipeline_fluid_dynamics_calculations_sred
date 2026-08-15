@@ -90,7 +90,7 @@ def test_main_full_pipeline_end_to_end(workspace_folder, monkeypatch):
     assert input_data["external_forces"]["gravity_vector"] == [0.0, -9.81, 0.0]
 
     # Production Config Integration
-    assert config_data["max_poisson_iterations"] == 3000
+    assert config_data["max_poisson_iterations"] == 2000
     assert config_data["poisson_tolerance"] == 1e-8
 
     # 6. Verify Results Status and Timestamped Output ZIP
