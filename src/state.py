@@ -13,7 +13,7 @@ import numpy as np
 logger = logging.getLogger("Solver.State")
 
 
-class SimulationState:
+class SolverState:
     """
     Simulation state container managing field arrays, grid parameters, 
     and constraint evaluations across simulation iterations.
