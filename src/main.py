@@ -2,7 +2,7 @@
 src/main.py
 Main Execution Control Plane.
 Orchestrates ingestion, sovereign state instantiation, the master time-integration loop,
-preview generation, and archival packaging under strict non-default policies.
+and archival packaging under strict non-default policies.
 """
 
 import argparse
@@ -13,7 +13,6 @@ from pathlib import Path
 
 from src.archivist import archive_simulation_results
 from src.cpp_gate import step_simulation
-from src.generate_previews import generate_snapshot_preview
 from src.ingestion import load_and_validate_inputs
 from src.state import SolverState
 
@@ -56,10 +55,7 @@ def run_simulation(input_path: str | Path, output_dir: str | Path, zip_filename:
     out_path.mkdir(parents=True, exist_ok=True)
 
     # Record initial state snapshot (iteration 0)
-    preview_file = None
-    if state.output_interval > 0 and state.current_iteration % state.output_interval == 0:
-        preview_file = generate_snapshot_preview(state, out_path, state.current_iteration)
-    state.record_snapshot(preview_file_path=preview_file)
+    state.record_snapshot()
 
     # Master time loop
     for _ in range(1, state.total_iterations + 1):
@@ -69,15 +65,12 @@ def run_simulation(input_path: str | Path, output_dir: str | Path, zip_filename:
         # Enforce physical constraints / bounds / stability checks
         state.enforce_physical_constraints()
 
-        # Generate preview and record snapshot at intervals
-        preview_file = None
+        # Record snapshot at intervals
         if state.output_interval > 0 and (
             state.current_iteration % state.output_interval == 0
             or state.current_iteration == state.total_iterations
         ):
-            preview_file = generate_snapshot_preview(state, out_path, state.current_iteration)
-
-        state.record_snapshot(preview_file_path=preview_file)
+            state.record_snapshot()
 
         if state.current_iteration % max(1, state.total_iterations // 10) == 0:
             logger.info(
