@@ -92,7 +92,7 @@ def step_simulation(state: SolverState) -> None:
         # Update sovereign state tracking metrics upon successful step completion under strict non-default policy
         try:
             dt = float(state.dt)
-        except (AttributeError, TypeError) as err:
+        except (AttributeError, TypeError):
             try:
                 dt = float(state.input_data["simulation_parameters"]["time_step"])
             except (AttributeError, KeyError, TypeError) as inner_err:
