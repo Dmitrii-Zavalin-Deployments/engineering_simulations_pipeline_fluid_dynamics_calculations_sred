@@ -56,6 +56,10 @@ def archive_simulation_results(
                 updated_fields = state._cpp_solver.get_fields()
                 if updated_fields is not None:
                     state.fields = np.array(updated_fields, copy=True)
+            else:
+                raise RuntimeError(
+                    "FATAL ERROR: C++ solver instance attached to state is missing required 'sync_fields' or 'get_fields' binding."
+                )
 
         # 1. Generate UTC timestamped ZIP archive filename (YYYYMMDD_HHMMSS.zip)
         timestamp_str = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")

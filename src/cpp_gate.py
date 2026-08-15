@@ -82,12 +82,15 @@ def step_simulation(state: SolverState) -> None:
 
     try:
         # Execute C++ core time integration step.
-        # C++ reads and writes directly to state memory in-place via zero-copy binding.
         solver.step(state)
 
-        # Explicit synchronization check: if C++ solver exposes a post-step field sync method, invoke it here
+        # Enforce strict field synchronization to ensure C++ array state maps back to Python memory
         if hasattr(solver, "sync_fields") and callable(solver.sync_fields):
             solver.sync_fields(state)
+        else:
+            raise RuntimeError(
+                "FATAL ERROR: C++ NavierStokesSolver instance is missing required callable 'sync_fields' method."
+            )
 
         # Update sovereign state tracking metrics upon successful step completion under strict non-default policy
         try:

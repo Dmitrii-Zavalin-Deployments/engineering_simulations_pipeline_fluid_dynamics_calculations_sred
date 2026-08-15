@@ -14,6 +14,7 @@
 #include <string>
 #include <cmath>
 #include <iostream>
+#include <algorithm>
 #include "orchestrator.hpp"
 #include "grid_math.hpp"
 
@@ -60,6 +61,13 @@ public:
 
         config_ = {max_poisson_iters, poisson_tolerance, density};
 
+        // Allocate persistent state buffers
+        size_t total_cells = static_cast<size_t>(nx) * ny * nz;
+        u_.resize(total_cells, 0.0);
+        v_.resize(total_cells, 0.0);
+        w_.resize(total_cells, 0.0);
+        p_.resize(total_cells, 0.0);
+
         // 3. Initialize C++ Orchestrator Core
         orchestrator_ = std::make_unique<navier_stokes_solver::NavierStokesOrchestrator>(dims_, config_);
     }
@@ -84,9 +92,9 @@ public:
                   << " | Grid: " << nx << "x" << ny << "x" << nz 
                   << " | Active Threads: " << active_threads << "\n";
 
-        // 4. Extract Tensors & Buffers from sovereign state
-        py::array_t<double> fields = state.attr("fields").cast<py::array_t<double>>(); // shape (4, nx, ny, nz)
-        py::array_t<int> mask = state.attr("mask").cast<py::array_t<int>>();             // shape (nx, ny, nz)
+        // 4. Extract Tensors & Buffers using explicit C-style array binding to guarantee in-place memory mutation
+        py::array_t<double, py::array::c_style> fields = state.attr("fields").cast<py::array_t<double, py::array::c_style>>();
+        py::array_t<int, py::array::c_style> mask = state.attr("mask").cast<py::array_t<int, py::array::c_style>>();
 
         auto r_fields = fields.mutable_unchecked<4>();
         auto r_mask = mask.unchecked<3>();
@@ -116,14 +124,8 @@ public:
         double min_p = phys_constraints["min_pressure"].cast<double>();
         double max_p = phys_constraints["max_pressure"].cast<double>();
 
-        // 8. Map NumPy fields to C++ std::vectors for Orchestrator consumption
-        std::vector<double> u(total_cells);
-        std::vector<double> v(total_cells);
-        std::vector<double> w(total_cells);
-        std::vector<double> p(total_cells);
+        // 8. Map NumPy fields to C++ persistent vectors for Orchestrator consumption
         std::vector<int> mask_vec(total_cells);
-        
-        // Pure non-gravitational external force densities
         std::vector<double> fx_vec(total_cells, force_vec[0]);
         std::vector<double> fy_vec(total_cells, force_vec[1]);
         std::vector<double> fz_vec(total_cells, force_vec[2]);
@@ -132,10 +134,10 @@ public:
             for (int j = 0; j < ny; ++j) {
                 for (int i = 0; i < nx; ++i) {
                     size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
-                    u[idx] = r_fields(0, i, j, k);
-                    v[idx] = r_fields(1, i, j, k);
-                    w[idx] = r_fields(2, i, j, k);
-                    p[idx] = r_fields(3, i, j, k);
+                    u_[idx] = r_fields(0, i, j, k);
+                    v_[idx] = r_fields(1, i, j, k);
+                    w_[idx] = r_fields(2, i, j, k);
+                    p_[idx] = r_fields(3, i, j, k);
                     
                     mask_vec[idx] = r_mask(i, j, k);
                 }
@@ -149,24 +151,54 @@ public:
             bc_list.push_back(item.cast<navier_stokes_solver::BoundaryCondition>());
         }
 
-        // 10. Execute full time-step inside the C++ Orchestrator Core, passing 3D gravity vector
-        orchestrator_->step(dt, mu, gravity, fx_vec, fy_vec, fz_vec, mask_vec, bc_list, u, v, w, p);
+        // 10. Execute full time-step inside the C++ Orchestrator Core
+        orchestrator_->step(dt, mu, gravity, fx_vec, fy_vec, fz_vec, mask_vec, bc_list, u_, v_, w_, p_);
 
-        // 11. Validate finiteness and copy modified fields back into the mutable Python NumPy array in-place,
-        // respecting physical constraints (clamping velocity and pressure)
+        // 11. Validate finiteness and copy modified fields back into the mutable Python NumPy array in-place
         for (int k = 0; k < nz; ++k) {
             for (int j = 0; j < ny; ++j) {
                 for (int i = 0; i < nx; ++i) {
                     size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
 
-                    if (!std::isfinite(u[idx]) || !std::isfinite(v[idx]) || !std::isfinite(w[idx]) || !std::isfinite(p[idx])) {
+                    if (!std::isfinite(u_[idx]) || !std::isfinite(v_[idx]) || !std::isfinite(w_[idx]) || !std::isfinite(p_[idx])) {
                         throw std::runtime_error("SIMULATION FAILURE: Non-finite velocity or pressure field detected after time step.");
                     }
                     
-                    r_fields(0, i, j, k) = std::max(min_v, std::min(max_v, u[idx]));
-                    r_fields(1, i, j, k) = std::max(min_v, std::min(max_v, v[idx]));
-                    r_fields(2, i, j, k) = std::max(min_v, std::min(max_v, w[idx]));
-                    r_fields(3, i, j, k) = std::max(min_p, std::min(max_p, p[idx]));
+                    r_fields(0, i, j, k) = std::max(min_v, std::min(max_v, u_[idx]));
+                    r_fields(1, i, j, k) = std::max(min_v, std::min(max_v, v_[idx]));
+                    r_fields(2, i, j, k) = std::max(min_v, std::min(max_v, w_[idx]));
+                    r_fields(3, i, j, k) = std::max(min_p, std::min(max_p, p_[idx]));
+                }
+            }
+        }
+    }
+
+    void sync_fields(py::object state) {
+        if (state.is_none()) {
+            throw std::invalid_argument("FATAL ERROR: state object cannot be None during sync_fields execution.");
+        }
+
+        int nx = dims_.nx;
+        int ny = dims_.ny;
+        int nz = dims_.nz;
+
+        py::dict phys_constraints = state.attr("physical_constraints");
+        double min_v = phys_constraints["min_velocity"].cast<double>();
+        double max_v = phys_constraints["max_velocity"].cast<double>();
+        double min_p = phys_constraints["min_pressure"].cast<double>();
+        double max_p = phys_constraints["max_pressure"].cast<double>();
+
+        py::array_t<double, py::array::c_style> fields = state.attr("fields").cast<py::array_t<double, py::array::c_style>>();
+        auto r_fields = fields.mutable_unchecked<4>();
+
+        for (int k = 0; k < nz; ++k) {
+            for (int j = 0; j < ny; ++j) {
+                for (int i = 0; i < nx; ++i) {
+                    size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
+                    r_fields(0, i, j, k) = std::max(min_v, std::min(max_v, u_[idx]));
+                    r_fields(1, i, j, k) = std::max(min_v, std::min(max_v, v_[idx]));
+                    r_fields(2, i, j, k) = std::max(min_v, std::min(max_v, w_[idx]));
+                    r_fields(3, i, j, k) = std::max(min_p, std::min(max_p, p_[idx]));
                 }
             }
         }
@@ -176,6 +208,10 @@ private:
     navier_stokes_solver::GridDimensions dims_;
     navier_stokes_solver::SolverConfig config_;
     std::unique_ptr<navier_stokes_solver::NavierStokesOrchestrator> orchestrator_;
+    std::vector<double> u_;
+    std::vector<double> v_;
+    std::vector<double> w_;
+    std::vector<double> p_;
 };
 
 PYBIND11_MODULE(navier_stokes_cpp, m) {
@@ -192,5 +228,6 @@ PYBIND11_MODULE(navier_stokes_cpp, m) {
 
     py::class_<PythonSolverBridge>(m, "NavierStokesSolver")
         .def(py::init<py::object>(), py::arg("state"), "Initialize solver instance directly from sovereign SolverState container.")
-        .def("step", &PythonSolverBridge::step, py::arg("state"), "Advance the Navier-Stokes system by one time-step using state container references.");
+        .def("step", &PythonSolverBridge::step, py::arg("state"), "Advance the Navier-Stokes system by one time-step using state container references.")
+        .def("sync_fields", &PythonSolverBridge::sync_fields, py::arg("state"), "Synchronize persistent C++ solution fields directly back into Python state memory.");
 }
