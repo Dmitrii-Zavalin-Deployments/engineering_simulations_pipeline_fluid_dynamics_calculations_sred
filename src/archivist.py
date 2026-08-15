@@ -6,12 +6,12 @@ ZIP archive on success, and generates canonical output JSON manifests adhering t
 navier_stokes_output.schema.json for both success and failure states.
 """
 
-from datetime import datetime, timezone
 import json
 import logging
+import zipfile
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-import zipfile
 
 import numpy as np
 
