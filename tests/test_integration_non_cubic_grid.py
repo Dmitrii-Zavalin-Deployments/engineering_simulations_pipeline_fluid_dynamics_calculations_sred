@@ -26,11 +26,11 @@ def test_main_full_pipeline_non_cubic_4x3x2(workspace_folder, monkeypatch):
     input_path = Path(folder) / input_file
     output_manifest_name = "navier_stokes_non_cubic_output.json"
 
-    # 1. Update input JSON to set asymmetric 4x3x2 grid (24 total cells)
+    # 1. Update input JSON to set asymmetric 4x3x2 grid (24 total cells) preserving spatial bounds
     with open(input_path, "r", encoding="utf-8") as f:
         input_json_data = json.load(f)
 
-    input_json_data["grid"] = {"nx": 4, "ny": 3, "nz": 2}
+    input_json_data["grid"].update({"nx": 4, "ny": 3, "nz": 2})
     input_json_data["mask"] = [0] * 24  # 4 * 3 * 2 = 24 cells
     input_json_data["external_forces"]["force_vector"] = [1.0, 1.0, 1.0]
     input_json_data["initial_conditions"]["velocity"] = [0.1, 0.1, 0.1]
@@ -113,7 +113,7 @@ def test_python_cpp_field_state_parity_non_cubic(workspace_folder):
     output_manifest_name = "parity_non_cubic_output.json"
 
     input_data, config_data = load_and_validate_inputs(input_path, Path(folder) / "config.json")
-    input_data["grid"] = {"nx": 4, "ny": 3, "nz": 2}
+    input_data["grid"].update({"nx": 4, "ny": 3, "nz": 2})
     input_data["mask"] = [0] * 24
     input_data["external_forces"]["force_vector"] = [1.0, 1.0, 1.0]
     input_data["initial_conditions"]["velocity"] = [0.1, 0.1, 0.1]
@@ -159,7 +159,7 @@ def test_pybind11_memory_bridge_non_cubic(workspace_folder):
     input_path = Path(folder) / input_file
 
     input_data, config_data = load_and_validate_inputs(input_path, Path(folder) / "config.json")
-    input_data["grid"] = {"nx": 4, "ny": 3, "nz": 2}
+    input_data["grid"].update({"nx": 4, "ny": 3, "nz": 2})
     input_data["mask"] = [0] * 24
     input_data["external_forces"]["force_vector"] = [1.0, 2.0, 1.5]
     input_data["initial_conditions"]["velocity"] = [0.2, -0.1, 0.3]
