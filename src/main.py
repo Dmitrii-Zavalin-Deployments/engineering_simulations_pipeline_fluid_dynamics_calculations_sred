@@ -92,9 +92,9 @@ def run_simulation(
                 output_filename=output_file_name,
                 status="FAILURE",
             )
-        except Exception as archive_err:
+        except (OSError, ValueError, TypeError, RuntimeError) as archive_err:
             logger.critical(f"Failed to write failure manifest: {archive_err}")
-        raise exec_err
+        raise
 
 
 def main() -> None:
