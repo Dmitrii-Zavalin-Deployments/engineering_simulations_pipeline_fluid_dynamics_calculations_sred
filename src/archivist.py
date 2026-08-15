@@ -6,12 +6,12 @@ ZIP archive on success, and generates canonical output JSON manifests adhering t
 navier_stokes_output.schema.json for both success and failure states.
 """
 
+from datetime import datetime, timezone
 import json
 import logging
-import zipfile
-from datetime import datetime
 from pathlib import Path
 from typing import Any
+import zipfile
 
 import numpy as np
 
@@ -49,9 +49,9 @@ def archive_simulation_results(
     normalized_status = status.upper()
 
     if normalized_status == "SUCCESS":
-        # 1. Determine ZIP archive filename (timestamped if not specified)
+        # 1. Determine ZIP archive filename (timestamped with UTC timezone to satisfy DTZ005)
         if not zip_filename or zip_filename.endswith(".json"):
-            timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+            timestamp_str = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
             target_zip_name = f"{timestamp_str}.zip"
         else:
             target_zip_name = zip_filename if zip_filename.endswith(".zip") else f"{zip_filename}.zip"
