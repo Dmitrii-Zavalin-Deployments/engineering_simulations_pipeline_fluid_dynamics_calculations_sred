@@ -1,7 +1,7 @@
 """
 src/main.py
 Main Execution Control Plane.
-Orchestrates ingestion, sovereign state instantiation, the master time-integration loop,
+Orchestrates ingestion, simulation state instantiation, the master time-integration loop,
 and archival packaging under strict non-default policies.
 """
 
@@ -14,7 +14,7 @@ from pathlib import Path
 from src.archivist import archive_simulation_results
 from src.cpp_gate import step_simulation
 from src.ingestion import load_and_validate_inputs
-from src.state import SolverState
+from src.state import SimulationState
 
 logger = logging.getLogger("Solver.Main")
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -46,8 +46,8 @@ def run_simulation(input_path: str | Path, output_dir: str | Path, zip_filename:
     logger.info("Step 1: Loading and validating inputs and configuration...")
     input_data, config_data = load_and_validate_inputs(input_path, config_path)
 
-    logger.info("Step 2: Initializing Sovereign SolverState container...")
-    state = SolverState(input_data, config_data)
+    logger.info("Step 2: Initializing SimulationState container...")
+    state = SimulationState(input_data, config_data)
 
     logger.info(f"Starting master time-integration loop: {state.total_iterations} iterations, dt={state.dt}")
 

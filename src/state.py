@@ -1,6 +1,6 @@
 """
 src/state.py
-Sovereign Container Module.
+Core State Container Module.
 Maintains the complete operational state of the simulation, holding input metadata,
 dynamic 4D field buffers (u, v, w, p), and physical boundary enforcement.
 """
@@ -13,9 +13,9 @@ import numpy as np
 logger = logging.getLogger("Solver.State")
 
 
-class SolverState:
+class SimulationState:
     """
-    Sovereign state container managing field arrays, grid parameters, 
+    Simulation state container managing field arrays, grid parameters, 
     and constraint evaluations across simulation iterations.
     """
 
