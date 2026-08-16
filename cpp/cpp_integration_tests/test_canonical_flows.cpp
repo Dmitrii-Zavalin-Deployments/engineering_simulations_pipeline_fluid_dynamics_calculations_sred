@@ -24,6 +24,11 @@
 
 using namespace navier_stokes_solver;
 
+/**
+ * @class CanonicalFlowsTest
+ * @brief Test fixture providing shared numerical verification utilities, divergence auditors,
+ *        transient residue metrics, and vortex center trackers written in a literate narrative style.
+ */
 class CanonicalFlowsTest : public ::testing::Test {
 protected:
     void SetUp() override {
@@ -35,6 +40,7 @@ protected:
      *        available hardware concurrency for OpenMP multi-threading.
      */
     void VerifyAndReportThreadingConfig() {
+        // We query the underlying hardware concurrency and active OpenMP thread pools.
         unsigned int hw_threads = std::thread::hardware_concurrency();
         int active_omp_threads = 1;
 
@@ -44,6 +50,7 @@ protected:
                   << hw_threads << " | Active OpenMP Threads: " << active_omp_threads << std::endl;
 
         if (hw_threads > 1) {
+            // We assert that OpenMP is fully utilizing available hardware cores.
             ASSERT_GE(active_omp_threads, static_cast<int>(hw_threads))
                 << "WARNING: OpenMP is not using all available CPU threads! "
                 << "Active: " << active_omp_threads << ", Hardware available: " << hw_threads;
@@ -54,6 +61,17 @@ protected:
 #endif
     }
 
+    /**
+     * @brief Computes the maximum velocity divergence across internal grid cells.
+     * 
+     * Incompressible Navier-Stokes flows satisfy the divergence-free continuity constraint:
+     *     div(u) = du/dx + dv/dy + dw/dz = 0
+     * 
+     * We compute central-difference approximations for spatial derivatives:
+     *     du/dx = (u(i+1, j, k) - u(i-1, j, k)) / (2 * dx)
+     *     dv/dy = (v(i, j+1, k) - v(i, j-1, k)) / (2 * dy)
+     *     dw/dz = (w(i, j, k+1) - w(i, j, k-1)) / (2 * dz)  [if nz > 2]
+     */
     double ComputeMaxDivergence(
         const std::vector<double>& u,
         const std::vector<double>& v,
@@ -92,6 +110,12 @@ protected:
         return max_div;
     }
 
+    /**
+     * @brief Computes the RMS transient residue between consecutive time steps.
+     * 
+     * Formula:
+     *     R = sqrt( (1 / N) * sum( (u_new - u_old)^2 + (v_new - v_old)^2 ) )
+     */
     double ComputeTransientResidue(
         const std::vector<double>& u_new, const std::vector<double>& u_old,
         const std::vector<double>& v_new, const std::vector<double>& v_old,
@@ -108,6 +132,12 @@ protected:
         return std::sqrt(sum_sq / total_cells);
     }
 
+    /**
+     * @brief Locates the primary vortex center using the spanwise vorticity minimum.
+     * 
+     * Spanwise vorticity component:
+     *     omega_z = dv/dx - du/dy
+     */
     std::pair<double, double> LocatePrimaryVortexCenter(
         const std::vector<double>& u, const std::vector<double>& v,
         int nx, int ny, int k_plane, double dx, double dy
@@ -145,6 +175,7 @@ protected:
 // Scenario 7.1: 2D Lid-Driven Cavity Benchmark (Re = 100) - Stability & Spike-Free
 // =================================================================================
 TEST_F(CanonicalFlowsTest, LidDrivenCavityRe100) {
+    // We define the grid dimensions and spacing for the square cavity.
     const int nx = 16;
     const int ny = 16;
     const int nz = 3;
@@ -155,6 +186,7 @@ TEST_F(CanonicalFlowsTest, LidDrivenCavityRe100) {
     GridDimensions dims{nx, ny, nz, dx, dy, dz};
     size_t total_cells = static_cast<size_t>(nx) * ny * nz;
 
+    // Configure solver physical and numerical iteration parameters.
     SolverConfig config;
     config.density = 1.0;
     config.max_poisson_iterations = 25; 
@@ -162,6 +194,7 @@ TEST_F(CanonicalFlowsTest, LidDrivenCavityRe100) {
 
     NavierStokesOrchestrator orchestrator(dims, config);
 
+    // Reynolds number Re = 100 configuration: kinematic viscosity nu = 0.01.
     const double nu = 0.01;
     const double mu = config.density * nu;
     const std::vector<double> gravity = {0.0, 0.0, 0.0};
@@ -171,7 +204,7 @@ TEST_F(CanonicalFlowsTest, LidDrivenCavityRe100) {
 
     std::vector<BoundaryCondition> bc_list;
     
-    // Stationary walls
+    // Configure stationary no-slip walls for x_min, x_max, y_min, z_min, z_max.
     for (const std::string& loc : {"x_min", "x_max", "y_min", "z_min", "z_max"}) {
         BoundaryCondition bc_wall;
         bc_wall.location = loc;
@@ -184,7 +217,7 @@ TEST_F(CanonicalFlowsTest, LidDrivenCavityRe100) {
         bc_list.push_back(bc_wall);
     }
 
-    // Moving top lid at y_max
+    // Configure the moving top lid at y_max with an inflow/velocity boundary type.
     BoundaryCondition bc_lid;
     bc_lid.location = "y_max";
     bc_lid.type = "inflow";
@@ -201,7 +234,7 @@ TEST_F(CanonicalFlowsTest, LidDrivenCavityRe100) {
     std::vector<double> p(total_cells, 0.0);
 
     const double dt = 0.001;
-    const int total_steps = 400; // Fixed duration run for stability verification
+    const int total_steps = 400;
 
     std::cout << "[LID_DRIVEN_CAVITY] Starting stability & spike-free verification run..." << std::endl;
 
@@ -209,7 +242,8 @@ TEST_F(CanonicalFlowsTest, LidDrivenCavityRe100) {
         std::vector<double> u_old = u;
         std::vector<double> v_old = v;
 
-        // Smooth velocity ramp-up over the first 50 steps
+        // Smoothly ramp up the lid velocity over the first 50 steps:
+        //     current_lid_u = min(1.0, step / 50.0)
         double current_lid_u = std::min(1.0, static_cast<double>(step) / 50.0);
         bc_lid.u_val = current_lid_u;
         bc_lid.values.u = current_lid_u;
@@ -217,23 +251,26 @@ TEST_F(CanonicalFlowsTest, LidDrivenCavityRe100) {
 
         orchestrator.step(dt, mu, gravity, fx, fy, fz, mask, bc_list, u, v, w, p);
 
-        // INVARIANT 1: Divergence must remain finite and bounded on every step (FATAL ASSERTION)
+        // INVARIANT 1: Divergence must remain finite and bounded on every step
         double current_div = ComputeMaxDivergence(u, v, w, nx, ny, nz, dx, dy, dz);
+        assert(std::isfinite(current_div));
         ASSERT_TRUE(std::isfinite(current_div)) << "[FATAL] Non-finite divergence encountered at step " << step;
         ASSERT_LT(current_div, 10.0) << "[FATAL] Divergence safety ceiling exceeded at step " << step 
                                      << " | Divergence Value: " << current_div;
 
-        // INVARIANT 2: Velocity components must remain bounded and finite on every step (FATAL ASSERTION)
+        // INVARIANT 2: Velocity components must remain bounded and finite on every step
         double max_vel = 0.0;
         for (size_t i = 0; i < total_cells; ++i) {
+            assert(std::isfinite(u[i]));
+            assert(std::isfinite(v[i]));
             ASSERT_TRUE(std::isfinite(u[i])) << "[FATAL] Non-finite velocity u detected at step " << step;
             ASSERT_TRUE(std::isfinite(v[i])) << "[FATAL] Non-finite velocity v detected at step " << step;
             max_vel = std::max({max_vel, std::abs(u[i]), std::abs(v[i])});
         }
         ASSERT_LT(max_vel, 10.0) << "[FATAL] Catastrophic velocity blow-up/explosion detected at step " << step 
-                                  << " | Max Velocity: " << max_vel;
+                                << " | Max Velocity: " << max_vel;
 
-        // INVARIANT 3: Per-step transient residue with dynamic startup envelope (FATAL ASSERTION)
+        // INVARIANT 3: Per-step transient residue with dynamic startup envelope
         double residue = ComputeTransientResidue(u, u_old, v, v_old, total_cells);
         double allowed_residue = (step <= 60) ? 0.40 : 0.10;
         ASSERT_LT(residue, allowed_residue) 
@@ -268,6 +305,7 @@ TEST_F(CanonicalFlowsTest, LidDrivenCavityRe100) {
 // Scenario 7.2: Plane Poiseuille / Channel Flow Benchmark (Re = 10) - Stability & Spike-Free
 // =================================================================================
 TEST_F(CanonicalFlowsTest, PlanePoiseuilleFlowRe10) {
+    // Define grid dimensions and channel height H = ny * dy.
     const int nx = 16;
     const int ny = 16;
     const int nz = 3;
@@ -295,6 +333,7 @@ TEST_F(CanonicalFlowsTest, PlanePoiseuilleFlowRe10) {
 
     std::vector<BoundaryCondition> bc_list;
 
+    // Top and bottom channel walls (no-slip condition).
     for (const std::string& loc : {"y_min", "y_max"}) {
         BoundaryCondition bc_wall;
         bc_wall.location = loc;
@@ -307,6 +346,7 @@ TEST_F(CanonicalFlowsTest, PlanePoiseuilleFlowRe10) {
         bc_list.push_back(bc_wall);
     }
 
+    // Inlet condition (x_min): Prescribed parabolic centerline velocity u_max.
     BoundaryCondition bc_inlet;
     bc_inlet.location = "x_min";
     bc_inlet.type = "inflow";
@@ -317,6 +357,7 @@ TEST_F(CanonicalFlowsTest, PlanePoiseuilleFlowRe10) {
     bc_inlet.values.has_p = false;
     bc_list.push_back(bc_inlet);
 
+    // Outlet condition (x_max): Dirichlet pressure p = 0.0.
     BoundaryCondition bc_outlet;
     bc_outlet.location = "x_max";
     bc_outlet.type = "outflow";
@@ -332,6 +373,8 @@ TEST_F(CanonicalFlowsTest, PlanePoiseuilleFlowRe10) {
     std::vector<double> w(total_cells, 0.0);
     std::vector<double> p(total_cells, 0.0);
 
+    // Initialize velocity field with the analytical parabolic Poiseuille profile:
+    //     u(y) = 4 * u_max * (y / H) * (1.0 - (y / H))
     for (int k = 0; k < nz; ++k) {
         for (int j = 0; j < ny; ++j) {
             double y_pos = (j + 0.5) * dy;
@@ -354,23 +397,26 @@ TEST_F(CanonicalFlowsTest, PlanePoiseuilleFlowRe10) {
 
         orchestrator.step(dt, mu, gravity, fx, fy, fz, mask, bc_list, u, v, w, p);
 
-        // Stability check: Divergence must remain finite and bounded on every step (FATAL ASSERTION)
+        // Stability check: Divergence must remain finite and bounded on every step
         double current_div = ComputeMaxDivergence(u, v, w, nx, ny, nz, dx, dy, dz);
+        assert(std::isfinite(current_div));
         ASSERT_TRUE(std::isfinite(current_div)) << "[FATAL] Non-finite divergence encountered at step " << step;
         ASSERT_LT(current_div, 10.0) << "[FATAL] Divergence safety ceiling exceeded at step " << step 
                                      << " | Divergence Value: " << current_div;
 
-        // Velocity bounds & explosion check on every step (FATAL ASSERTION)
+        // Velocity bounds & explosion check on every step
         double max_vel = 0.0;
         for (size_t i = 0; i < total_cells; ++i) {
+            assert(std::isfinite(u[i]));
+            assert(std::isfinite(v[i]));
             ASSERT_TRUE(std::isfinite(u[i])) << "[FATAL] Non-finite u detected at step " << step;
             ASSERT_TRUE(std::isfinite(v[i])) << "[FATAL] Non-finite v detected at step " << step;
             max_vel = std::max({max_vel, std::abs(u[i]), std::abs(v[i])});
         }
         ASSERT_LT(max_vel, 10.0) << "[FATAL] Catastrophic velocity blow-up detected at step " << step 
-                                  << " | Max Velocity: " << max_vel;
+                                << " | Max Velocity: " << max_vel;
 
-        // Spike-free transient check on every step with dynamic startup envelope (FATAL ASSERTION)
+        // Spike-free transient check on every step with dynamic startup envelope
         double residue = ComputeTransientResidue(u, u_old, v, v_old, total_cells);
         double allowed_residue = (step <= 15) ? 0.25 : 0.08;
         ASSERT_LT(residue, allowed_residue) 
@@ -385,7 +431,7 @@ TEST_F(CanonicalFlowsTest, PlanePoiseuilleFlowRe10) {
         }
     }
 
-    // Post-run analytical profile comparison (L2 Error against exact parabolic solution)
+    // Post-run analytical profile comparison: Compute L2 Error against exact parabolic solution.
     int mid_x = nx / 2;
     int k_plane = 1;
 
@@ -406,6 +452,9 @@ TEST_F(CanonicalFlowsTest, PlanePoiseuilleFlowRe10) {
 
     double relative_l2_error = std::sqrt(diff_l2_sq / exact_l2_sq);
 
+    // Compute expected truncation error bound based on second derivative d2u/dy2:
+    //     d2u/dy2 = -8 * u_max / H^2
+    //     truncation_error_estimate = (dy^2 / 12) * |d2u/dy2|
     double d2u_dy2 = -8.0 * u_max / (H * H);
     double truncation_error_estimate = (dy * dy / 12.0) * std::abs(d2u_dy2);
     double dynamic_l2_bound = std::max(0.04, (truncation_error_estimate / u_max) * 3.5);
