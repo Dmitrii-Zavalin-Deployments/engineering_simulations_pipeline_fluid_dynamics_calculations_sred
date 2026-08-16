@@ -2,8 +2,8 @@
 src/archivist.py
 Archivist Module.
 Serializes final field states (u, v, w, p), packages snapshot binaries into a timestamped
-ZIP archive on success, and generates canonical output JSON manifests adhering strictly
-to navier_stokes_output.schema.json for both success and failure states.
+ZIP archive on success, cleans up loose temporary files, and generates canonical output JSON manifests 
+adhering strictly to navier_stokes_output.schema.json for both success and failure states.
 """
 
 import json
@@ -25,7 +25,8 @@ def archive_simulation_results(
     status: str,
 ) -> None:
     """
-    Exports solved fields, builds schema-compliant JSON manifest, and packages artifacts.
+    Exports solved fields, builds schema-compliant JSON manifest, packages artifacts, 
+    and cleans up loose temporary files.
 
     Args:
         state: Sovereign SolverState container holding simulation state.
@@ -98,11 +99,19 @@ def archive_simulation_results(
                 zip_out.write(npy_file, arcname=npy_file.name)
 
         logger.info(f"Successfully archived snapshot binaries into: {zip_file_path.name}")
+
+        # 4. Clean up loose temporary .npy files so only the ZIP archive remains
+        for npy_file in saved_snapshots:
+            try:
+                npy_file.unlink()
+                logger.info(f"Cleaned up temporary uncompressed snapshot: {npy_file.name}")
+            except Exception as e:
+                logger.warning(f"Failed to delete temporary npy file {npy_file.name}: {e}")
     else:
         target_zip_name = "NOT_APPLICABLE"
         logger.warning("Simulation marked as FAILURE. Skipping snapshot binary creation.")
 
-    # 4. Construct Schema-Compliant Output JSON Payload matching navier_stokes_output.schema.json
+    # 5. Construct Schema-Compliant Output JSON Payload matching navier_stokes_output.schema.json
     config_obj = getattr(state, "config", getattr(state, "config_data", {}))
     output_payload: dict[str, Any] = {
         "inputs": getattr(state, "input_data", {}),

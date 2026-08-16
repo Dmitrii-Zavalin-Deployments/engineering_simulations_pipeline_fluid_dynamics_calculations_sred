@@ -299,3 +299,43 @@ def test_archivist_success_full_archiving_pipeline(workspace_folder):
         assert "field_v.npy" in contents
         assert "field_w.npy" in contents
         assert "field_p.npy" in contents
+
+# ============================================================================
+# NARRATIVE SECTION 6: Loose Snapshot Binary Cleanup Verification
+# ============================================================================
+# When archive_simulation_results completes a SUCCESS archival run, individual
+# .npy snapshot files are compressed into a timestamped ZIP archive. To prevent 
+# workspace clutter, the loose .npy files must be unlinked/deleted from disk, 
+# leaving only the ZIP archive, input files, and the output JSON manifest.
+# ============================================================================
+
+
+def test_archivist_cleanup_loose_npy_files(workspace_folder):
+    """Verifies that uncompressed temporary .npy snapshot files are cleaned up from disk
+    after being compressed into the ZIP archive."""
+    folder = workspace_folder["folder"]
+    output_filename = "cleanup_manifest.json"
+    state = MockSolverState(with_fields=True)
+
+    archive_simulation_results(
+        state=state,
+        output_dir=folder,
+        output_filename=output_filename,
+        status="SUCCESS",
+    )
+
+    # Verify that the JSON manifest and the ZIP archive exist
+    manifest_path = Path(folder) / output_filename
+    assert manifest_path.is_file()
+
+    with open(manifest_path, "r", encoding="utf-8") as f:
+        manifest = json.load(f)
+    
+    target_zip = manifest["results"]["zip_filename"]
+    zip_path = Path(folder) / target_zip
+    assert zip_path.is_file()
+
+    # Verify that loose uncompressed .npy files have been removed from the output directory
+    for name in ["field_u.npy", "field_v.npy", "field_w.npy", "field_p.npy"]:
+        npy_file_path = Path(folder) / name
+        assert not npy_file_path.exists(), f"Loose temporary file found on disk: {name}"
