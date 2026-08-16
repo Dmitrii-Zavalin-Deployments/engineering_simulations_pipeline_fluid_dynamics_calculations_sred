@@ -237,9 +237,9 @@ def test_step_simulation_execution_failure():
 
 def test_cpp_gate_import_error_handling():
     """Verifies descriptive ImportError when compiled C++ module navier_stokes_cpp is missing."""
-    with patch.dict(sys.modules, {"navier_stokes_cpp": None}):
-        with pytest.raises(ImportError, match=r"Failed to import compiled C\+\+ module 'navier_stokes_cpp'"):
-            importlib.reload(cpp_gate)
+    with patch.dict(sys.modules, {"navier_stokes_cpp": None}), \
+         pytest.raises(ImportError, match=r"Failed to import compiled C\+\+ module 'navier_stokes_cpp'"):
+        importlib.reload(cpp_gate)
 
     # Restore module state post-test
     importlib.reload(cpp_gate)
