@@ -277,7 +277,6 @@ def test_get_boundary_condition_dicts_handling():
 
     class MinimalObject:
         """Object lacking standard boundary attributes to verify fallback defaults."""
-        pass
 
     raw_dict = {"location": "x_min", "type": "inflow", "values": {"u": 10.0}}
     cpp_obj = MockCppBC()
