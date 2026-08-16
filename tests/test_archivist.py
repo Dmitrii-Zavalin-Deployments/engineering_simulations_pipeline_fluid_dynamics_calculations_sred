@@ -11,7 +11,7 @@ zip archiving, error validation, and fallback state handling.
 import json
 import zipfile
 from pathlib import Path
-
+from unittest.mock import patch
 import numpy as np
 import pytest
 
@@ -352,3 +352,31 @@ def test_archivist_cleanup_loose_npy_files(workspace_folder):
     for name in ["field_u.npy", "field_v.npy", "field_w.npy", "field_p.npy"]:
         npy_file_path = Path(folder) / name
         assert not npy_file_path.exists(), f"Loose temporary file found on disk: {name}"
+
+# ============================================================================
+# NARRATIVE SECTION 7: Cleanup Exception Handling & Resilience
+# ============================================================================
+# During temporary file unlinking, underlying filesystem errors (such as 
+# permission restrictions or file locks) may prevent deletion of .npy binaries.
+# The archivist must intercept OSError exceptions gracefully, issue a diagnostic
+# warning, and proceed to complete manifest writing without raising a fatal error.
+# ============================================================================
+
+
+def test_archivist_cleanup_oserror_handling(workspace_folder):
+    """Verifies that an OSError during file unlinking is caught gracefully and logged as a warning."""
+    folder = workspace_folder["folder"]
+    state = MockSolverState(with_fields=True)
+
+    # Force Path.unlink to raise an OSError when cleaning up .npy files
+    with patch.object(Path, "unlink", side_effect=OSError("Simulated permission denied error")):
+        archive_simulation_results(
+            state=state,
+            output_dir=folder,
+            output_filename="oserror_manifest.json",
+            status="SUCCESS",
+        )
+
+    # Manifest and ZIP packaging should still complete successfully
+    manifest_path = Path(folder) / "oserror_manifest.json"
+    assert manifest_path.is_file()
