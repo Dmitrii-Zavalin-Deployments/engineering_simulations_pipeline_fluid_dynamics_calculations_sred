@@ -212,8 +212,9 @@ def test_archivist_cpp_solver_invalid_binding_raises_error(workspace_folder):
 
 
 def test_archivist_individual_fields_fallback(workspace_folder):
-    """Verifies fallback assembly of fields array from u, v, w, p attributes."""
+    """Verifies fallback assembly of fields array from u, v, w, p attributes and archiving into ZIP."""
     folder = workspace_folder["folder"]
+    output_filename = "fallback_manifest.json"
     state = MockSolverState(with_fields=False)
 
     # We attach individual field components:
@@ -226,18 +227,30 @@ def test_archivist_individual_fields_fallback(workspace_folder):
     archive_simulation_results(
         state=state,
         output_dir=folder,
-        output_filename="fallback_manifest.json",
+        output_filename=output_filename,
         status="SUCCESS",
     )
 
-    manifest_path = Path(folder) / "fallback_manifest.json"
+    manifest_path = Path(folder) / output_filename
     assert manifest_path.is_file()
 
-    # Verify field snapshot binaries were saved correctly
-    u_path = Path(folder) / "field_u.npy"
-    assert u_path.is_file()
-    loaded_u = np.load(u_path)
-    assert np.allclose(loaded_u, 1.0)
+    with open(manifest_path, "r", encoding="utf-8") as f:
+        manifest = json.load(f)
+
+    target_zip = manifest["results"]["zip_filename"]
+    zip_path = Path(folder) / target_zip
+    assert zip_path.is_file()
+
+    # Verify field snapshot binaries were successfully archived and cleaned up from root
+    with zipfile.ZipFile(zip_path, "r") as zf:
+        contents = zf.namelist()
+        assert "field_u.npy" in contents
+        assert "field_v.npy" in contents
+        assert "field_w.npy" in contents
+        assert "field_p.npy" in contents
+
+    # Verify loose files do not clutter the directory
+    assert not (Path(folder) / "field_u.npy").exists()
 
 
 def test_archivist_missing_fields_raises_error(workspace_folder):
