@@ -56,57 +56,57 @@ jobs:
           # libgl1 replaces the deprecated libgl1-mesa-glx on Ubuntu 24.04+
           sudo apt-get install -y libgl1 xvfb libglu1-mesa
 
-      # - name: ⚙️ Compile and Run C++ and Python Bridge Tests
-      #   run: |
-      #     sudo apt-get update && sudo apt-get install -y nlohmann-json3-dev
-      #     echo "🚀 Compiling and executing native C++ unit and integration tests with coverage..."
-      #     mkdir -p build/tests
+      - name: ⚙️ Compile and Run C++ and Python Bridge Tests
+        run: |
+          sudo apt-get update && sudo apt-get install -y nlohmann-json3-dev
+          echo "🚀 Compiling and executing native C++ unit and integration tests with coverage..."
+          mkdir -p build/tests
 
-      #     # Dynamically find all core C++ implementation files except python_gate.cpp for pure C++ tests
-      #     CPP_SOURCES=$(find cpp/src -name "*.cpp" ! -name "python_gate.cpp")
+          # Dynamically find all core C++ implementation files except python_gate.cpp for pure C++ tests
+          CPP_SOURCES=$(find cpp/src -name "*.cpp" ! -name "python_gate.cpp")
 
-      #     # 1. Compile C++ Unit Tests (from flat cpp/cpp_unit_tests/ folder)
-      #     echo "⚙️ Compiling Unit Tests..."
-      #     g++ --coverage -O0 -std=c++17 -fopenmp $CPP_SOURCES \
-      #       /usr/src/googletest/googletest/src/gtest-all.cc \
-      #       /usr/src/googletest/googletest/src/gtest_main.cc \
-      #       $(find cpp/cpp_unit_tests -name "*.cpp") \
-      #       -I/usr/src/googletest/googletest \
-      #       -Icpp/include \
-      #       -lpthread \
-      #       -o build/tests/unit_tests
+          # 1. Compile C++ Unit Tests (from flat cpp/cpp_unit_tests/ folder)
+          echo "⚙️ Compiling Unit Tests..."
+          g++ --coverage -O0 -std=c++17 -fopenmp $CPP_SOURCES \
+            /usr/src/googletest/googletest/src/gtest-all.cc \
+            /usr/src/googletest/googletest/src/gtest_main.cc \
+            $(find cpp/cpp_unit_tests -name "*.cpp") \
+            -I/usr/src/googletest/googletest \
+            -Icpp/include \
+            -lpthread \
+            -o build/tests/unit_tests
 
-      #     # 2. Compile C++ Integration Tests (from flat cpp/cpp_integration_tests/ folder)
-      #     echo "⚙️ Compiling Integration Tests..."
-      #     g++ --coverage -O0 -std=c++17 -fopenmp $CPP_SOURCES \
-      #       /usr/src/googletest/googletest/src/gtest-all.cc \
-      #       /usr/src/googletest/googletest/src/gtest_main.cc \
-      #       $(find cpp/cpp_integration_tests -name "*.cpp") \
-      #       -I/usr/src/googletest/googletest \
-      #       -Icpp/include \
-      #       -lpthread \
-      #       -o build/tests/integration_tests
+          # 2. Compile C++ Integration Tests (from flat cpp/cpp_integration_tests/ folder)
+          echo "⚙️ Compiling Integration Tests..."
+          g++ --coverage -O0 -std=c++17 -fopenmp $CPP_SOURCES \
+            /usr/src/googletest/googletest/src/gtest-all.cc \
+            /usr/src/googletest/googletest/src/gtest_main.cc \
+            $(find cpp/cpp_integration_tests -name "*.cpp") \
+            -I/usr/src/googletest/googletest \
+            -Icpp/include \
+            -lpthread \
+            -o build/tests/integration_tests
 
-      #     # 3. Compile Python shared module with bindings and coverage (MUST include python_gate.cpp)
-      #     echo "⚙️ Compiling Python pybind11 module..."
-      #     ALL_CPP_SOURCES=$(find cpp/src -name "*.cpp")
-      #     g++ --coverage -O0 -std=c++17 -shared -fPIC -fopenmp \
-      #       $ALL_CPP_SOURCES \
-      #       -Icpp/include \
-      #       $(python3 -m pybind11 --includes) \
-      #       -o navier_stokes_cpp$(python3-config --extension-suffix)
+          # 3. Compile Python shared module with bindings and coverage (MUST include python_gate.cpp)
+          echo "⚙️ Compiling Python pybind11 module..."
+          ALL_CPP_SOURCES=$(find cpp/src -name "*.cpp")
+          g++ --coverage -O0 -std=c++17 -shared -fPIC -fopenmp \
+            $ALL_CPP_SOURCES \
+            -Icpp/include \
+            $(python3 -m pybind11 --includes) \
+            -o navier_stokes_cpp$(python3-config --extension-suffix)
 
-      #     echo "🧪 Executing native C++ Unit Test suite..."
-      #     ./build/tests/unit_tests
+          echo "🧪 Executing native C++ Unit Test suite..."
+          ./build/tests/unit_tests
 
-      #     echo "🌊 Executing native C++ Integration Test suite..."
-      #     ./build/tests/integration_tests
+          echo "🌊 Executing native C++ Integration Test suite..."
+          ./build/tests/integration_tests
 
-      #     echo "🐍 Executing Python C++ bridge tests from cpp/python_bridge_tests/..."
-      #     pytest cpp/python_bridge_tests/ -v
+          echo "🐍 Executing Python C++ bridge tests from cpp/python_bridge_tests/..."
+          pytest cpp/python_bridge_tests/ -v
 
-      #     echo "📊 Generating Combined Code Coverage Report..."
-      #     gcovr --root=. --filter=cpp/src/ --print-summary --txt
+          echo "📊 Generating Combined Code Coverage Report..."
+          gcovr --root=. --filter=cpp/src/ --print-summary --txt
 
       - name: 🧹 Auto-Clean (Autoflake)
         run: |
@@ -211,340 +211,340 @@ jobs:
             echo "Forensic script already dormant."
           fi
 
-  # validation_tests:
-  #   name: "🔬 Validation Tests"
-  #   needs: verification_tests
-  #   runs-on: ubuntu-latest
-  #   env:
-  #     PYTHONPATH: ${{ github.workspace }}
-  #     APP_KEY: ${{ secrets.APP_KEY }}
-  #     APP_SECRET: ${{ secrets.APP_SECRET }}
-  #     REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
+  validation_tests:
+    name: "🔬 Validation Tests"
+    needs: verification_tests
+    runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: ${{ github.workspace }}
+      APP_KEY: ${{ secrets.APP_KEY }}
+      APP_SECRET: ${{ secrets.APP_SECRET }}
+      REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
 
-  #   steps:
-  #     - name: 🗂️ Checkout Repository
-  #       uses: actions/checkout@v4
-  #       with:
-  #         fetch-depth: 0
+    steps:
+      - name: 🗂️ Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-  #     # 🔧 ROBOT B IDENTITY + NOTES INITIALIZATION
-  #     - name: 🤖 Initialize Robot B Identity & Notes
-  #       run: |
-  #         # Normalize branch name for safe use in email (replace "/" with "-")
-  #         BRANCH_SAFE="${GITHUB_REF_NAME//\//-}"
+      # 🔧 ROBOT B IDENTITY + NOTES INITIALIZATION
+      - name: 🤖 Initialize Robot B Identity & Notes
+        run: |
+          # Normalize branch name for safe use in email (replace "/" with "-")
+          BRANCH_SAFE="${GITHUB_REF_NAME//\//-}"
 
-  #         # Set dynamic Robot B identity per branch
-  #         git config --global user.name "Automation Engine B (${BRANCH_SAFE})"
-  #         git config --global user.email "automation_b+${BRANCH_SAFE}@yourdomain"
+          # Set dynamic Robot B identity per branch
+          git config --global user.name "Automation Engine B (${BRANCH_SAFE})"
+          git config --global user.email "automation_b+${BRANCH_SAFE}@yourdomain"
 
-  #         # Ensure Git Notes are rewritten and preserved
-  #         git config --global notes.rewriteRef "refs/notes/*"
+          # Ensure Git Notes are rewritten and preserved
+          git config --global notes.rewriteRef "refs/notes/*"
 
-  #     - name: 🐍 Set up Python
-  #       uses: actions/setup-python@v5
-  #       with:
-  #         python-version: "3.11"
-  #         cache: 'pip'
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: 'pip'
 
-  #     - name: 📦 Provision Environment Layers & C++ Build (Pip & CMake)
-  #       run: |
-  #         python -m pip install --upgrade pip
-  #         chmod +x requirements.sh
-  #         ./requirements.sh
+      - name: 📦 Provision Environment Layers & C++ Build (Pip & CMake)
+        run: |
+          python -m pip install --upgrade pip
+          chmod +x requirements.sh
+          ./requirements.sh
 
-  #     - name: 🌐 Install Headless Rendering Dependencies
-  #       run: |
-  #         # Establish virtual display device infrastructure and OpenGL bindings
-  #         sudo apt-get update
-  #         # libgl1 replaces the deprecated libgl1-mesa-glx on Ubuntu 24.04+
-  #         sudo apt-get install -y libgl1 xvfb libglu1-mesa
+      - name: 🌐 Install Headless Rendering Dependencies
+        run: |
+          # Establish virtual display device infrastructure and OpenGL bindings
+          sudo apt-get update
+          # libgl1 replaces the deprecated libgl1-mesa-glx on Ubuntu 24.04+
+          sudo apt-get install -y libgl1 xvfb libglu1-mesa
 
-  #     - name: 🌊 Execute Navier–Stokes Solver (with Live Profiling)
-  #       run: |
-  #         # Initialize background performance tracker to capture accurate trends
-  #         rm -f /tmp/cpu_track.log /tmp/memory_profile.log
+      - name: 🌊 Execute Navier–Stokes Solver (with Live Profiling)
+        run: |
+          # Initialize background performance tracker to capture accurate trends
+          rm -f /tmp/cpu_track.log /tmp/memory_profile.log
 
-  #         echo "Starting asynchronous background compute metrics sampler..."
-  #         while true; do
-  #           # Evaluates active utilization delta (user + system space) every second
-  #           top -bn1 | grep "Cpu(s)" | awk '{print $2 + $4}' >> /tmp/cpu_track.log 2>/dev/null || true
-  #           sleep 1
-  #         done &
-  #         SAMPLER_PID=$!
+          echo "Starting asynchronous background compute metrics sampler..."
+          while true; do
+            # Evaluates active utilization delta (user + system space) every second
+            top -bn1 | grep "Cpu(s)" | awk '{print $2 + $4}' >> /tmp/cpu_track.log 2>/dev/null || true
+            sleep 1
+          done &
+          SAMPLER_PID=$!
 
-  #         INPUT_FILE="data/testing-input-output/navier_stokes_solver_input.json"
-  #         if [ ! -f "$INPUT_FILE" ]; then
-  #           echo "❌ CRITICAL ERROR: Input file context missing at $INPUT_FILE."
-  #           exit 1
-  #         fi
+          INPUT_FILE="data/testing-input-output/navier_stokes_solver_input.json"
+          if [ ! -f "$INPUT_FILE" ]; then
+            echo "❌ CRITICAL ERROR: Input file context missing at $INPUT_FILE."
+            exit 1
+          fi
 
-  #         # Run core execution module under verbose tool monitoring to record Peak Resident Set Size (RSS)
-  #         /usr/bin/time -v xvfb-run --auto-servernum python src/main.py \
-  #           --input_output_folder "${GITHUB_WORKSPACE}/data/testing-input-output/" \
-  #           --input_file_name "navier_stokes_solver_input.json" \
-  #           --output_file_name "navier_stokes_output.json" 2> /tmp/memory_profile.log
+          # Run core execution module under verbose tool monitoring to record Peak Resident Set Size (RSS)
+          /usr/bin/time -v xvfb-run --auto-servernum python src/main.py \
+            --input_output_folder "${GITHUB_WORKSPACE}/data/testing-input-output/" \
+            --input_file_name "navier_stokes_solver_input.json" \
+            --output_file_name "navier_stokes_output.json" 2> /tmp/memory_profile.log
 
-  #         # Unwind profile monitoring immediately post-execution 
-  #         kill $SAMPLER_PID
+          # Unwind profile monitoring immediately post-execution 
+          kill $SAMPLER_PID
 
-  #         # Standardize and isolate peak payload metric thresholds
-  #         PEAK_CPU=$(sort -n /tmp/cpu_track.log | tail -n 1)
-  #         if [ -z "$PEAK_CPU" ]; then PEAK_CPU="0.0"; fi
+          # Standardize and isolate peak payload metric thresholds
+          PEAK_CPU=$(sort -n /tmp/cpu_track.log | tail -n 1)
+          if [ -z "$PEAK_CPU" ]; then PEAK_CPU="0.0"; fi
 
-  #         # Parse Peak Memory footprint values from verbose execution dump
-  #         MAX_RSS_KB=$(grep "Maximum resident set size" /tmp/memory_profile.log | awk '{print $6}')
-  #         if [ -z "$MAX_RSS_KB" ]; then
-  #           MAX_RSS_MB=$(free -m | awk '/Mem:/ { print $3 }')
-  #         else
-  #           MAX_RSS_MB=$((MAX_RSS_KB / 1024))
-  #         fi
-  #         TOTAL_MEM_MB=$(free -m | awk '/Mem:/ { print $2 }')
+          # Parse Peak Memory footprint values from verbose execution dump
+          MAX_RSS_KB=$(grep "Maximum resident set size" /tmp/memory_profile.log | awk '{print $6}')
+          if [ -z "$MAX_RSS_KB" ]; then
+            MAX_RSS_MB=$(free -m | awk '/Mem:/ { print $3 }')
+          else
+            MAX_RSS_MB=$((MAX_RSS_KB / 1024))
+          fi
+          TOTAL_MEM_MB=$(free -m | awk '/Mem:/ { print $2 }')
 
-  #         # Inject peak thresholds directly into environment runtime variables context
-  #         echo "PEAK_COMPUTE_LOAD=${PEAK_CPU}%" >> $GITHUB_ENV
-  #         echo "PEAK_MEM_USAGE=${MAX_RSS_MB}/${TOTAL_MEM_MB}MB" >> $GITHUB_ENV
-  #         echo "✅ Profiler teardown clean. Peak CPU: ${PEAK_CPU}%, Peak Memory: ${MAX_RSS_MB}/${TOTAL_MEM_MB}MB"
+          # Inject peak thresholds directly into environment runtime variables context
+          echo "PEAK_COMPUTE_LOAD=${PEAK_CPU}%" >> $GITHUB_ENV
+          echo "PEAK_MEM_USAGE=${MAX_RSS_MB}/${TOTAL_MEM_MB}MB" >> $GITHUB_ENV
+          echo "✅ Profiler teardown clean. Peak CPU: ${PEAK_CPU}%, Peak Memory: ${MAX_RSS_MB}/${TOTAL_MEM_MB}MB"
 
-  #     - name: 🔍 Post-Execution Artifact Verification
-  #       run: |
-  #         # Verify that JSON output manifest has been deterministically compiled
-  #         echo "--- Verifying Generated Output Structure ---"
-  #         ls -l data/testing-input-output/navier_stokes_output.json
+      - name: 🔍 Post-Execution Artifact Verification
+        run: |
+          # Verify that JSON output manifest has been deterministically compiled
+          echo "--- Verifying Generated Output Structure ---"
+          ls -l data/testing-input-output/navier_stokes_output.json
 
-  #         # Verify that the timestamped snapshot ZIP archive has been successfully created
-  #         echo "--- Verifying Compressed Field Snapshot Archive ---"
-  #         ls -l data/testing-input-output/*.zip
+          # Verify that the timestamped snapshot ZIP archive has been successfully created
+          echo "--- Verifying Compressed Field Snapshot Archive ---"
+          ls -l data/testing-input-output/*.zip
 
-  #         # Print output manifest summary for log tracing
-  #         head -n 30 data/testing-input-output/navier_stokes_output.json
+          # Print output manifest summary for log tracing
+          head -n 30 data/testing-input-output/navier_stokes_output.json
       
-  #     - name: 🛡 Post-Execution Schema Compliance Audit
-  #       run: |
-  #         echo "--- Running Standalone JSON Schema Verification ---"
-  #         python src/utils/validate_schema.py
+      - name: 🛡 Post-Execution Schema Compliance Audit
+        run: |
+          echo "--- Running Standalone JSON Schema Verification ---"
+          python src/utils/validate_schema.py
 
-  #     - name: 💾 Sync Testing Assets to Repository
-  #       if: always()
-  #       run: |
-  #         # 1. Stash local changes (including untracked files)
-  #         git stash -u
+      - name: 💾 Sync Testing Assets to Repository
+        if: always()
+        run: |
+          # 1. Stash local changes (including untracked files)
+          git stash -u
 
-  #         # 2. Pull with '-X ours' to resolve binary conflicts
-  #         git pull origin HEAD --rebase -X ours
+          # 2. Pull with '-X ours' to resolve binary conflicts
+          git pull origin HEAD --rebase -X ours
 
-  #         # 3. Restore stashed changes
-  #         git stash pop || true
+          # 3. Restore stashed changes
+          git stash pop || true
 
-  #         # 4. Add the specific test folder
-  #         git add data/testing-input-output/
+          # 4. Add the specific test folder
+          git add data/testing-input-output/
 
-  #         # 5. Commit/Push with Notes
-  #         if [ -n "$(git status --porcelain data/testing-input-output/)" ]; then
-  #           git commit -m "🤖 robot b: sync testing assets [${{ job.status }}]"
-  #           TARGET_COMMIT=$(git rev-parse HEAD)
+          # 5. Commit/Push with Notes
+          if [ -n "$(git status --porcelain data/testing-input-output/)" ]; then
+            git commit -m "🤖 robot b: sync testing assets [${{ job.status }}]"
+            TARGET_COMMIT=$(git rev-parse HEAD)
 
-  #           # 1 Fetch remote notes FIRST
-  #           git fetch origin refs/notes/commits:refs/notes/commits || true
+            # 1 Fetch remote notes FIRST
+            git fetch origin refs/notes/commits:refs/notes/commits || true
 
-  #           # 2 Add note locally
-  #           git notes add -f -m "robot: true" "$TARGET_COMMIT"
+            # 2 Add note locally
+            git notes add -f -m "robot: true" "$TARGET_COMMIT"
 
-  #           # 3 Push commit
-  #           git push origin HEAD || echo "Push skipped: branch protected."
+            # 3 Push commit
+            git push origin HEAD || echo "Push skipped: branch protected."
 
-  #           # 4 Force-push notes
-  #           git push --force origin refs/notes/commits || true
-  #         else
-  #           echo "No testing asset changes detected. Sync skipped."
-  #         fi
+            # 4 Force-push notes
+            git push --force origin refs/notes/commits || true
+          else
+            echo "No testing asset changes detected. Sync skipped."
+          fi
 
-  #     - name: 📊 Audit Performance Ledger & Sync
-  #       if: always()
-  #       run: |
-  #         git reset --hard HEAD
-  #         git clean -ffdx
-  #         git pull origin HEAD --rebase
+      - name: 📊 Audit Performance Ledger & Sync
+        if: always()
+        run: |
+          git reset --hard HEAD
+          git clean -ffdx
+          git pull origin HEAD --rebase
 
-  #         RUN_DATE=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
-  #         STATUS="${{ job.status }}"
-  #         CURRENT_BRANCH=${GITHUB_REF##*/}
+          RUN_DATE=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          STATUS="${{ job.status }}"
+          CURRENT_BRANCH=${GITHUB_REF##*/}
 
-  #         # Parse high-fidelity metrics populated during live engine load, fallback to idle if missing
-  #         CPU_LOAD="${PEAK_COMPUTE_LOAD:-$(top -bn1 | grep "Cpu(s)" | awk '{print $2 + $4 "%"}')}"
-  #         MEM_USAGE="${PEAK_MEM_USAGE:-$(free -m | awk '/Mem:/ { print $3 "/" $2 "MB" }')}"
+          # Parse high-fidelity metrics populated during live engine load, fallback to idle if missing
+          CPU_LOAD="${PEAK_COMPUTE_LOAD:-$(top -bn1 | grep "Cpu(s)" | awk '{print $2 + $4 "%"}')}"
+          MEM_USAGE="${PEAK_MEM_USAGE:-$(free -m | awk '/Mem:/ { print $3 "/" $2 "MB" }')}"
 
-  #         RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
 
-  #         NEW_ENTRY=$(cat <<EOF
-  #         ### Audit: $RUN_DATE
-  #         - **Branch:** \`$CURRENT_BRANCH\`
-  #         - **Status:** \`$STATUS\`
-  #         - **Run:** [Detailed Execution Logs]($RUN_URL)
-  #         - **CPU Load:** \`$CPU_LOAD\`
-  #         - **Memory Usage:** \`$MEM_USAGE\`
-  #         EOF
-  #         )
+          NEW_ENTRY=$(cat <<EOF
+          ### Audit: $RUN_DATE
+          - **Branch:** \`$CURRENT_BRANCH\`
+          - **Status:** \`$STATUS\`
+          - **Run:** [Detailed Execution Logs]($RUN_URL)
+          - **CPU Load:** \`$CPU_LOAD\`
+          - **Memory Usage:** \`$MEM_USAGE\`
+          EOF
+          )
 
-  #         HEADER=$(cat <<EOF
-  #         # 🌊 Navier–Stokes Solver
+          HEADER=$(cat <<EOF
+          # 🌊 Navier–Stokes Solver
 
-  #         ## 🛠️ Fluid Dynamics & Numerical Simulation Engine
-  #         A high-fidelity 3D Eulerian Navier–Stokes solver execution engine equipped 
-  #         with automated continuous integration, forensics, and Cloud synchronization.
+          ## 🛠️ Fluid Dynamics & Numerical Simulation Engine
+          A high-fidelity 3D Eulerian Navier–Stokes solver execution engine equipped 
+          with automated continuous integration, forensics, and Cloud synchronization.
 
-  #         ### 🔄 Execution Pipeline Architecture
+          ### 🔄 Execution Pipeline Architecture
 
-  #         \`\`\`text
-  #         [ JSON Input Config ] 
-  #                 │
-  #                 ▼
-  #         [ Ingestion & Validation ] ──► [ SolverState Container ]
-  #                                                 │
-  #                                                 ▼
-  #                                       [ Time Loop ]
-  #                                                 │
-  #                                                 ▼
-  #                                       [ Navier Stokes Solver ]
-  #                                                 │
-  #                                                 ▼
-  #                                       [ SolverState Container ]
-  #                                                 │
-  #                                                 ▼
-  #                                       [ JSON Output ] ──► [ Archivist Package (.zip) ]
-  #         \`\`\`
+          \`\`\`text
+          [ JSON Input Config ] 
+                  │
+                  ▼
+          [ Ingestion & Validation ] ──► [ SolverState Container ]
+                                                  │
+                                                  ▼
+                                        [ Time Loop ]
+                                                  │
+                                                  ▼
+                                        [ Navier Stokes Solver ]
+                                                  │
+                                                  ▼
+                                        [ SolverState Container ]
+                                                  │
+                                                  ▼
+                                        [ JSON Output ] ──► [ Archivist Package (.zip) ]
+          \`\`\`
 
-  #         ### 📚 Resources & Documentation
-  #         - **Tutorial/Book:** ***currently in development***
+          ### 📚 Resources & Documentation
+          - **Tutorial/Book:** ***currently in development***
 
-  #         ---
+          ---
 
-  #         ### 🧮 Performance Audit:
+          ### 🧮 Performance Audit:
 
-  #         EOF
-  #         )
+          EOF
+          )
 
-  #         if [ -f "README.md" ]; then
-  #             sed -n '/### Audit:/,$p' README.md > old_body.tmp
-  #             echo "$HEADER" > README.md
-  #             echo "$NEW_ENTRY" >> README.md
-  #             cat old_body.tmp >> README.md
-  #             rm old_body.tmp
-  #         else
-  #             echo "$HEADER" > README.md
-  #             echo "$NEW_ENTRY" >> README.md
-  #         fi
+          if [ -f "README.md" ]; then
+              sed -n '/### Audit:/,$p' README.md > old_body.tmp
+              echo "$HEADER" > README.md
+              echo "$NEW_ENTRY" >> README.md
+              cat old_body.tmp >> README.md
+              rm old_body.tmp
+          else
+              echo "$HEADER" > README.md
+              echo "$NEW_ENTRY" >> README.md
+          fi
 
-  #         git add README.md
+          git add README.md
 
-  #         if [ -n "$(git status --porcelain README.md)" ]; then
-  #           git commit -m "🤖 robot b: audit ledger update [${{ job.status }}] [skip ci]"
-  #           TARGET_COMMIT=$(git rev-parse HEAD)
+          if [ -n "$(git status --porcelain README.md)" ]; then
+            git commit -m "🤖 robot b: audit ledger update [${{ job.status }}] [skip ci]"
+            TARGET_COMMIT=$(git rev-parse HEAD)
 
-  #           # 1 Fetch remote notes
-  #           git fetch origin refs/notes/commits:refs/notes/commits || true
+            # 1 Fetch remote notes
+            git fetch origin refs/notes/commits:refs/notes/commits || true
 
-  #           # 2 Add note locally
-  #           git notes add -f -m "robot: true" "$TARGET_COMMIT"
+            # 2 Add note locally
+            git notes add -f -m "robot: true" "$TARGET_COMMIT"
 
-  #           # 3 Push commit and notes
-  #           git pull origin HEAD --rebase || echo "Rebase failed, pushing without rebase."
-  #           git push origin HEAD
-  #           git push --force origin refs/notes/commits || true
-  #         else
-  #           echo "No ledger changes."
-  #         fi
+            # 3 Push commit and notes
+            git pull origin HEAD --rebase || echo "Rebase failed, pushing without rebase."
+            git push origin HEAD
+            git push --force origin refs/notes/commits || true
+          else
+            echo "No ledger changes."
+          fi
 
-  #     - name: 🔍 Forensic Audit
-  #       if: always()
-  #       run: |
-  #         if [[ "${{ job.status }}" == "success" ]]; then
-  #           echo "✅ All systems nominal. No anomalies detected in solver lifecycle."
-  #           cat <<EOF > debug/forensic_audit_validation.sh
-  #         #!/bin/bash
-  #         # Description: Automated forensic audit for Navier-Stokes solver failures.
-  #         # Status: Dormant (All systems nominal)
-  #         exit 0
-  #         EOF
-  #           chmod +x debug/forensic_audit_validation.sh
-  #           echo "🧹 Diagnostic script has been reset to Dormant mode."
-  #         else
-  #           echo "⚠️ CI Failure Detected. Initiating Deep Forensic Audit..."
-  #           echo "============================================================"
-  #           echo "ls -R output:"
-  #           ls -R || echo "output dir not found"
-  #           echo "============================================================"
-  #           echo "debug/forensic_audit_validation.sh run results:"
-  #           if [ -f "debug/forensic_audit_validation.sh" ]; then
-  #             bash debug/forensic_audit_validation.sh
-  #           else
-  #             echo "❌ Critical: Diagnostic script 'debug/forensic_audit_validation.sh' not found."
-  #           fi
-  #           exit 1
-  #         fi
+      - name: 🔍 Forensic Audit
+        if: always()
+        run: |
+          if [[ "${{ job.status }}" == "success" ]]; then
+            echo "✅ All systems nominal. No anomalies detected in solver lifecycle."
+            cat <<EOF > debug/forensic_audit_validation.sh
+          #!/bin/bash
+          # Description: Automated forensic audit for Navier-Stokes solver failures.
+          # Status: Dormant (All systems nominal)
+          exit 0
+          EOF
+            chmod +x debug/forensic_audit_validation.sh
+            echo "🧹 Diagnostic script has been reset to Dormant mode."
+          else
+            echo "⚠️ CI Failure Detected. Initiating Deep Forensic Audit..."
+            echo "============================================================"
+            echo "ls -R output:"
+            ls -R || echo "output dir not found"
+            echo "============================================================"
+            echo "debug/forensic_audit_validation.sh run results:"
+            if [ -f "debug/forensic_audit_validation.sh" ]; then
+              bash debug/forensic_audit_validation.sh
+            else
+              echo "❌ Critical: Diagnostic script 'debug/forensic_audit_validation.sh' not found."
+            fi
+            exit 1
+          fi
 
-  #     - name: 🧹 Sync Forensic Reset
-  #       # This only runs if the '🔍 Forensic Audit' step and tests passed
-  #       if: success()
-  #       run: |
-  #         git add debug/forensic_audit_validation.sh
-  #         if [ -n "$(git status --porcelain debug/forensic_audit_validation.sh)" ]; then
-  #           git commit -m "🤖 robot b: forensic reset [PASS]"
-  #           TARGET_COMMIT=$(git rev-parse HEAD)
+      - name: 🧹 Sync Forensic Reset
+        # This only runs if the '🔍 Forensic Audit' step and tests passed
+        if: success()
+        run: |
+          git add debug/forensic_audit_validation.sh
+          if [ -n "$(git status --porcelain debug/forensic_audit_validation.sh)" ]; then
+            git commit -m "🤖 robot b: forensic reset [PASS]"
+            TARGET_COMMIT=$(git rev-parse HEAD)
 
-  #           # 1 Fetch remote notes FIRST
-  #           git fetch origin refs/notes/commits:refs/notes/commits || true
+            # 1 Fetch remote notes FIRST
+            git fetch origin refs/notes/commits:refs/notes/commits || true
 
-  #           # 2 Add note locally
-  #           git notes add -f -m "robot: true" "$TARGET_COMMIT"
+            # 2 Add note locally
+            git notes add -f -m "robot: true" "$TARGET_COMMIT"
 
-  #           # 3 Push commit
-  #           git push origin HEAD || echo "Push skipped: concurrent push detected."
+            # 3 Push commit
+            git push origin HEAD || echo "Push skipped: concurrent push detected."
 
-  #           # 4 Force-push notes
-  #           git push --force origin refs/notes/commits || true
-  #         else
-  #           echo "Forensic script already dormant."
-  #         fi
+            # 4 Force-push notes
+            git push --force origin refs/notes/commits || true
+          else
+            echo "Forensic script already dormant."
+          fi
 
-  #     - name: 🛠️ Retroactive Git Notes Corrector (All Automation Engines)
-  #       if: always()
-  #       run: |
-  #         echo "--- Starting Retroactive Git Notes Audit (All History) ---"
+      - name: 🛠️ Retroactive Git Notes Corrector (All Automation Engines)
+        if: always()
+        run: |
+          echo "--- Starting Retroactive Git Notes Audit (All History) ---"
 
-  #         # 1. Fetch remote notes first to ensure accurate state
-  #         git fetch origin refs/notes/commits:refs/notes/commits || true
+          # 1. Fetch remote notes first to ensure accurate state
+          git fetch origin refs/notes/commits:refs/notes/commits || true
 
-  #         # 2. Find all commits in history made by any Automation Engine
-  #         COMMIT_HASHES=$(git log --format="%H %an" | grep -E "Automation Engine" | awk '{print $1}')
+          # 2. Find all commits in history made by any Automation Engine
+          COMMIT_HASHES=$(git log --format="%H %an" | grep -E "Automation Engine" | awk '{print $1}')
 
-  #         # 3. Identify all active automation engines found in commit history
-  #         ACTIVE_ENGINES=$(git log --format="%an" | grep -E "Automation Engine" | sort -u | tr '\n' ', ' | sed 's/,$//')
+          # 3. Identify all active automation engines found in commit history
+          ACTIVE_ENGINES=$(git log --format="%an" | grep -E "Automation Engine" | sort -u | tr '\n' ', ' | sed 's/,$//')
 
-  #         if [ -z "$COMMIT_HASHES" ]; then
-  #           echo "No automation engine commits found in history."
-  #         else
-  #           TOTAL_COMMITS=0
-  #           ADDED_NOTES=0
+          if [ -z "$COMMIT_HASHES" ]; then
+            echo "No automation engine commits found in history."
+          else
+            TOTAL_COMMITS=0
+            ADDED_NOTES=0
 
-  #           for COMMIT in $COMMIT_HASHES; do
-  #             TOTAL_COMMITS=$((TOTAL_COMMITS + 1))
+            for COMMIT in $COMMIT_HASHES; do
+              TOTAL_COMMITS=$((TOTAL_COMMITS + 1))
 
-  #             # 4. Check if the commit already has a git note
-  #             if ! git notes show "$COMMIT" >/dev/null 2>&1; then
-  #               echo "⚠️ Missing note detected for commit: $COMMIT. Adding note..."
-  #               git notes add -f -m "robot: true" "$COMMIT"
-  #               ADDED_NOTES=$((ADDED_NOTES + 1))
-  #             fi
-  #           done
+              # 4. Check if the commit already has a git note
+              if ! git notes show "$COMMIT" >/dev/null 2>&1; then
+                echo "⚠️ Missing note detected for commit: $COMMIT. Adding note..."
+                git notes add -f -m "robot: true" "$COMMIT"
+                ADDED_NOTES=$((ADDED_NOTES + 1))
+              fi
+            done
 
-  #           echo "--------------------------------------------------"
-  #           echo "📊 Git Notes Audit Summary:"
-  #           echo "   - Active Automation Engines:       [ ${ACTIVE_ENGINES:-None} ]"
-  #           echo "   - Total Automation Commits Scanned: $TOTAL_COMMITS"
-  #           echo "   - Missing Notes Fixed & Added:      $ADDED_NOTES"
-  #           echo "--------------------------------------------------"
+            echo "--------------------------------------------------"
+            echo "📊 Git Notes Audit Summary:"
+            echo "   - Active Automation Engines:       [ ${ACTIVE_ENGINES:-None} ]"
+            echo "   - Total Automation Commits Scanned: $TOTAL_COMMITS"
+            echo "   - Missing Notes Fixed & Added:      $ADDED_NOTES"
+            echo "--------------------------------------------------"
 
-  #           # 5. Force-push the synchronized notes namespace to origin
-  #           echo "Pushing updated notes to remote..."
-  #           git push --force origin refs/notes/commits || echo "Notes push skipped or protected."
-  #         fi
+            # 5. Force-push the synchronized notes namespace to origin
+            echo "Pushing updated notes to remote..."
+            git push --force origin refs/notes/commits || echo "Notes push skipped or protected."
+          fi
