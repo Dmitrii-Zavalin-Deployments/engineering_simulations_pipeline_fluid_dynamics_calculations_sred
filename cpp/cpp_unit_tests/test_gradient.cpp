@@ -2,9 +2,20 @@
  * @file test_gradient.cpp
  * @brief Literate test suite for the 3D Gradient Operator with Multi-Threading Verification.
  * 
+ * LITERATE TESTING NARRATIVE & MATHEMATICAL FORMULATION:
+ * ---------------------------------------------------------------------------------
  * This test file narrates and verifies the analytical accuracy, multi-threading 
  * execution correctness, geometry safety, and numerical exception handling of the 
  * C++ compute_gradient kernel.
+ * 
+ * The gradient of a scalar field p(x, y, z) is defined as:
+ *     grad(p) = [dp/dx, dp/dy, dp/dz]^T
+ * 
+ * Using second-order central differences:
+ *     dp/dx = (p(i+1, j, k) - p(i-1, j, k)) / (2 * dx)
+ *     dp/dy = (p(i, j+1, k) - p(i, j-1, k)) / (2 * dy)
+ *     dp/dz = (p(i, j, k+1) - p(i, j, k-1)) / (2 * dz)
+ * ---------------------------------------------------------------------------------
  */
 
 #include <gtest/gtest.h>
@@ -12,6 +23,7 @@
 #include <cmath>
 #include <limits>
 #include <stdexcept>
+#include <cassert>
 #include "gradient.hpp"
 #include "grid_math.hpp"
 
@@ -37,11 +49,13 @@ protected:
  * Test Case 1: Analytical Linear Gradient Exactness
  * 
  * We construct a scalar pressure field following a linear distribution:
- *      p(x, y, z) = 3.0 * x - 2.0 * y + 5.0 * z
+ *     p(x, y, z) = 3.0 * x - 2.0 * y + 5.0 * z
  * 
  * Using second-order central differences, the computed derivative components 
  * should match the exact analytical slopes across the interior domain:
- *      ∂p/∂x = 3.0,  ∂p/∂y = -2.0,  ∂p/∂z = 5.0
+ *     dp/dx = 3.0
+ *     dp/dy = -2.0
+ *     dp/dz = 5.0
  */
 TEST_F(GradientTest, LinearFieldExactDerivatives) {
     size_t total_size = static_cast<size_t>(Nx) * Ny * Nz;
@@ -49,6 +63,9 @@ TEST_F(GradientTest, LinearFieldExactDerivatives) {
     std::vector<double> grad_x(total_size, 0.0);
     std::vector<double> grad_y(total_size, 0.0);
     std::vector<double> grad_z(total_size, 0.0);
+
+    assert(Nx > 2 && Ny > 2 && Nz > 2);
+    assert(dx > 0.0 && dy > 0.0 && dz > 0.0);
 
     // We populate the field grid using our linear analytical formula.
     for (int i = 0; i < Nx; ++i) {
@@ -71,6 +88,11 @@ TEST_F(GradientTest, LinearFieldExactDerivatives) {
         for (int j = 1; j < Ny - 1; ++j) {
             for (int k = 1; k < Nz - 1; ++k) {
                 size_t idx = static_cast<size_t>(get_flat_index(i, j, k, Nx, Ny));
+                
+                assert(std::abs(grad_x[idx] - 3.0) < 1e-9);
+                assert(std::abs(grad_y[idx] - (-2.0)) < 1e-9);
+                assert(std::abs(grad_z[idx] - 5.0) < 1e-9);
+
                 EXPECT_NEAR(grad_x[idx], 3.0, 1e-9);
                 EXPECT_NEAR(grad_y[idx], -2.0, 1e-9);
                 EXPECT_NEAR(grad_z[idx], 5.0, 1e-9);
@@ -88,7 +110,7 @@ TEST_F(GradientTest, LinearFieldExactDerivatives) {
  * execution threshold of 1000 cells, activating the OpenMP parallel loops across multiple CPU cores.
  * 
  * Using the linear scalar field:
- *      p(x, y, z) = 3.0 * x - 2.0 * y + 5.0 * z
+ *     p(x, y, z) = 3.0 * x - 2.0 * y + 5.0 * z
  * 
  * The computed parallel gradient components across all threads must identically match 
  * the exact analytical slopes: 3.0, -2.0, and 5.0 respectively.
@@ -142,7 +164,7 @@ TEST_F(GradientTest, MultiThreadingParallelExecutionCorrectness) {
 /**
  * Test Case 3: Geometry Guard Verification
  * 
- * Providing non-positive grid steps (e.g., Δx <= 0) represents an invalid physical 
+ * Providing non-positive grid steps (e.g., dx <= 0) represents an invalid physical 
  * space configuration and must trigger an invalid_argument exception.
  */
 TEST_F(GradientTest, InvalidGridSpacingThrows) {

@@ -3,7 +3,7 @@
  * @brief Literate Test Suite for Step 1 Predictor Kernel (Trial Velocity Computation)
  *
  * This test file acts as a narrative document. Explanatory text and physical 
- * formulas are written as commented prose, while the executable C++ assertions 
+ * formulas are written as commented prose using ASCII formatting, while the executable C++ assertions 
  * verify numerical accuracy, contract safety guards, and multi-threading correctness.
  */
 
@@ -23,6 +23,15 @@ namespace navier_stokes_solver {
 // Before executing floating-point physics kernels, the predictor must rigorously
 // defend against invalid memory addresses, degenerate geometries, and illegal 
 // physical parameters. Here we verify that contract violations throw immediate exceptions.
+//
+// Mathematical & Topological Contracts:
+//   - Pointer Validity:       u, v, w, fx, fy, fz, u*, v*, w* != nullptr
+//   - Dimensionality:         dim(gravity) = 3 [gx, gy, gz]
+//   - Topological Conformance: size(mask) = nx * ny * nz
+//   - Grid Resolution:        nx, ny, nz >= 3
+//   - Spatial Discretization: dx, dy, dz > 0
+//   - Temporal Step:          dt > 0
+//   - Fluid Properties:       nu >= 0, density > 0
 // ============================================================================
 
 TEST(PredictorTest, NullPointerThrowsInvalidArgument) {
@@ -45,6 +54,33 @@ TEST(PredictorTest, NullPointerThrowsInvalidArgument) {
             nullptr, valid_buffer.data(), valid_buffer.data(),
             valid_buffer.data(), valid_buffer.data(), valid_buffer.data(),
             gravity,
+            mask,
+            output_buffer.data(), output_buffer.data(), output_buffer.data()
+        ),
+        std::invalid_argument
+    );
+}
+
+TEST(PredictorTest, GravitySizeMismatchThrowsInvalidArgument) {
+    // We define minimal valid grid dimensions and fluid properties.
+    GridDimensions dims = {5, 5, 5, 0.1, 0.1, 0.1};
+    FluidProperties fluid = {0.01, 1000.0};
+    double dt = 0.01;
+
+    std::vector<double> valid_buffer(125, 1.0);
+    std::vector<double> output_buffer(125, 0.0);
+    std::vector<int> mask(125, 1);
+
+    // Rule: The gravity vector must contain exactly 3 components [gx, gy, gz].
+    // Supplying a vector of incorrect size (e.g., size 2) violates the physics contract.
+    std::vector<double> invalid_gravity = {0.0, -9.81};
+
+    EXPECT_THROW(
+        compute_trial_velocities(
+            dims, fluid, dt,
+            valid_buffer.data(), valid_buffer.data(), valid_buffer.data(),
+            valid_buffer.data(), valid_buffer.data(), valid_buffer.data(),
+            invalid_gravity,
             mask,
             output_buffer.data(), output_buffer.data(), output_buffer.data()
         ),
@@ -167,9 +203,9 @@ TEST(PredictorTest, InvalidGeometryAndPhysicsParametersThrowErrors) {
 // In a perfectly uniform flow field where velocity components are constant everywhere 
 // (e.g., u = 2.0, v = 1.0, w = 0.5), spatial gradients (advection and Laplacian) 
 // must evaluate precisely to zero:
-//      \nabla u = 0, \quad \nabla^2 u = 0
+//     grad(u) = 0,  Laplacian(u) = 0
 // Therefore, the explicit Forward-Euler trial velocity update simplifies directly to:
-//      u^* = u^n + \Delta t \cdot \frac{f_x}{\rho}
+//     u* = u^n + dt * (fx / rho)
 // ============================================================================
 
 TEST(PredictorTest, UniformFlowExactEulerUpdate) {

@@ -2,9 +2,20 @@
  * @file test_laplacian.cpp
  * @brief Literate test suite for the 3D Discrete Laplacian Operator with Multi-Threading Verification.
  * 
+ * LITERATE TESTING NARRATIVE & MATHEMATICAL FORMULATION:
+ * ---------------------------------------------------------------------------------
  * This test file narrates and verifies the analytical accuracy, multi-threading 
  * execution correctness, geometry safety, and numerical exception handling of the 
- * C++ compute_laplacian kernel using a 7-point central difference stencil for ∇²f.
+ * C++ compute_laplacian kernel using a 7-point central difference stencil for nabla^2(f).
+ * 
+ * The 3D Laplacian of a scalar field f(x, y, z) is defined as:
+ *     nabla^2(f) = d^2 f / dx^2 + d^2 f / dy^2 + d^2 f / dz^2
+ * 
+ * Using second-order central differences for the 7-point stencil:
+ *     d^2 f / dx^2 = (f(i+1, j, k) - 2*f(i, j, k) + f(i-1, j, k)) / (dx^2)
+ *     d^2 f / dy^2 = (f(i, j+1, k) - 2*f(i, j, k) + f(i, j-1, k)) / (dy^2)
+ *     d^2 f / dz^2 = (f(i, j, k+1) - 2*f(i, j, k) + f(i, j, k-1)) / (dz^2)
+ * ---------------------------------------------------------------------------------
  */
 
 #include <gtest/gtest.h>
@@ -12,6 +23,7 @@
 #include <cmath>
 #include <limits>
 #include <stdexcept>
+#include <cassert>
 #include "laplacian.hpp"
 #include "grid_math.hpp"
 
@@ -37,21 +49,24 @@ protected:
  * Test Case 1: Analytical Quadratic Field Laplacian Exactness
  * 
  * We construct a scalar field following a quadratic distribution:
- *      f(x, y, z) = 1.0 * x² - 2.0 * y² + 3.0 * z²
+ *     f(x, y, z) = 1.0 * x^2 - 2.0 * y^2 + 3.0 * z^2
  * 
  * Using second-order central differences for the 7-point Laplacian stencil, 
  * the second partial derivatives are constant across the interior domain:
- *      ∂²f/∂x² = 2.0
- *      ∂²f/∂y² = -4.0
- *      ∂²f/∂z² = 6.0
+ *     d^2 f / dx^2 = 2.0
+ *     d^2 f / dy^2 = -4.0
+ *     d^2 f / dz^2 = 6.0
  * 
  * The total discrete Laplacian is their sum:
- *      ∇²f = ∂²f/∂x² + ∂²f/∂y² + ∂²f/∂z² = 2.0 + (-4.0) + 6.0 = 4.0
+ *     nabla^2(f) = d^2 f / dx^2 + d^2 f / dy^2 + d^2 f / dz^2 = 2.0 + (-4.0) + 6.0 = 4.0
  */
 TEST_F(LaplacianTest, QuadraticFieldExactLaplacian) {
     size_t total_size = static_cast<size_t>(Nx) * Ny * Nz;
     std::vector<double> field(total_size, 0.0);
     std::vector<double> lap_out(total_size, 0.0);
+
+    assert(Nx > 2 && Ny > 2 && Nz > 2);
+    assert(dx > 0.0 && dy > 0.0 && dz > 0.0);
 
     // We populate the field grid using our quadratic analytical formula.
     for (int i = 0; i < Nx; ++i) {
@@ -74,6 +89,7 @@ TEST_F(LaplacianTest, QuadraticFieldExactLaplacian) {
         for (int j = 1; j < Ny - 1; ++j) {
             for (int k = 1; k < Nz - 1; ++k) {
                 size_t idx = static_cast<size_t>(get_flat_index(i, j, k, Nx, Ny));
+                assert(std::abs(lap_out[idx] - 4.0) < 1e-9);
                 EXPECT_NEAR(lap_out[idx], 4.0, 1e-9);
             }
         }
@@ -89,7 +105,7 @@ TEST_F(LaplacianTest, QuadraticFieldExactLaplacian) {
  * execution threshold of 1000 cells, activating the OpenMP parallel loops across multiple CPU cores.
  * 
  * Using the same quadratic analytical field:
- *      f(x, y, z) = 1.0 * x² - 2.0 * y² + 3.0 * z²
+ *     f(x, y, z) = 1.0 * x^2 - 2.0 * y^2 + 3.0 * z^2
  * 
  * The computed parallel result across all threads must identically match 
  * the exact analytical constant sum of 4.0.
@@ -136,7 +152,7 @@ TEST_F(LaplacianTest, MultiThreadingParallelExecutionCorrectness) {
 /**
  * Test Case 3: Geometry Guard Verification
  * 
- * Providing non-positive grid steps (e.g., Δx <= 0.0) represents an invalid physical 
+ * Providing non-positive grid steps (e.g., dx <= 0.0) represents an invalid physical 
  * space configuration and must trigger an invalid_argument exception.
  */
 TEST_F(LaplacianTest, InvalidGridSpacingThrows) {

@@ -2,9 +2,14 @@
  * @file test_advection.cpp
  * @brief Literate test suite for the 3D Advection Operator with Multi-Threading Verification.
  * 
+ * LITERATE TESTING NARRATIVE & MATHEMATICAL FORMULATION:
+ * ---------------------------------------------------------------------------------
  * This test file narrates and verifies the analytical accuracy, multi-threading 
- * execution correctness, and numerical exception handling of the C++ compute_advection 
- * kernel using central differencing for the advective derivative term: (v · ∇)f.
+ * execution correctness, numerical exception handling, and guard clause validation 
+ * of the C++ compute_advection kernel using central differencing for the advective 
+ * derivative term:
+ *     (v · ∇)f = u * (∂f/∂x) + v * (∂f/∂y) + w * (∂f/∂z)
+ * ---------------------------------------------------------------------------------
  */
 
 #include <gtest/gtest.h>
@@ -12,6 +17,7 @@
 #include <cmath>
 #include <limits>
 #include <stdexcept>
+#include <cassert>
 #include "advection.hpp"
 #include "grid_math.hpp"
 
@@ -37,22 +43,22 @@ protected:
  * Test Case 1: Analytical Linear Field Advection Exactness
  * 
  * We define a linear scalar field:
- *      f(x, y, z) = 2.0 * x + 3.0 * y + 4.0 * z
+ *     f(x, y, z) = 2.0 * x + 3.0 * y + 4.0 * z
  * 
  * The analytical spatial gradients are uniform across the domain:
- *      ∂f/∂x = 2.0
- *      ∂f/∂y = 3.0
- *      ∂f/∂z = 4.0
+ *     ∂f/∂x = 2.0
+ *     ∂f/∂y = 3.0
+ *     ∂f/∂z = 4.0
  * 
  * We set uniform velocity components:
- *      u(x, y, z) = 1.0
- *      v(x, y, z) = 2.0
- *      w(x, y, z) = 3.0
+ *     u(x, y, z) = 1.0
+ *     v(x, y, z) = 2.0
+ *     w(x, y, z) = 3.0
  * 
  * The expected advection term is computed as:
- *      (v · ∇)f = u * (∂f/∂x) + v * (∂f/∂y) + w * (∂f/∂z)
- *               = (1.0 * 2.0) + (2.0 * 3.0) + (3.0 * 4.0)
- *               = 2.0 + 6.0 + 12.0 = 20.0
+ *     (v · ∇)f = u * (∂f/∂x) + v * (∂f/∂y) + w * (∂f/∂z)
+ *              = (1.0 * 2.0) + (2.0 * 3.0) + (3.0 * 4.0)
+ *              = 2.0 + 6.0 + 12.0 = 20.0
  */
 TEST_F(AdvectionTest, LinearFieldExactAdvection) {
     size_t total_size = static_cast<size_t>(Nx) * Ny * Nz;
@@ -61,6 +67,9 @@ TEST_F(AdvectionTest, LinearFieldExactAdvection) {
     std::vector<double> w(total_size, 3.0);
     std::vector<double> field(total_size, 0.0);
     std::vector<double> adv_out(total_size, 0.0);
+
+    assert(Nx > 2 && Ny > 2 && Nz > 2);
+    assert(dx > 0.0 && dy > 0.0 && dz > 0.0);
 
     // We populate the scalar field grid using our linear analytical formula.
     for (int i = 0; i < Nx; ++i) {
@@ -83,6 +92,7 @@ TEST_F(AdvectionTest, LinearFieldExactAdvection) {
         for (int j = 1; j < Ny - 1; ++j) {
             for (int k = 1; k < Nz - 1; ++k) {
                 size_t idx = static_cast<size_t>(get_flat_index(i, j, k, Nx, Ny));
+                assert(std::abs(adv_out[idx] - 20.0) < 1e-9);
                 EXPECT_NEAR(adv_out[idx], 20.0, 1e-9);
             }
         }
@@ -97,8 +107,8 @@ TEST_F(AdvectionTest, LinearFieldExactAdvection) {
  * execution threshold of 1000 cells, activating the OpenMP parallel loops across multiple CPU cores.
  * 
  * Using the same linear analytical field:
- *      f(x, y, z) = 2.0 * x + 3.0 * y + 4.0 * z
- *      u = 1.0, v = 2.0, w = 3.0
+ *     f(x, y, z) = 2.0 * x + 3.0 * y + 4.0 * z
+ *     u = 1.0, v = 2.0, w = 3.0
  * 
  * The expected parallel computed result across all threads must identically match 
  * the analytical constant value of 20.0.
@@ -169,4 +179,26 @@ TEST_F(AdvectionTest, NonFiniteVelocityFieldThrows) {
     EXPECT_THROW({
         compute_advection(u.data(), v.data(), w.data(), field.data(), adv_out.data(), Nx, Ny, Nz, dx, dy, dz);
     }, std::runtime_error);
+}
+
+/**
+ * Test Case 4: Invalid Grid Spacing Exception
+ * 
+ * If non-positive grid spacing ($\le 0.0$) is supplied, the advection kernel 
+ * must catch it and throw a std::invalid_argument:
+ *     dx <= 0.0 \lor dy <= 0.0 \lor dz <= 0.0
+ */
+TEST_F(AdvectionTest, InvalidGridSpacingThrows) {
+    size_t total_size = static_cast<size_t>(Nx) * Ny * Nz;
+    std::vector<double> u(total_size, 1.0);
+    std::vector<double> v(total_size, 2.0);
+    std::vector<double> w(total_size, 3.0);
+    std::vector<double> field(total_size, 1.0);
+    std::vector<double> adv_out(total_size, 0.0);
+
+    double invalid_dx = 0.0; // Invalid grid spacing trigger
+
+    EXPECT_THROW({
+        compute_advection(u.data(), v.data(), w.data(), field.data(), adv_out.data(), Nx, Ny, Nz, invalid_dx, dy, dz);
+    }, std::invalid_argument);
 }

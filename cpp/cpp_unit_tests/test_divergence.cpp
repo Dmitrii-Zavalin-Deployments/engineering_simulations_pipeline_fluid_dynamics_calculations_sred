@@ -2,9 +2,20 @@
  * @file test_divergence.cpp
  * @brief Literate test suite for the 3D Divergence Operator with Multi-Threading Verification.
  * 
+ * LITERATE TESTING NARRATIVE & MATHEMATICAL FORMULATION:
+ * ---------------------------------------------------------------------------------
  * This test file narrates and verifies the analytical accuracy, multi-threading 
  * execution correctness, geometry safety, and numerical exception handling of the 
  * C++ compute_divergence kernel used for the Pressure Poisson Equation (PPE) source term.
+ * 
+ * The divergence of a velocity vector field u_star = (u_star, v_star, w_star) is defined as:
+ *     div(u_star) = du_star/dx + dv_star/dy + dw_star/dz
+ * 
+ * Using second-order central differences:
+ *     du_star/dx = (u_star(i+1, j, k) - u_star(i-1, j, k)) / (2 * dx)
+ *     dv_star/dy = (v_star(i, j+1, k) - v_star(i, j-1, k)) / (2 * dy)
+ *     dw_star/dz = (w_star(i, j, k+1) - w_star(i, j, k-1)) / (2 * dz)
+ * ---------------------------------------------------------------------------------
  */
 
 #include <gtest/gtest.h>
@@ -12,6 +23,7 @@
 #include <cmath>
 #include <limits>
 #include <stdexcept>
+#include <cassert>
 #include "divergence.hpp"
 #include "grid_math.hpp"
 
@@ -37,17 +49,17 @@ protected:
  * Test Case 1: Analytical Linear Velocity Field Divergence Exactness
  * 
  * We construct velocity vector components following linear distributions:
- *      u_star(x, y, z) = 2.0 * x
- *      v_star(x, y, z) = -3.0 * y
- *      w_star(x, y, z) = 4.0 * z
+ *     u_star(x, y, z) = 2.0 * x
+ *     v_star(x, y, z) = -3.0 * y
+ *     w_star(x, y, z) = 4.0 * z
  * 
  * Using second-order central differences, the analytical partial derivatives are:
- *      ∂u_star/dx = 2.0
- *      ∂v_star/dy = -3.0
- *      ∂w_star/dz = 4.0
+ *     du_star/dx = 2.0
+ *     dv_star/dy = -3.0
+ *     dw_star/dz = 4.0
  * 
  * The total scalar divergence is their sum:
- *      ∇ ⋅ u_star = ∂u_star/dx + ∂v_star/dy + ∂w_star/dz = 2.0 + (-3.0) + 4.0 = 3.0
+ *     div(u_star) = du_star/dx + dv_star/dy + dw_star/dz = 2.0 + (-3.0) + 4.0 = 3.0
  */
 TEST_F(DivergenceTest, LinearFieldExactDivergence) {
     size_t total_size = static_cast<size_t>(Nx) * Ny * Nz;
@@ -55,6 +67,9 @@ TEST_F(DivergenceTest, LinearFieldExactDivergence) {
     std::vector<double> v_star(total_size, 0.0);
     std::vector<double> w_star(total_size, 0.0);
     std::vector<double> div_out(total_size, 0.0);
+
+    assert(Nx > 2 && Ny > 2 && Nz > 2);
+    assert(dx > 0.0 && dy > 0.0 && dz > 0.0);
 
     // We populate the velocity vector fields using our linear analytical formulas.
     for (int i = 0; i < Nx; ++i) {
@@ -80,6 +95,7 @@ TEST_F(DivergenceTest, LinearFieldExactDivergence) {
         for (int j = 1; j < Ny - 1; ++j) {
             for (int k = 1; k < Nz - 1; ++k) {
                 size_t idx = static_cast<size_t>(get_flat_index(i, j, k, Nx, Ny));
+                assert(std::abs(div_out[idx] - 3.0) < 1e-9);
                 EXPECT_NEAR(div_out[idx], 3.0, 1e-9);
             }
         }
@@ -95,9 +111,9 @@ TEST_F(DivergenceTest, LinearFieldExactDivergence) {
  * execution threshold of 1000 cells, activating the OpenMP parallel loops across multiple CPU cores.
  * 
  * Using the linear velocity fields:
- *      u_star(x, y, z) = 2.0 * x
- *      v_star(x, y, z) = -3.0 * y
- *      w_star(x, y, z) = 4.0 * z
+ *     u_star(x, y, z) = 2.0 * x
+ *     v_star(x, y, z) = -3.0 * y
+ *     w_star(x, y, z) = 4.0 * z
  * 
  * The computed parallel result across all threads must identically match 
  * the exact analytical constant sum of 3.0.
@@ -150,7 +166,7 @@ TEST_F(DivergenceTest, MultiThreadingParallelExecutionCorrectness) {
 /**
  * Test Case 3: Geometry Guard Verification
  * 
- * Providing zero grid spacing (e.g., dx = 0.0) represents an invalid physical 
+ * Providing zero or negative grid spacing (e.g., dx = 0.0) represents an invalid physical 
  * space configuration and must trigger an invalid_argument exception.
  */
 TEST_F(DivergenceTest, ZeroGridSpacingThrows) {
@@ -160,9 +176,11 @@ TEST_F(DivergenceTest, ZeroGridSpacingThrows) {
     std::vector<double> w_star(total_size, 1.0);
     std::vector<double> div_out(total_size, 0.0);
 
+    double invalid_dx = 0.0; // Invalid grid spacing trigger
+
     // Supplying zero grid spacing should invoke the geometry guard.
     EXPECT_THROW({
-        compute_divergence(u_star.data(), v_star.data(), w_star.data(), div_out.data(), Nx, Ny, Nz, 0.0, dy, dz);
+        compute_divergence(u_star.data(), v_star.data(), w_star.data(), div_out.data(), Nx, Ny, Nz, invalid_dx, dy, dz);
     }, std::invalid_argument);
 }
 
