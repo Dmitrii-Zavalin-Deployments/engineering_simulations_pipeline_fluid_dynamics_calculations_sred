@@ -171,23 +171,21 @@ def test_run_simulation_loop_failure_writes_failure_manifest(tmp_path):
          patch("src.main.load_and_validate_inputs", return_value=({}, {})), \
          patch("src.main.SolverState", return_value=mock_state), \
          patch("src.main.step_simulation", side_effect=RuntimeError("Solver diverged")), \
-         patch("src.main.archive_simulation_results") as mock_archive:
-
-        # Master loop failure must re-raise the triggering exception:
-        with pytest.raises(RuntimeError, match="Solver diverged"):
-            run_simulation(
-                input_output_folder=tmp_path,
-                input_file_name=input_file.name,
-                output_file_name="output_manifest.json",
-            )
-
-        # Assert archivist was called to emit a FAILURE status manifest:
-        mock_archive.assert_called_once_with(
-            state=mock_state,
-            output_dir=tmp_path.resolve(),
-            output_filename="output_manifest.json",
-            status="FAILURE",
+         patch("src.main.archive_simulation_results") as mock_archive, \
+         pytest.raises(RuntimeError, match="Solver diverged"):
+        run_simulation(
+            input_output_folder=tmp_path,
+            input_file_name=input_file.name,
+            output_file_name="output_manifest.json",
         )
+
+    # Assert archivist was called to emit a FAILURE status manifest:
+    mock_archive.assert_called_once_with(
+        state=mock_state,
+        output_dir=tmp_path.resolve(),
+        output_filename="output_manifest.json",
+        status="FAILURE",
+    )
 
 
 def test_run_simulation_double_fault_handling(tmp_path):
@@ -205,15 +203,13 @@ def test_run_simulation_double_fault_handling(tmp_path):
          patch("src.main.load_and_validate_inputs", return_value=({}, {})), \
          patch("src.main.SolverState", return_value=mock_state), \
          patch("src.main.step_simulation", side_effect=ValueError("Divergent field value")), \
-         patch("src.main.archive_simulation_results", side_effect=OSError("Disk read-only")):
-
-        # Double fault must log critical failure and re-raise original simulation exception:
-        with pytest.raises(ValueError, match="Divergent field value"):
-            run_simulation(
-                input_output_folder=tmp_path,
-                input_file_name=input_file.name,
-                output_file_name="output_manifest.json",
-            )
+         patch("src.main.archive_simulation_results", side_effect=OSError("Disk read-only")), \
+         pytest.raises(ValueError, match="Divergent field value"):
+        run_simulation(
+            input_output_folder=tmp_path,
+            input_file_name=input_file.name,
+            output_file_name="output_manifest.json",
+        )
 
 
 # ============================================================================
@@ -259,14 +255,13 @@ def test_main_cli_fatal_error_exit(capsys):
     ]
 
     with patch.object(sys, "argv", test_args), \
-         patch("src.main.run_simulation", side_effect=FileNotFoundError("Input path invalid")):
+         patch("src.main.run_simulation", side_effect=FileNotFoundError("Input path invalid")), \
+         pytest.raises(SystemExit) as exc_info:
+        main()
 
-        with pytest.raises(SystemExit) as exc_info:
-            main()
+    # System exit code assertion:
+    assert exc_info.value.code == 1
 
-        # System exit code assertion:
-        assert exc_info.value.code == 1
-
-        # Error log written to stderr:
-        captured = capsys.readouterr()
-        assert "FATAL PIPELINE ERROR: Input path invalid" in captured.err
+    # Error log written to stderr:
+    captured = capsys.readouterr()
+    assert "FATAL PIPELINE ERROR: Input path invalid" in captured.err
