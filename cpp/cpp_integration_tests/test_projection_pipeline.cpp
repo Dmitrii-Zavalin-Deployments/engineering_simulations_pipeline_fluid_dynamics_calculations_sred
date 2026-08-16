@@ -9,32 +9,32 @@
  * in a bounded domain are expressed by the momentum conservation equation and the 
  * divergence-free kinematic constraint (mass conservation):
  * 
- *       (1) Momentum Equation (Advection-Diffusion-Pressure):
- *           rho * (du/dt + (u . grad)u) = -grad p + mu * grad^2 u + f
+ *        (1) Momentum Equation (Advection-Diffusion-Pressure):
+ *            rho * (du/dt + (u . grad)u) = -grad p + mu * grad^2 u + f
  * 
- *       (2) Incompressibility Constraint (Solenoidal Manifold):
- *           div u = 0
+ *        (2) Incompressibility Constraint (Solenoidal Manifold):
+ *            div u = 0
  * 
  * To solve this coupled system numerically, Chorin's fractional-step projection method 
  * advances the system through discrete time steps of size dt:
  * 
- *       - Predictor Step (Intermediate Velocity u*):
- *           (u* - u^n) / dt = -(u^n . grad)u^n + (mu / rho) * grad^2 u^n + f / rho
+ *        - Predictor Step (Intermediate Velocity u*):
+ *            (u* - u^n) / dt = -(u^n . grad)u^n + (mu / rho) * grad^2 u^n + f / rho
  * 
- *       - Pressure Poisson Equation (PPE):
- *           grad^2 p^(n+1) = (rho / dt) * div u*
+ *        - Pressure Poisson Equation (PPE):
+ *            grad^2 p^(n+1) = (rho / dt) * div u*
  * 
- *       - Corrector / Projection Step:
- *           u^(n+1) = u* - (dt / rho) * grad p^(n+1)
+ *        - Corrector / Projection Step:
+ *            u^(n+1) = u* - (dt / rho) * grad p^(n+1)
  * 
  * EXTENDED TIME-INTEGRATION VALIDATION OBJECTIVE:
  * Rather than assuming a single-step collapse to machine zero (which ignores physical 
  * advection and viscous re-injection), this test runs the complete Navier-Stokes 
  * orchestrator across N = 50 consecutive time steps. It verifies three pillars 
  * of solver correctness:
- *       1. Numerical Stability: Maximum velocity remains bounded (no NaN / blow-up).
- *       2. Divergence Boundedness: Divergence remains stably controlled under flow evolution.
- *       3. Temporal Dynamics: The velocity field actively evolves via physical transport.
+ *        1. Numerical Stability: Maximum velocity remains bounded (no NaN / blow-up).
+ *        2. Divergence Boundedness: Divergence remains stably controlled under flow evolution.
+ *        3. Temporal Dynamics: The velocity field actively evolves via physical transport.
  * ---------------------------------------------------------------------------------
  */
 
@@ -45,6 +45,7 @@
 #include <cmath>
 #include <algorithm>
 #include <limits>
+#include <cassert>
 #include "orchestrator.hpp"
 
 using json = nlohmann::json;
@@ -52,8 +53,8 @@ using namespace navier_stokes_solver;
 
 class ProjectionPipelineTest : public ::testing::Test {
 protected:
-    // Loads domain parameters, physical properties, and execution tolerances 
-    // from external JSON configuration files using explicit paths.
+    // We load domain parameters, physical properties, and execution tolerances 
+    // from external JSON configuration files using explicit paths:
     void SetUp() override {
         std::ifstream config_stream("cpp/cpp_integration_tests/data/config.json");
         ASSERT_TRUE(config_stream.is_open()) << "Failed to open cpp/cpp_integration_tests/data/config.json";
@@ -64,10 +65,8 @@ protected:
         input_stream >> input_json_;
     }
 
-    // Computes the discrete interior divergence div u using second-order central spatial differences:
-    //       (div u)_(i,j,k) = (u_(i+1,j,k) - u_(i-1,j,k)) / (2 * dx) 
-    //                       + (v_(i,j+1,k) - v_(i,j-1,k)) / (2 * dy) 
-    //                       + (w_(i,j,k+1) - w_(i,j,k-1)) / (2 * dz)
+    // We compute the discrete interior divergence div u using second-order central spatial differences:
+    //     div u = (u_(i+1) - u_(i-1)) / (2 * dx) + (v_(j+1) - v_(j-1)) / (2 * dy) + (w_(k+1) - w_(k-1)) / (2 * dz)
     double ComputeMaxDivergence(
         const std::vector<double>& u,
         const std::vector<double>& v,
@@ -82,7 +81,7 @@ protected:
         double dz = dims.dz;
         double max_div = 0.0;
 
-        // Iterate through interior grid cells (1 to N-2) to prevent boundary stencils from skewing metrics
+        // We iterate through interior grid cells (1 to N-2) to prevent boundary stencils from skewing metrics:
         for (int k = 1; k < nz - 1; ++k) {
             for (int j = 1; j < ny - 1; ++j) {
                 for (int i = 1; i < nx - 1; ++i) {
@@ -93,15 +92,16 @@ protected:
                     size_t idx_pz = i + static_cast<size_t>(nx) * (j + ny * (k + 1));
                     size_t idx_nz = i + static_cast<size_t>(nx) * (j + ny * (k - 1));
 
-                    // Partial derivatives computed via second-order central spatial differences:
-                    //       du/dx = (u_(i+1) - u_(i-1)) / (2 * dx)
-                    //       dv/dy = (v_(j+1) - v_(j-1)) / (2 * dy)
-                    //       dw/dz = (w_(k+1) - w_(k-1)) / (2 * dz)
+                    // We compute partial derivatives via second-order central spatial differences:
+                    //     du_dx = (u_(i+1) - u_(i-1)) / (2 * dx)
+                    //     dv_dy = (v_(j+1) - v_(j-1)) / (2 * dy)
+                    //     dw_dz = (w_(k+1) - w_(k-1)) / (2 * dz)
                     double du_dx = (u[idx_px] - u[idx_nx]) / (2.0 * dx);
                     double dv_dy = (v[idx_py] - v[idx_ny]) / (2.0 * dy);
                     double dw_dz = (w[idx_pz] - w[idx_nz]) / (2.0 * dz);
 
-                    // Absolute local divergence magnitude: |div u| = |du/dx + dv/dy + dw/dz|
+                    // We compute absolute local divergence magnitude:
+                    //     div_mag = |du_dx + dv_dy + dw_dz|
                     double div = std::abs(du_dx + dv_dy + dw_dz);
                     max_div = std::max(max_div, div);
                 }
@@ -118,13 +118,11 @@ protected:
 // Scenario 1.1: Extended 50-Step Navier-Stokes Time Integration & Stability
 // =================================================================================
 TEST_F(ProjectionPipelineTest, LongHorizonTimeIntegrationStability) {
-    // -----------------------------------------------------------------------------
-    // Step 1: Initialize grid dimensions, physical properties, and time step size dt.
+    // We initialize grid dimensions, physical properties, and time step size dt.
     // Spatial grid increments are derived as:
-    //      dx = (x_max - x_min) / nx
-    //      dy = (y_max - y_min) / ny
-    //      dz = (z_max - z_min) / nz
-    // -----------------------------------------------------------------------------
+    //     dx = (x_max - x_min) / nx
+    //     dy = (y_max - y_min) / ny
+    //     dz = (z_max - z_min) / nz
     int nx = input_json_["grid"]["nx"];
     int ny = input_json_["grid"]["ny"];
     int nz = input_json_["grid"]["nz"];
@@ -140,10 +138,15 @@ TEST_F(ProjectionPipelineTest, LongHorizonTimeIntegrationStability) {
     double dz = (z_max - z_min) / nz;
 
     GridDimensions dims{nx, ny, nz, dx, dy, dz};
+    assert(nx > 0 && ny > 0 && nz > 0);
+    assert(dx > 0.0 && dy > 0.0 && dz > 0.0);
 
     double density = input_json_["fluid_properties"]["density"];
     double mu = input_json_["fluid_properties"]["viscosity"];
     double dt = input_json_["simulation_parameters"]["time_step"];
+    assert(density > 0.0);
+    assert(mu >= 0.0);
+    assert(dt > 0.0);
 
     SolverConfig config;
     config.density = density;
@@ -152,15 +155,12 @@ TEST_F(ProjectionPipelineTest, LongHorizonTimeIntegrationStability) {
 
     NavierStokesOrchestrator orchestrator(dims, config);
 
-    // -----------------------------------------------------------------------------
-    // Step 2: Allocate vector fields and initialize with a non-zero analytical profile:
-    //       u(x, y, z) = x^2
-    //       v(x, y, z) = -y + x^2
-    //       w(x, y, z) = 0.0
-    //
+    // We allocate vector fields and initialize with a non-zero analytical profile:
+    //     u(x, y, z) = x^2
+    //     v(x, y, z) = -y + x^2
+    //     w(x, y, z) = 0.0
     // Analytical divergence of initial condition:
-    //       div u^0 = du/dx + dv/dy + dw/dz = 2x - 1 != 0
-    // -----------------------------------------------------------------------------
+    //     div u^0 = du_dx + dv_dy + dw_dz = 2*x - 1 != 0
     size_t total_cells = static_cast<size_t>(nx) * ny * nz;
     std::vector<double> u(total_cells, 0.0);
     std::vector<double> v(total_cells, 0.0);
@@ -202,14 +202,12 @@ TEST_F(ProjectionPipelineTest, LongHorizonTimeIntegrationStability) {
         }
     }
 
-    // Preserve baseline initial vector state for displacement verification: u^0 = u, v^0 = v
+    // We preserve baseline initial vector state for displacement verification: u^0 = u, v^0 = v
     std::vector<double> u_initial = u;
     std::vector<double> v_initial = v;
 
-    // -----------------------------------------------------------------------------
-    // Step 3: Execute Extended Time-Stepping Loop (N = 50 Iterations).
-    // Track maximum velocity magnitudes and divergence bounds across all steps.
-    // -----------------------------------------------------------------------------
+    // We execute the Extended Time-Stepping Loop (N = 50 Iterations),
+    // tracking maximum velocity magnitudes and divergence bounds across all steps:
     const int total_time_steps = 50;
     double max_observed_div = 0.0;
     double peak_velocity_magnitude = 0.0;
@@ -217,12 +215,12 @@ TEST_F(ProjectionPipelineTest, LongHorizonTimeIntegrationStability) {
     for (int step = 0; step < total_time_steps; ++step) {
         orchestrator.step(dt, mu, gravity, fx, fy, fz, mask, bc_list, u, v, w, p);
 
-        // Evaluate instantaneous maximum interior divergence
+        // We evaluate instantaneous maximum interior divergence:
         double curr_div = ComputeMaxDivergence(u, v, w, dims);
         max_observed_div = std::max(max_observed_div, curr_div);
 
-        // Calculate maximum local velocity magnitude:
-        //       |U_idx| = sqrt(u_idx^2 + v_idx^2 + w_idx^2)
+        // We calculate maximum local velocity magnitude:
+        //     |U_idx| = sqrt(u_idx^2 + v_idx^2 + w_idx^2)
         for (size_t idx = 0; idx < total_cells; ++idx) {
             ASSERT_FALSE(std::isnan(u[idx]) || std::isinf(u[idx])) 
                 << "Numerical Instability Detected: Velocity u became NaN or Inf at step " << step;
@@ -234,33 +232,30 @@ TEST_F(ProjectionPipelineTest, LongHorizonTimeIntegrationStability) {
         }
     }
 
-    // -----------------------------------------------------------------------------
     // Assertion 1: Numerical Boundedness & Stability Check
     // The peak velocity magnitude across 50 time steps must remain physically bounded:
-    //       peak_velocity_magnitude < 1000.0 m/s
-    // -----------------------------------------------------------------------------
+    //     peak_velocity_magnitude < 1000.0 m/s
+    assert(peak_velocity_magnitude < 1000.0);
     ASSERT_LT(peak_velocity_magnitude, 1000.0)
         << "Assertion 1 Failed: Velocity field experienced unphysical numerical blow-up.";
 
-    // -----------------------------------------------------------------------------
     // Assertion 2: Mass Conservation Boundedness Check
     // The pressure-correction projection must stably bound velocity divergence:
-    //       max_observed_div < 1.05
-    // -----------------------------------------------------------------------------
+    //     max_observed_div < 1.05
+    assert(max_observed_div < 1.05);
     ASSERT_LT(max_observed_div, 1.05)
         << "Assertion 2 Failed: Divergence grew unbounded over 50 time steps (max div: " << max_observed_div << ").";
 
-    // -----------------------------------------------------------------------------
     // Assertion 3: Non-Trivial Temporal Field Evolution
-    // Verify physical state update over 50 iterations:
-    //       ||u^(50) - u^0||_inf = max(|u^(50) - u^0|, |v^(50) - v^0|) > 0
-    // -----------------------------------------------------------------------------
+    // We verify physical state update over 50 iterations:
+    //     ||u^(50) - u^0||_inf = max(|u^(50) - u^0|, |v^(50) - v^0|) > 0
     double max_field_displacement = 0.0;
     for (size_t i = 0; i < total_cells; ++i) {
         double delta_u = std::abs(u[i] - u_initial[i]);
         double delta_v = std::abs(v[i] - v_initial[i]);
         max_field_displacement = std::max({max_field_displacement, delta_u, delta_v});
     }
+    assert(max_field_displacement > 0.0);
     ASSERT_GT(max_field_displacement, 0.0)
         << "Assertion 3 Failed: Velocity buffers remained static; time-integration loop did not advance state.";
 }
