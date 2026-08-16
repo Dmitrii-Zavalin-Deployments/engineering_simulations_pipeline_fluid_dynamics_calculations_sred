@@ -244,16 +244,23 @@ def test_invalid_force_vector_size():
 
 
 def test_non_finite_field_simulation_failure():
-    """Triggers runtime error when fields contain non-finite (NaN/inf) values after a time step."""
+    """Triggers runtime error when active fluid fields contain non-finite (NaN/inf) values after a time step."""
     if navier_stokes_cpp is None:
         pytest.skip("navier_stokes_cpp module not available.")
 
     nx, ny, nz = 8, 8, 8
     state = DummySolverState(nx=nx, ny=ny, nz=nz)
-    state.fields[0, :, :, :] = np.nan  # Seed with NaN to trigger simulation failure guard
+    
+    # 1. Mark interior cells as active fluid (mask == 1) so pre-step won't overwrite them
+    state.mask[1:-1, 1:-1, 1:-1] = 1
+    
+    # 2. Seed active fluid cell with NaN
+    state.fields[0, 3, 3, 3] = np.nan
+    
     solver = navier_stokes_cpp.NavierStokesSolver(state)
 
-    with pytest.raises((TypeError, ValueError, RuntimeError)):
+    # 3. Verify the exact C++ SIMULATION FAILURE runtime error
+    with pytest.raises(RuntimeError, match="SIMULATION FAILURE: Non-finite velocity or pressure field detected"):
         solver.step(state)
 
 
