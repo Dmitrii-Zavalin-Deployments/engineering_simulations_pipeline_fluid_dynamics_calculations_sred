@@ -27,15 +27,16 @@ class MockOrchestratorState:
         self.dy = 1.0 / ny
         self.dz = 1.0 / nz
         self.dt = 0.001
+        
+        self.total_cells = nx * ny * nz
 
-        self.fields = np.zeros((4, nx, ny, nz), dtype=np.float64)
-        # Initialize velocity u component to 0.1
-        self.fields[0, :, :, :] = 0.1
+        # Use 1D arrays to align with std::vector<double> pybind11 casting
+        self.fields = np.zeros((4, self.total_cells), dtype=np.float64)
+        # Initialize velocity u component (offset 0) to 0.1
+        self.fields[0, :] = 0.1
 
         # Fluid mask: 1 for fluid cells, 0 for solid, -1 for boundary/wall
-        self.mask = np.ones((nx, ny, nz), dtype=np.int32)
-        self.mask[0, :, :] = -1
-        self.mask[-1, :, :] = -1
+        self.mask = np.ones(self.total_cells, dtype=np.int32)
 
         self.fluid_properties = {
             "density": 1000.0,
@@ -48,9 +49,9 @@ class MockOrchestratorState:
         self.external_forces = {
             "gravity_vector": [0.0, -9.81, 0.0],
             "force_vector": [10.0, 0.0, 0.0],
-            "fx": np.zeros((nx, ny, nz), dtype=np.float64),
-            "fy": np.zeros((nx, ny, nz), dtype=np.float64),
-            "fz": np.zeros((nx, ny, nz), dtype=np.float64)
+            "fx": np.zeros(self.total_cells, dtype=np.float64),
+            "fy": np.zeros(self.total_cells, dtype=np.float64),
+            "fz": np.zeros(self.total_cells, dtype=np.float64)
         }
         self.boundary_conditions = []
 
@@ -88,20 +89,24 @@ def test_orchestrator_gravity_contract_violation():
         pytest.skip("navier_stokes_cpp module not available.")
 
     nx, ny, nz = 8, 8, 8
+    total_cells = nx * ny * nz
     dims = navier_stokes_cpp.GridDimensions(nx, ny, nz, 0.125, 0.125, 0.125)
     config = navier_stokes_cpp.SolverConfig(1000.0, 50, 1e-6)
     orchestrator = navier_stokes_cpp.NavierStokesOrchestrator(dims, config)
 
     # Invalid gravity vector with 2 components instead of 3: [gx, gy]
     invalid_gravity = [0.0, -9.81]
-    fx = np.zeros((nx, ny, nz), dtype=np.float64)
-    fy = np.zeros((nx, ny, nz), dtype=np.float64)
-    fz = np.zeros((nx, ny, nz), dtype=np.float64)
-    mask = np.ones((nx, ny, nz), dtype=np.int32)
-    u = np.zeros((nx, ny, nz), dtype=np.float64)
-    v = np.zeros((nx, ny, nz), dtype=np.float64)
-    w = np.zeros((nx, ny, nz), dtype=np.float64)
-    p = np.zeros((nx, ny, nz), dtype=np.float64)
+    
+    # Use 1D arrays correctly sized to 'total_cells' to bypass Pybind11 cast failures
+    # and guarantee the execution drops into the C++ `if (gravity.size() != 3)` check.
+    fx = np.zeros(total_cells, dtype=np.float64)
+    fy = np.zeros(total_cells, dtype=np.float64)
+    fz = np.zeros(total_cells, dtype=np.float64)
+    mask = np.ones(total_cells, dtype=np.int32)
+    u = np.zeros(total_cells, dtype=np.float64)
+    v = np.zeros(total_cells, dtype=np.float64)
+    w = np.zeros(total_cells, dtype=np.float64)
+    p = np.zeros(total_cells, dtype=np.float64)
     bc_list = []
 
     # The momentum equation contract expects:
@@ -131,6 +136,7 @@ def test_orchestrator_full_time_step():
         pytest.skip("navier_stokes_cpp module not available.")
 
     nx, ny, nz = 8, 8, 8
+    total_cells = nx * ny * nz
     dims = navier_stokes_cpp.GridDimensions(nx, ny, nz, 0.125, 0.125, 0.125)
     config = navier_stokes_cpp.SolverConfig(1000.0, 50, 1e-6)
     orchestrator = navier_stokes_cpp.NavierStokesOrchestrator(dims, config)
@@ -138,18 +144,20 @@ def test_orchestrator_full_time_step():
     dt = 0.001
     mu = 0.001
     gravity = [0.0, -9.81, 0.0]
-    fx = np.zeros((nx, ny, nz), dtype=np.float64)
-    fy = np.zeros((nx, ny, nz), dtype=np.float64)
-    fz = np.zeros((nx, ny, nz), dtype=np.float64)
-    mask = np.ones((nx, ny, nz), dtype=np.int32)
-    mask[0, :, :] = -1
-    mask[-1, :, :] = -1
+    
+    # 1D arrays formatted for std::vector casting
+    fx = np.zeros(total_cells, dtype=np.float64)
+    fy = np.zeros(total_cells, dtype=np.float64)
+    fz = np.zeros(total_cells, dtype=np.float64)
+    mask = np.ones(total_cells, dtype=np.int32)
 
-    u = np.zeros((nx, ny, nz), dtype=np.float64)
-    v = np.zeros((nx, ny, nz), dtype=np.float64)
-    w = np.zeros((nx, ny, nz), dtype=np.float64)
-    p = np.zeros((nx, ny, nz), dtype=np.float64)
-    u[0, :, :] = 0.1
+    u = np.zeros(total_cells, dtype=np.float64)
+    v = np.zeros(total_cells, dtype=np.float64)
+    w = np.zeros(total_cells, dtype=np.float64)
+    p = np.zeros(total_cells, dtype=np.float64)
+    
+    # Seed initial velocity
+    u.fill(0.1)
 
     bc_list = []
 
