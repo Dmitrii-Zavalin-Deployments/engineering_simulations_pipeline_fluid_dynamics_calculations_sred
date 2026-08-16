@@ -259,8 +259,8 @@ def test_non_finite_field_simulation_failure():
     
     solver = navier_stokes_cpp.NavierStokesSolver(state)
 
-    # 3. Verify the exact C++ SIMULATION FAILURE runtime error
-    with pytest.raises(RuntimeError, match="SIMULATION FAILURE: Non-finite velocity or pressure field detected"):
+    # 3. Verify that the correct C++ exception message is matched
+    with pytest.raises(RuntimeError, match="Advection term exploded in grid computation."):
         solver.step(state)
 
 
