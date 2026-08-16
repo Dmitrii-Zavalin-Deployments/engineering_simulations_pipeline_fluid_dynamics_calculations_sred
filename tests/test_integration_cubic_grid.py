@@ -83,7 +83,13 @@ def test_main_full_pipeline_cubic_4x4x4(workspace_folder, monkeypatch):
     assert zip_path.is_file(), f"Output ZIP archive missing at: {zip_path}"
 
     # 7. Verify C++ Generated Field Binary Snapshots (.npy) in ZIP Archive
-    expected_snapshots = ["field_u.npy", "field_v.npy", "field_w.npy", "field_p.npy"]
+    final_step = 3
+    expected_snapshots = [
+        f"field_u_step_{final_step:06d}.npy",
+        f"field_v_step_{final_step:06d}.npy",
+        f"field_w_step_{final_step:06d}.npy",
+        f"field_p_step_{final_step:06d}.npy",
+    ]
     with zipfile.ZipFile(zip_path, "r") as zf:
         namelist = zf.namelist()
         for snapshot in expected_snapshots:
@@ -131,9 +137,10 @@ def test_python_cpp_field_state_parity_cubic(workspace_folder):
     zip_path = Path(folder) / zip_filename
 
     field_names = ["field_u", "field_v", "field_w", "field_p"]
+    final_step = state.current_iteration
     with zipfile.ZipFile(zip_path, "r") as zf:
         for idx, name in enumerate(field_names):
-            snapshot_filename = f"{name}.npy"
+            snapshot_filename = f"{name}_step_{final_step:06d}.npy"
             array_bytes = zf.read(snapshot_filename)
             archived_array = np.load(io.BytesIO(array_bytes))
             memory_array = state.fields[idx]
