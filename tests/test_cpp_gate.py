@@ -14,7 +14,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import src.cpp_gate as cpp_gate
+from src import cpp_gate
 from src.cpp_gate import (
     _convert_boundary_conditions,
     _dict_to_boundary_condition,
@@ -231,14 +231,14 @@ def test_step_simulation_execution_failure():
     mock_solver.step.side_effect = ValueError("Advection term exploded")
     state._cpp_solver = mock_solver
 
-    with pytest.raises(RuntimeError, match="C\+\+ execution failure during solver step"):
+    with pytest.raises(RuntimeError, match=r"C\+\+ execution failure during solver step"):
         step_simulation(state)
 
 
 def test_cpp_gate_import_error_handling():
     """Verifies descriptive ImportError when compiled C++ module navier_stokes_cpp is missing."""
     with patch.dict(sys.modules, {"navier_stokes_cpp": None}):
-        with pytest.raises(ImportError, match="Failed to import compiled C\+\+ module 'navier_stokes_cpp'"):
+        with pytest.raises(ImportError, match=r"Failed to import compiled C\+\+ module 'navier_stokes_cpp'"):
             importlib.reload(cpp_gate)
 
     # Restore module state post-test
