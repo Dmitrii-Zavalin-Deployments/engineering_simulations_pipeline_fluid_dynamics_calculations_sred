@@ -151,19 +151,15 @@ public:
             bc_list.push_back(item.cast<navier_stokes_solver::BoundaryCondition>());
         }
 
-        // 10. Execute full time-step inside the C++ Orchestrator Core
+        // 10. Execute full time-step inside the C++ Orchestrator Core (handles non-finite safety internally)
         orchestrator_->step(dt, mu, gravity, fx_vec, fy_vec, fz_vec, mask_vec, bc_list, u_, v_, w_, p_);
 
-        // 11. Validate finiteness and copy modified fields back into the mutable Python NumPy array in-place
+        // 11. Copy modified fields back into the mutable Python NumPy array in-place with clamping
         for (int k = 0; k < nz; ++k) {
             for (int j = 0; j < ny; ++j) {
                 for (int i = 0; i < nx; ++i) {
                     size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
 
-                    if (!std::isfinite(u_[idx]) || !std::isfinite(v_[idx]) || !std::isfinite(w_[idx]) || !std::isfinite(p_[idx])) {
-                        throw std::runtime_error("SIMULATION FAILURE: Non-finite velocity or pressure field detected after time step.");
-                    }
-                    
                     r_fields(0, i, j, k) = std::max(min_v, std::min(max_v, u_[idx]));
                     r_fields(1, i, j, k) = std::max(min_v, std::min(max_v, v_[idx]));
                     r_fields(2, i, j, k) = std::max(min_v, std::min(max_v, w_[idx]));

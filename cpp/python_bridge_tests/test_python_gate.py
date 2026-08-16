@@ -168,7 +168,6 @@ def test_navier_stokes_solver_container_execution():
     # 2. Tensors & Buffers Shape & Finiteness Checks
     assert state.fields.shape == (4, nx, ny, nz)
     assert state.mask.shape == (nx, ny, nz)
-#     finiteness verification: all(isfinite(fields)) == True
     assert np.all(np.isfinite(state.fields))
 
     # 3. Fluid Properties & Config Verification
@@ -221,8 +220,6 @@ def test_invalid_gravity_vector_size():
     state.external_forces["gravity_vector"] = [0.0, -9.81]  # Invalid size != 3
     solver = navier_stokes_cpp.NavierStokesSolver(state)
 
-    # Contract requirement:
-#     gravity_vector.size() == 3
     with pytest.raises((TypeError, ValueError, RuntimeError)):
         solver.step(state)
 
@@ -237,21 +234,19 @@ def test_invalid_force_vector_size():
     state.external_forces["force_vector"] = [10.0, 0.0]  # Invalid size != 3
     solver = navier_stokes_cpp.NavierStokesSolver(state)
 
-    # Contract requirement:
-#     force_vector.size() == 3
     with pytest.raises((TypeError, ValueError, RuntimeError)):
         solver.step(state)
 
 
 def test_non_finite_field_simulation_failure():
-    """Triggers runtime error when active fluid fields contain non-finite (NaN/inf) values after a time step."""
+    """Triggers runtime error when active fluid fields contain non-finite (NaN/inf) values during simulation execution."""
     if navier_stokes_cpp is None:
         pytest.skip("navier_stokes_cpp module not available.")
 
     nx, ny, nz = 8, 8, 8
     state = DummySolverState(nx=nx, ny=ny, nz=nz)
     
-    # 1. Mark interior cells as active fluid (mask == 1) so pre-step won't overwrite them
+    # 1. Mark interior cells as active fluid (mask == 1)
     state.mask[1:-1, 1:-1, 1:-1] = 1
     
     # 2. Seed active fluid cell with NaN
@@ -259,7 +254,7 @@ def test_non_finite_field_simulation_failure():
     
     solver = navier_stokes_cpp.NavierStokesSolver(state)
 
-    # 3. Verify that the correct C++ exception message is matched
+    # 3. Verify that the correct C++ exception message is matched from the orchestrator
     with pytest.raises(RuntimeError, match="Advection term exploded in grid computation."):
         solver.step(state)
 
