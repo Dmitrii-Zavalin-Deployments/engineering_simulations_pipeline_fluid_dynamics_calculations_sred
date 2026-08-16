@@ -5,7 +5,7 @@
 This test file serves as a narrative document and verification suite for src/archivist.py.
 Explanatory text and physical/structural formulas are written as commented prose, while
 executable Python assertions verify manifest serialization, C++ bridge field synchronization,
-zip archiving, error validation, and fallback state handling.
+zero-padded step snapshot exports, zip archiving, error validation, and fallback state handling.
 """
 
 import json
@@ -16,7 +16,7 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-from src.archivist import archive_simulation_results
+from src.archivist import archive_simulation_results, export_step_snapshot
 
 
 class MockSolverState:
@@ -25,6 +25,7 @@ class MockSolverState:
     def __init__(self, with_fields=True):
         self.input_data = {"domain": "3d_cube", "resolution": [8, 8, 8]}
         self.config = {"max_poisson_iterations": 50, "poisson_tolerance": 1e-6}
+        self.current_iteration = 10
         if with_fields:
             self.fields = np.zeros((4, 8, 8, 8), dtype=np.float64)
             self.fields[0, :, :, :] = 1.0  # u component
@@ -112,6 +113,15 @@ def test_archivist_null_argument_validations(workspace_folder):
         archive_simulation_results(
             state=state, output_dir=folder, output_filename="out.json", status=None
         )
+
+
+def test_export_step_snapshot_null_arguments():
+    """Verifies that passing None to export_step_snapshot raises ValueError."""
+    with pytest.raises(ValueError, match="state must be explicitly provided"):
+        export_step_snapshot(None, 1, "/some/dir")
+
+    with pytest.raises(ValueError, match="output_dir must be explicitly provided"):
+        export_step_snapshot(MockSolverState(), 1, None)
 
 
 # ============================================================================
@@ -242,16 +252,16 @@ def test_archivist_individual_fields_fallback(workspace_folder):
     zip_path = Path(folder) / target_zip
     assert zip_path.is_file()
 
-    # Verify field snapshot binaries were successfully archived and cleaned up from root
+    # Verify zero-padded step snapshot binaries were successfully archived and cleaned up from root
     with zipfile.ZipFile(zip_path, "r") as zf:
         contents = zf.namelist()
-        assert "field_u.npy" in contents
-        assert "field_v.npy" in contents
-        assert "field_w.npy" in contents
-        assert "field_p.npy" in contents
+        assert "field_u_step_000010.npy" in contents
+        assert "field_v_step_000010.npy" in contents
+        assert "field_w_step_000010.npy" in contents
+        assert "field_p_step_000010.npy" in contents
 
     # Verify loose files do not clutter the directory
-    assert not (Path(folder) / "field_u.npy").exists()
+    assert not (Path(folder) / "field_u_step_000010.npy").exists()
 
 
 def test_archivist_missing_fields_raises_error(workspace_folder):
@@ -272,8 +282,7 @@ def test_archivist_missing_fields_raises_error(workspace_folder):
 # NARRATIVE SECTION 5: End-to-End Success Archiving and ZIP Packaging
 # ============================================================================
 # On SUCCESS execution:
-# 1. Individual field components (field_u.npy, field_v.npy, field_w.npy, field_p.npy)
-#    are exported as NumPy binaries to disk.
+# 1. Zero-padded step snapshot files (field_u_step_*.npy, etc.) are exported or gathered.
 # 2. Field snapshots are packaged into a timestamped ZIP archive:
 #     archive_name = YYYYMMDD_HHMMSS.zip
 # 3. Output JSON manifest is written containing status and zip filename reference.
@@ -281,7 +290,7 @@ def test_archivist_missing_fields_raises_error(workspace_folder):
 
 
 def test_archivist_success_full_archiving_pipeline(workspace_folder):
-    """Verifies full successful archiving lifecycle including NPY creation, ZIP packaging, and JSON manifest."""
+    """Verifies full successful archiving lifecycle including step NPY creation, ZIP packaging, and JSON manifest."""
     folder = workspace_folder["folder"]
     output_filename = "success_manifest.json"
     state = MockSolverState(with_fields=True)
@@ -309,23 +318,24 @@ def test_archivist_success_full_archiving_pipeline(workspace_folder):
 
     with zipfile.ZipFile(zip_path, "r") as zf:
         contents = zf.namelist()
-        assert "field_u.npy" in contents
-        assert "field_v.npy" in contents
-        assert "field_w.npy" in contents
-        assert "field_p.npy" in contents
+        assert "field_u_step_000010.npy" in contents
+        assert "field_v_step_000010.npy" in contents
+        assert "field_w_step_000010.npy" in contents
+        assert "field_p_step_000010.npy" in contents
+
 
 # ============================================================================
 # NARRATIVE SECTION 6: Loose Snapshot Binary Cleanup Verification
 # ============================================================================
 # When archive_simulation_results completes a SUCCESS archival run, individual
-# .npy snapshot files are compressed into a timestamped ZIP archive. To prevent 
-# workspace clutter, the loose .npy files must be unlinked/deleted from disk, 
+# zero-padded .npy snapshot files are compressed into a timestamped ZIP archive. 
+# To prevent workspace clutter, the loose .npy files must be unlinked/deleted from disk, 
 # leaving only the ZIP archive, input files, and the output JSON manifest.
 # ============================================================================
 
 
 def test_archivist_cleanup_loose_npy_files(workspace_folder):
-    """Verifies that uncompressed temporary .npy snapshot files are cleaned up from disk
+    """Verifies that uncompressed temporary zero-padded .npy snapshot files are cleaned up from disk
     after being compressed into the ZIP archive."""
     folder = workspace_folder["folder"]
     output_filename = "cleanup_manifest.json"
@@ -349,10 +359,11 @@ def test_archivist_cleanup_loose_npy_files(workspace_folder):
     zip_path = Path(folder) / target_zip
     assert zip_path.is_file()
 
-    # Verify that loose uncompressed .npy files have been removed from the output directory
-    for name in ["field_u.npy", "field_v.npy", "field_w.npy", "field_p.npy"]:
+    # Verify that loose uncompressed step .npy files have been removed from the output directory
+    for name in ["field_u_step_000010.npy", "field_v_step_000010.npy", "field_w_step_000010.npy", "field_p_step_000010.npy"]:
         npy_file_path = Path(folder) / name
         assert not npy_file_path.exists(), f"Loose temporary file found on disk: {name}"
+
 
 # ============================================================================
 # NARRATIVE SECTION 7: Cleanup Exception Handling & Resilience

@@ -5,7 +5,7 @@
 This test module acts as a narrative specification and exhaustive verification suite for src/main.py.
 Explanatory prose and physical time-integration formulas are written as commented prose, while
 executable Python assertions verify argument validation, file presence checks, master simulation loop
-orchestration, archivist double-fault recovery, and CLI control plane exit codes.
+orchestration, intermediate snapshot exports, archivist double-fault recovery, and CLI control plane exit codes.
 """
 
 import sys
@@ -89,6 +89,7 @@ def test_run_simulation_missing_config_file(tmp_path):
 # For each step n from 1 to N_{steps}:
 #     1. step_simulation(state) -> C++ Navier-Stokes velocity/pressure step
 #     2. state.enforce_physical_constraints() -> numerical stability clip
+#     3. export_step_snapshot(state) -> intermediate .npy field dumps if output_interval met
 #
 # Upon loop completion without error:
 #     archive_simulation_results(state, status="SUCCESS")
@@ -96,7 +97,7 @@ def test_run_simulation_missing_config_file(tmp_path):
 
 
 def test_run_simulation_success_pipeline(tmp_path):
-    """Verifies end-to-end master loop execution, constraint enforcement, and SUCCESS archiving."""
+    """Verifies end-to-end master loop execution, constraint enforcement, intermediate snapshot exports, and SUCCESS archiving."""
     # Setup mock workspace with valid input and config files:
     input_file = _write_json(tmp_path / "input.json", {"grid": {}})
     config_dir = tmp_path / "config"
@@ -108,12 +109,14 @@ def test_run_simulation_success_pipeline(tmp_path):
     mock_state.dt = 0.001
     mock_state.current_iteration = 0
     mock_state.current_time = 0.0
+    mock_state.output_interval = 1
 
     # Execute simulation under patched dependencies:
     with patch("src.main.BASE_DIR", tmp_path), \
          patch("src.main.load_and_validate_inputs", return_value=({}, {})), \
          patch("src.main.SolverState", return_value=mock_state), \
          patch("src.main.step_simulation") as mock_step, \
+         patch("src.main.export_step_snapshot") as mock_export, \
          patch("src.main.archive_simulation_results") as mock_archive:
 
         # Simulate iteration advancement inside loop:
@@ -129,9 +132,10 @@ def test_run_simulation_success_pipeline(tmp_path):
             output_file_name="output_manifest.json",
         )
 
-        # Assert physical step and constraint methods were invoked N_steps times:
+        # Assert physical step, constraint, and intermediate snapshot methods were invoked N_steps times:
         assert mock_step.call_count == 2
         assert mock_state.enforce_physical_constraints.call_count == 2
+        assert mock_export.call_count == 2
 
         # Assert success manifest packaging was triggered:
         mock_archive.assert_called_once_with(
@@ -166,6 +170,7 @@ def test_run_simulation_loop_failure_writes_failure_manifest(tmp_path):
     mock_state = MagicMock()
     mock_state.total_iterations = 5
     mock_state.dt = 0.001
+    mock_state.output_interval = 0
 
     with patch("src.main.BASE_DIR", tmp_path), \
          patch("src.main.load_and_validate_inputs", return_value=({}, {})), \
@@ -198,6 +203,7 @@ def test_run_simulation_double_fault_handling(tmp_path):
     mock_state = MagicMock()
     mock_state.total_iterations = 1
     mock_state.dt = 0.001
+    mock_state.output_interval = 0
 
     with patch("src.main.BASE_DIR", tmp_path), \
          patch("src.main.load_and_validate_inputs", return_value=({}, {})), \

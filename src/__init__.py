@@ -4,7 +4,7 @@ Provides Control Plane orchestration, schema ingestion, sovereign state manageme
 and C++ execution bridge interfaces.
 """
 
-from src.archivist import archive_simulation_results
+from src.archivist import archive_simulation_results, export_step_snapshot
 from src.cpp_gate import step_simulation
 from src.ingestion import load_and_validate_inputs
 from src.main import main
@@ -13,6 +13,7 @@ from src.state import SolverState
 __all__ = [
     "SolverState",
     "archive_simulation_results",
+    "export_step_snapshot",
     "load_and_validate_inputs",
     "main",
     "step_simulation",
