@@ -2,7 +2,7 @@
 src/main.py
 Main Execution Control Plane.
 Orchestrates ingestion, simulation state instantiation, the master time-integration loop,
-and archival packaging under strict non-default policies.
+intermediate snapshot exports, and archival packaging under strict non-default policies.
 """
 
 import argparse
@@ -11,7 +11,7 @@ import sys
 import traceback
 from pathlib import Path
 
-from src.archivist import archive_simulation_results
+from src.archivist import archive_simulation_results, export_step_snapshot
 from src.cpp_gate import step_simulation
 from src.ingestion import load_and_validate_inputs
 from src.state import SolverState
@@ -67,6 +67,14 @@ def run_simulation(
 
             # Enforce physical constraints / bounds / stability checks
             state.enforce_physical_constraints()
+
+            # Intermediate state serialization check
+            if state.output_interval > 0 and state.current_iteration % state.output_interval == 0:
+                export_step_snapshot(
+                    state=state,
+                    step=state.current_iteration,
+                    output_dir=out_path,
+                )
 
             if state.current_iteration % max(1, state.total_iterations // 10) == 0:
                 logger.info(

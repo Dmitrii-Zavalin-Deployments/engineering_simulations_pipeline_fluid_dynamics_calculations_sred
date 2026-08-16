@@ -1,9 +1,9 @@
 """
 src/archivist.py
 Archivist Module.
-Serializes final field states (u, v, w, p), packages snapshot binaries into a timestamped
-ZIP archive on success, cleans up loose temporary files, and generates canonical output JSON manifests 
-adhering strictly to navier_stokes_output.schema.json for both success and failure states.
+Serializes intermediate and final field states (u, v, w, p) using zero-padded step indexing, 
+packages all snapshot binaries into a timestamped ZIP archive on success, cleans up loose temporary files, 
+and generates canonical output JSON manifests adhering strictly to navier_stokes_output.schema.json.
 """
 
 import json
@@ -18,6 +18,58 @@ import numpy as np
 logger = logging.getLogger("Solver.Archivist")
 
 
+def export_step_snapshot(
+    state: Any,
+    step: int,
+    output_dir: str | Path,
+) -> list[Path]:
+    """
+    Exports 3D field snapshots (u, v, w, p) retaining spatial dimensions (nx, ny, nz)
+    tagged by zero-padded step index.
+
+    Args:
+        state: Sovereign SolverState container holding simulation state.
+        step: Current simulation iteration index.
+        output_dir: Target directory path for output artifacts.
+
+    Returns:
+        List of Path objects for exported .npy files.
+    """
+    if state is None:
+        raise ValueError("FATAL ERROR: state must be explicitly provided (no defaults allowed).")
+    if output_dir is None:
+        raise ValueError("FATAL ERROR: output_dir must be explicitly provided (no defaults allowed).")
+
+    out_path = Path(output_dir).resolve()
+    out_path.mkdir(parents=True, exist_ok=True)
+
+    fields = getattr(state, "fields", None)
+    if fields is None:
+        u_f = getattr(state, "u", None)
+        v_f = getattr(state, "v", None)
+        w_f = getattr(state, "w", None)
+        p_f = getattr(state, "p", None)
+        if u_f is not None and v_f is not None and w_f is not None and p_f is not None:
+            fields = np.stack([u_f, v_f, w_f, p_f], axis=0)
+
+    if fields is None:
+        raise ValueError("FATAL ERROR: state.fields must be explicitly provided and populated (no defaults allowed).")
+
+    step_str = f"{step:06d}"
+    field_names = ["field_u", "field_v", "field_w", "field_p"]
+    saved_snapshots: list[Path] = []
+
+    for idx, name in enumerate(field_names):
+        if idx < len(fields):
+            field_data = fields[idx]
+            npy_path = out_path / f"{name}_step_{step_str}.npy"
+            np.save(npy_path, field_data)
+            saved_snapshots.append(npy_path)
+            logger.info(f"Exported field snapshot: {npy_path.name} (Shape: {field_data.shape})")
+
+    return saved_snapshots
+
+
 def archive_simulation_results(
     state: Any,
     output_dir: str | Path,
@@ -25,8 +77,8 @@ def archive_simulation_results(
     status: str,
 ) -> None:
     """
-    Exports solved fields, builds schema-compliant JSON manifest, packages artifacts, 
-    and cleans up loose temporary files.
+    Exports final fields, packages all step snapshot artifacts into a timestamped ZIP archive,
+    cleans up temporary binaries, and builds schema-compliant JSON manifest.
 
     Args:
         state: Sovereign SolverState container holding simulation state.
@@ -62,35 +114,24 @@ def archive_simulation_results(
                     "FATAL ERROR: C++ solver instance attached to state is missing required 'sync_fields' or 'get_fields' binding."
                 )
 
-        # 1. Generate UTC timestamped ZIP archive filename (YYYYMMDD_HHMMSS.zip)
+        # 1. Export final state snapshot to guarantee final frame presence if not already dumped
+        final_step = getattr(state, "current_iteration", 0)
+        final_snapshot_check = out_path / f"field_u_step_{final_step:06d}.npy"
+        if not final_snapshot_check.exists():
+            export_step_snapshot(
+                state=state,
+                step=final_step,
+                output_dir=out_path,
+            )
+
+        # 2. Gather all generated step snapshot binaries
+        saved_snapshots = sorted(list(out_path.glob("field_*_step_*.npy")))
+
+        # 3. Generate UTC timestamped ZIP archive filename (YYYYMMDD_HHMMSS.zip)
         timestamp_str = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         target_zip_name = f"{timestamp_str}.zip"
 
-        # 2. Export 3D field snapshots (u, v, w, p) retaining spatial dimensions (nx, ny, nz)
-        saved_snapshots: list[Path] = []
-        field_names = ["field_u", "field_v", "field_w", "field_p"]
-
-        fields = getattr(state, "fields", None)
-        if fields is None:
-            u_f = getattr(state, "u", None)
-            v_f = getattr(state, "v", None)
-            w_f = getattr(state, "w", None)
-            p_f = getattr(state, "p", None)
-            if u_f is not None and v_f is not None and w_f is not None and p_f is not None:
-                fields = np.stack([u_f, v_f, w_f, p_f], axis=0)
-
-        if fields is None:
-            raise ValueError("FATAL ERROR: state.fields must be explicitly provided and populated (no defaults allowed).")
-
-        for idx, name in enumerate(field_names):
-            if idx < len(fields):
-                field_data = fields[idx]
-                npy_path = out_path / f"{name}.npy"
-                np.save(npy_path, field_data)
-                saved_snapshots.append(npy_path)
-                logger.info(f"Exported field snapshot: {npy_path.name} (Shape: {field_data.shape})")
-
-        # 3. Compress snapshot binaries into timestamped ZIP archive
+        # 4. Compress all snapshot binaries into timestamped ZIP archive
         zip_file_path = out_path / target_zip_name
         logger.info(f"Creating output ZIP archive: {zip_file_path}")
 
@@ -98,9 +139,9 @@ def archive_simulation_results(
             for npy_file in saved_snapshots:
                 zip_out.write(npy_file, arcname=npy_file.name)
 
-        logger.info(f"Successfully archived snapshot binaries into: {zip_file_path.name}")
+        logger.info(f"Successfully archived {len(saved_snapshots)} snapshot binaries into: {zip_file_path.name}")
 
-        # 4. Clean up loose temporary .npy files so only the ZIP archive remains
+        # 5. Clean up loose temporary .npy files so only the ZIP archive remains
         for npy_file in saved_snapshots:
             try:
                 npy_file.unlink()
@@ -111,7 +152,7 @@ def archive_simulation_results(
         target_zip_name = "NOT_APPLICABLE"
         logger.warning("Simulation marked as FAILURE. Skipping snapshot binary creation.")
 
-    # 5. Construct Schema-Compliant Output JSON Payload matching navier_stokes_output.schema.json
+    # 6. Construct Schema-Compliant Output JSON Payload matching navier_stokes_output.schema.json
     config_obj = getattr(state, "config", getattr(state, "config_data", {}))
     output_payload: dict[str, Any] = {
         "inputs": getattr(state, "input_data", {}),
