@@ -105,7 +105,7 @@ def archive_simulation_results(
             try:
                 npy_file.unlink()
                 logger.info(f"Cleaned up temporary uncompressed snapshot: {npy_file.name}")
-            except Exception as e:
+            except OSError as e:
                 logger.warning(f"Failed to delete temporary npy file {npy_file.name}: {e}")
     else:
         target_zip_name = "NOT_APPLICABLE"
