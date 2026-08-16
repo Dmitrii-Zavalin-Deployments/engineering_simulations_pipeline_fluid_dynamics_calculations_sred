@@ -80,8 +80,8 @@ def step_simulation(state: SolverState) -> None:
     # Instance engine retrieval lazily converts BCs upon binding
     solver = _get_or_create_cpp_solver(state)
 
+    # 1. Isolated C++ core step execution
     try:
-        # Execute C++ core time integration step.
         solver.step(state)
 
         # Enforce strict field synchronization to ensure C++ array state maps back to Python memory
@@ -91,22 +91,21 @@ def step_simulation(state: SolverState) -> None:
             raise RuntimeError(
                 "FATAL ERROR: C++ NavierStokesSolver instance is missing required callable 'sync_fields' method."
             )
-
-        # Update sovereign state tracking metrics upon successful step completion under strict non-default policy
-        try:
-            dt = float(state.dt)
-        except (AttributeError, TypeError):
-            try:
-                dt = float(state.input_data["simulation_parameters"]["time_step"])
-            except (AttributeError, KeyError, TypeError) as inner_err:
-                raise KeyError(
-                    "FATAL ERROR: Simulation time step 'dt' or 'simulation_parameters.time_step' "
-                    "must be explicitly provided (no defaults allowed)."
-                ) from inner_err
-
-        state.current_iteration += 1
-        state.current_time += dt
-
     except Exception as e:
         logger.error(f"C++ step execution failed at iteration {getattr(state, 'current_iteration', 0)}: {e}")
         raise RuntimeError(f"C++ execution failure during solver step: {e}") from e
+
+    # 2. Sovereign state tracking metric updates (KeyError/ValueError propagate natively)
+    try:
+        dt = float(state.dt)
+    except (AttributeError, TypeError):
+        try:
+            dt = float(state.input_data["simulation_parameters"]["time_step"])
+        except (AttributeError, KeyError, TypeError) as inner_err:
+            raise KeyError(
+                "FATAL ERROR: Simulation time step 'dt' or 'simulation_parameters.time_step' "
+                "must be explicitly provided (no defaults allowed)."
+            ) from inner_err
+
+    state.current_iteration += 1
+    state.current_time += dt
