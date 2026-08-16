@@ -4,27 +4,23 @@
 A high-fidelity 3D Eulerian Navier–Stokes solver execution engine equipped 
 with automated continuous integration, forensics, and Cloud synchronization.
 
-### 🌊 Pipeline Preview (Initial Field → Pressure Correction → Velocity/Vorticity Slice)
+### 🔄 Execution Pipeline Architecture
 
-<table align="center" style="border: 1px solid white; border-collapse: collapse; background: transparent;">
-  <tr>
-    <td style="border: 1px solid white; text-align: center; vertical-align: middle; padding: 0 8px; background: transparent;">
-      <img src="data/testing-input-output/initial_field_setup.png" width="210" />
-    </td>
-    <td style="border: 1px solid white; text-align: center; vertical-align: middle; padding: 0 12px; font-size: 32px; color: #666; background: transparent;">
-      &rarr;
-    </td>
-    <td style="border: 1px solid white; text-align: center; vertical-align: middle; padding: 0 8px; background: transparent;">
-      <img src="data/testing-input-output/ppe_solver_state.png" width="210" />
-    </td>
-    <td style="border: 1px solid white; text-align: center; vertical-align: middle; padding: 0 12px; font-size: 32px; color: #666; background: transparent;">
-      &rarr;
-    </td>
-    <td style="border: 1px solid white; text-align: center; vertical-align: middle; padding: 0 8px; background: transparent;">
-      <img src="data/testing-input-output/velocity_vorticity_slice.png" width="210" />
-    </td>
-  </tr>
-</table>
+```text
+[ JSON Input Config ] 
+        │
+        ▼
+[ Ingestion & Validation ] ──► [ SimulationState Container ]
+                                        │
+                                        ▼
+                              [ C++ Time Integration ]
+                                        │
+                                        ▼
+                              [ Constraint Enforcement ]
+                                        │
+                                        ▼
+                              [ Archivist Package (.zip) ]
+```
 
 ### 📚 Resources & Documentation
 - **Tutorial/Book:** ***currently in development***
@@ -32,6 +28,12 @@ with automated continuous integration, forensics, and Cloud synchronization.
 ---
 
 ### 🧮 Performance Audit:
+### Audit: 2026-08-16 18:16:11 UTC
+- **Branch:** `main`
+- **Status:** `failure`
+- **Run:** [Detailed Execution Logs](https://github.com/Dmitrii-Zavalin-Deployments/navier_stokes_solver/actions/runs/31964050463)
+- **CPU Load:** `0.0%`
+- **Memory Usage:** `1079/15989MB`
 ### Audit: 2026-08-07 14:41:54 UTC
 - **Branch:** `main`
 - **Status:** `failure`
