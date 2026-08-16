@@ -21,7 +21,7 @@
   "simulation_parameters": {
     "time_step": 0.1,
     "total_time": 1,
-    "output_interval": 0.2
+    "output_interval": 2
   },
   "boundary_conditions": [
     {
