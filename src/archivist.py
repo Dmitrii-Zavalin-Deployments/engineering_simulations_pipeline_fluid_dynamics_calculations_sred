@@ -125,7 +125,7 @@ def archive_simulation_results(
             )
 
         # 2. Gather all generated step snapshot binaries
-        saved_snapshots = sorted(list(out_path.glob("field_*_step_*.npy")))
+        saved_snapshots = sorted(out_path.glob("field_*_step_*.npy"))
 
         # 3. Generate UTC timestamped ZIP archive filename (YYYYMMDD_HHMMSS.zip)
         timestamp_str = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
