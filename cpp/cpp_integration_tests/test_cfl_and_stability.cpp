@@ -2,14 +2,14 @@
  * @file test_cfl_and_stability.cpp
  * @brief Integration test verifying Courant-Friedrichs-Lewy (CFL) condition enforcement,
  *        temporal stability bounds, and safety intercept exceptions under numerical velocity spikes.
- * 
+ *
  * LITERATE TESTING NARRATIVE & MATHEMATICAL GOVERNING EQUATIONS:
  * ---------------------------------------------------------------------------------
  * Temporal stability in explicit and semi-implicit advection solvers is governed by 
  * the Courant-Friedrichs-Lewy (CFL) condition. For a 3D Eulerian grid, the dimensionless 
  * CFL number C measures the distance information travels across grid cells during a time step dt:
  * 
- *       C = max( (|u|_max * dt) / dx, (|v|_max * dt) / dy, (|w|_max * dt) / dz ) <= C_max
+ *     C = max( (|u|_max * dt) / dx, (|v|_max * dt) / dy, (|w|_max * dt) / dz ) <= C_max
  * 
  * Where C_max = 1.0 represents the hyperbolic stability boundary (information cannot 
  * traverse more than one mesh cell per discrete time step).
@@ -39,10 +39,16 @@
 
 using namespace navier_stokes_solver;
 
+/**
+ * @class CflAndStabilityTest
+ * @brief Test fixture for setting up uniform domain metrics and velocity initialization fields
+ *        written following a literate narrative style.
+ */
 class CflAndStabilityTest : public ::testing::Test {
 protected:
     void SetUp() override {
-        // Domain setup: dx = dy = dz = 0.01 m
+        // We define the spatial grid spacing uniformly across all three dimensions:
+        //     dx = dy = dz = 0.01 m
         nx_ = 10;
         ny_ = 10;
         nz_ = 10;
@@ -60,8 +66,8 @@ protected:
         config_.max_poisson_iterations = 1000;
         config_.poisson_tolerance = 1e-6;
 
-        // Initialize empty force and mask vectors
-        mask_ = std::vector<int>(total_cells_, 1); // Fluid domain
+        // We initialize mask and external body force arrays for the fluid domain.
+        mask_ = std::vector<int>(total_cells_, 1); 
         fx_ = std::vector<double>(total_cells_, 0.0);
         fy_ = std::vector<double>(total_cells_, 0.0);
         fz_ = std::vector<double>(total_cells_, 0.0);
@@ -76,7 +82,10 @@ protected:
         bc_list_.push_back(bc_wall);
     }
 
-    // Computes maximum interior divergence: div u = du/dx + dv/dy + dw/dz
+    /**
+     * @brief Computes maximum interior velocity divergence using central differences:
+     *     div(u) = du/dx + dv/dy + dw/dz = 0
+     */
     double ComputeMaxDivergence(
         const std::vector<double>& u,
         const std::vector<double>& v,
@@ -124,15 +133,13 @@ protected:
 TEST_F(CflAndStabilityTest, CflViolationSafetyIntercept) {
     NavierStokesOrchestrator orchestrator(dims_, config_);
 
-    // -----------------------------------------------------------------------------
-    // Setup Common Flow Field with Local Velocity Spike: u_max = 10.0 m/s
-    // -----------------------------------------------------------------------------
+    // We set up base velocity and pressure fields.
     std::vector<double> u_base(total_cells_, 0.0);
     std::vector<double> v_base(total_cells_, 0.0);
     std::vector<double> w_base(total_cells_, 0.0);
     std::vector<double> p_base(total_cells_, 0.0);
 
-    // Inject velocity spike u_max = 10.0 m/s at domain center cell (i=5, j=5, k=5)
+    // We inject a local velocity spike u_max = 10.0 m/s at domain center cell (i=5, j=5, k=5).
     size_t center_idx = 5 + static_cast<size_t>(nx_) * (5 + ny_ * 5);
     u_base[center_idx] = 10.0;
 
@@ -146,24 +153,26 @@ TEST_F(CflAndStabilityTest, CflViolationSafetyIntercept) {
         std::vector<double> w = w_base;
         std::vector<double> p = p_base;
 
-        // Measure initial divergence before step execution
+        // We compute initial divergence prior to step execution:
         double initial_div = ComputeMaxDivergence(u, v, w);
+        assert(initial_div >= 0.0);
 
-        // Step execution must complete without throwing exceptions (using ASSERT for fail-fast)
+        // Step execution must complete without throwing exceptions under stable CFL conditions.
+        assert(dt_stable > 0.0);
         ASSERT_NO_THROW({
             orchestrator.step(dt_stable, mu_, gravity_, fx_, fy_, fz_, mask_, bc_list_, u, v, w, p);
         }) << "Case A Failed: Orchestrator threw an unexpected exception under stable CFL conditions (C = 0.5).";
 
-        // Verify absence of NaN or Infinite values in output velocity field
+        // We verify that no NaN or Infinite values appear in the output velocity field.
         for (size_t i = 0; i < total_cells_; ++i) {
             ASSERT_FALSE(std::isnan(u[i]) || std::isinf(u[i])) << "Case A Failed: u contains NaN/Inf at index " << i;
             ASSERT_FALSE(std::isnan(v[i]) || std::isinf(v[i])) << "Case A Failed: v contains NaN/Inf at index " << i;
             ASSERT_FALSE(std::isnan(w[i]) || std::isinf(w[i])) << "Case A Failed: w contains NaN/Inf at index " << i;
         }
 
-        // Verify invariant: The pressure projection and solver must successfully suppress or 
-        // bound the initial divergence spike rather than letting it amplify or explode.
+        // We verify the stability invariant: pressure projection must suppress or bound the divergence spike.
         double final_div = ComputeMaxDivergence(u, v, w);
+        assert(final_div >= 0.0);
         ASSERT_LE(final_div, initial_div) 
             << "Case A Failed: Divergence grew from " << initial_div << " to " << final_div 
             << " under stable CFL conditions, violating solver stability bounds.";
@@ -179,12 +188,12 @@ TEST_F(CflAndStabilityTest, CflViolationSafetyIntercept) {
         std::vector<double> w = w_base;
         std::vector<double> p = p_base;
 
-        // Verify that the orchestrator either throws an exception or catches/guards the instability
+        // We verify that the orchestrator either throws an exception or catches/guards the instability.
         bool guard_triggered = false;
         try {
             orchestrator.step(dt_unstable, mu_, gravity_, fx_, fy_, fz_, mask_, bc_list_, u, v, w, p);
             
-            // If no exception was thrown, verify that numerical safety guards prevented NaN explosion
+            // If no exception was thrown, verify whether numerical safety guards prevented NaN explosion.
             for (size_t i = 0; i < total_cells_; ++i) {
                 if (std::isnan(u[i]) || std::isinf(u[i]) || std::abs(u[i]) > 1000.0) {
                     guard_triggered = false;
