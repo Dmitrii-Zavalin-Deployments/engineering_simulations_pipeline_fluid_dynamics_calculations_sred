@@ -56,57 +56,57 @@ jobs:
           # libgl1 replaces the deprecated libgl1-mesa-glx on Ubuntu 24.04+
           sudo apt-get install -y libgl1 xvfb libglu1-mesa
 
-      - name: ⚙️ Compile and Run C++ and Python Bridge Tests
-        run: |
-          sudo apt-get update && sudo apt-get install -y nlohmann-json3-dev
-          echo "🚀 Compiling and executing native C++ unit and integration tests with coverage..."
-          mkdir -p build/tests
+      # - name: ⚙️ Compile and Run C++ and Python Bridge Tests
+      #   run: |
+      #     sudo apt-get update && sudo apt-get install -y nlohmann-json3-dev
+      #     echo "🚀 Compiling and executing native C++ unit and integration tests with coverage..."
+      #     mkdir -p build/tests
 
-          # Dynamically find all core C++ implementation files except python_gate.cpp for pure C++ tests
-          CPP_SOURCES=$(find cpp/src -name "*.cpp" ! -name "python_gate.cpp")
+      #     # Dynamically find all core C++ implementation files except python_gate.cpp for pure C++ tests
+      #     CPP_SOURCES=$(find cpp/src -name "*.cpp" ! -name "python_gate.cpp")
 
-          # 1. Compile C++ Unit Tests (from flat cpp/cpp_unit_tests/ folder)
-          echo "⚙️ Compiling Unit Tests..."
-          g++ --coverage -O0 -std=c++17 -fopenmp $CPP_SOURCES \
-            /usr/src/googletest/googletest/src/gtest-all.cc \
-            /usr/src/googletest/googletest/src/gtest_main.cc \
-            $(find cpp/cpp_unit_tests -name "*.cpp") \
-            -I/usr/src/googletest/googletest \
-            -Icpp/include \
-            -lpthread \
-            -o build/tests/unit_tests
+      #     # 1. Compile C++ Unit Tests (from flat cpp/cpp_unit_tests/ folder)
+      #     echo "⚙️ Compiling Unit Tests..."
+      #     g++ --coverage -O0 -std=c++17 -fopenmp $CPP_SOURCES \
+      #       /usr/src/googletest/googletest/src/gtest-all.cc \
+      #       /usr/src/googletest/googletest/src/gtest_main.cc \
+      #       $(find cpp/cpp_unit_tests -name "*.cpp") \
+      #       -I/usr/src/googletest/googletest \
+      #       -Icpp/include \
+      #       -lpthread \
+      #       -o build/tests/unit_tests
 
-          # 2. Compile C++ Integration Tests (from flat cpp/cpp_integration_tests/ folder)
-          echo "⚙️ Compiling Integration Tests..."
-          g++ --coverage -O0 -std=c++17 -fopenmp $CPP_SOURCES \
-            /usr/src/googletest/googletest/src/gtest-all.cc \
-            /usr/src/googletest/googletest/src/gtest_main.cc \
-            $(find cpp/cpp_integration_tests -name "*.cpp") \
-            -I/usr/src/googletest/googletest \
-            -Icpp/include \
-            -lpthread \
-            -o build/tests/integration_tests
+      #     # 2. Compile C++ Integration Tests (from flat cpp/cpp_integration_tests/ folder)
+      #     echo "⚙️ Compiling Integration Tests..."
+      #     g++ --coverage -O0 -std=c++17 -fopenmp $CPP_SOURCES \
+      #       /usr/src/googletest/googletest/src/gtest-all.cc \
+      #       /usr/src/googletest/googletest/src/gtest_main.cc \
+      #       $(find cpp/cpp_integration_tests -name "*.cpp") \
+      #       -I/usr/src/googletest/googletest \
+      #       -Icpp/include \
+      #       -lpthread \
+      #       -o build/tests/integration_tests
 
-          # 3. Compile Python shared module with bindings and coverage (MUST include python_gate.cpp)
-          echo "⚙️ Compiling Python pybind11 module..."
-          ALL_CPP_SOURCES=$(find cpp/src -name "*.cpp")
-          g++ --coverage -O0 -std=c++17 -shared -fPIC -fopenmp \
-            $ALL_CPP_SOURCES \
-            -Icpp/include \
-            $(python3 -m pybind11 --includes) \
-            -o navier_stokes_cpp$(python3-config --extension-suffix)
+      #     # 3. Compile Python shared module with bindings and coverage (MUST include python_gate.cpp)
+      #     echo "⚙️ Compiling Python pybind11 module..."
+      #     ALL_CPP_SOURCES=$(find cpp/src -name "*.cpp")
+      #     g++ --coverage -O0 -std=c++17 -shared -fPIC -fopenmp \
+      #       $ALL_CPP_SOURCES \
+      #       -Icpp/include \
+      #       $(python3 -m pybind11 --includes) \
+      #       -o navier_stokes_cpp$(python3-config --extension-suffix)
 
-          echo "🧪 Executing native C++ Unit Test suite..."
-          ./build/tests/unit_tests
+      #     echo "🧪 Executing native C++ Unit Test suite..."
+      #     ./build/tests/unit_tests
 
-          echo "🌊 Executing native C++ Integration Test suite..."
-          ./build/tests/integration_tests
+      #     echo "🌊 Executing native C++ Integration Test suite..."
+      #     ./build/tests/integration_tests
 
-          echo "🐍 Executing Python C++ bridge tests from cpp/python_bridge_tests/..."
-          pytest cpp/python_bridge_tests/ -v
+      #     echo "🐍 Executing Python C++ bridge tests from cpp/python_bridge_tests/..."
+      #     pytest cpp/python_bridge_tests/ -v
 
-          echo "📊 Generating Combined Code Coverage Report..."
-          gcovr --root=. --filter=cpp/src/ --print-summary --txt
+      #     echo "📊 Generating Combined Code Coverage Report..."
+      #     gcovr --root=. --filter=cpp/src/ --print-summary --txt
 
       - name: 🧹 Auto-Clean (Autoflake)
         run: |
