@@ -2,6 +2,25 @@
  * @file test_velocity_inlet_outlet.cpp
  * @brief Scenario 3.1: Velocity Inlet / Pressure Outlet Boundary Verification
  *        Refactored to use NavierStokesOrchestrator and stability invariants.
+ * 
+ * LITERATE TESTING NARRATIVE & MATHEMATICAL FORMULATION:
+ * ---------------------------------------------------------------------------------
+ * This integration test verifies the robust coupling of velocity inlet and pressure 
+ * outlet boundary conditions in the Navier-Stokes orchestrator.
+ * 
+ * Grid spacing increments are defined as:
+ *     dx = (x_max - x_min) / nx
+ *     dy = (y_max - y_min) / ny
+ *     dz = (z_max - z_min) / nz
+ * 
+ * Mass conservation across inlet and outlet faces requires:
+ *     m_dot_inlet  = sum(rho * u_inlet * dy * dz)
+ *     m_dot_outlet = sum(rho * u_outlet * dy * dz)
+ *     m_dot_inlet == m_dot_outlet
+ * 
+ * Divergence constraint:
+ *     div(u) = du/dx + dv/dy + dw/dz == 0
+ * ---------------------------------------------------------------------------------
  */
 
 #include <gtest/gtest.h>
@@ -10,6 +29,7 @@
 #include <algorithm>
 #include <iostream>
 #include <limits>
+#include <cassert>
 
 #include "orchestrator.hpp"
 #include "grid_math.hpp"
@@ -18,6 +38,8 @@
 
 using namespace navier_stokes_solver;
 
+// We define a helper function to compute the maximum velocity divergence across the interior cells:
+//     div = |du/dx + dv/dy + dw/dz|
 static double ComputeMaxDivergence(
     const std::vector<double>& u,
     const std::vector<double>& v,
@@ -56,6 +78,7 @@ static double ComputeMaxDivergence(
 }
 
 TEST(BoundaryConditionsTest, VelocityInletPressureOutlet) {
+    // We define grid dimensions and spatial steps:
     const int nx = 10;
     const int ny = 8;
     const int nz = 8;
@@ -64,14 +87,23 @@ TEST(BoundaryConditionsTest, VelocityInletPressureOutlet) {
     const double dz = 0.1;
 
     GridDimensions dims{nx, ny, nz, dx, dy, dz};
+    assert(nx > 0 && ny > 0 && nz > 0);
+    assert(dx > 0.0 && dy > 0.0 && dz > 0.0);
+
     size_t total_cells = static_cast<size_t>(nx) * ny * nz;
 
+    // We define fluid properties and simulation parameters:
     const double density = 1000.0;
     const double mu = 0.001;
     const double nu = mu / density;
     const double dt = 0.001;
     const double U_0 = 1.0;
     const int total_steps = 200; // Optimized step count for rapid integration test execution
+
+    assert(density > 0.0);
+    assert(nu >= 0.0);
+    assert(dt > 0.0);
+    assert(total_steps > 0);
 
     SolverConfig config;
     config.density = density;
@@ -80,6 +112,7 @@ TEST(BoundaryConditionsTest, VelocityInletPressureOutlet) {
 
     NavierStokesOrchestrator orchestrator(dims, config);
 
+    // We initialize field vectors:
     std::vector<int> mask(total_cells, 1);
     std::vector<double> u(total_cells, U_0); // Initialize domain with U_0 to establish baseline mass flux
     std::vector<double> v(total_cells, 0.0);
@@ -90,6 +123,7 @@ TEST(BoundaryConditionsTest, VelocityInletPressureOutlet) {
 
     std::vector<BoundaryCondition> bc_list;
 
+    // We configure the velocity inlet at x_min:
     BoundaryCondition bc_inlet;
     bc_inlet.location = "x_min";
     bc_inlet.type = "velocity_inlet";
@@ -100,6 +134,7 @@ TEST(BoundaryConditionsTest, VelocityInletPressureOutlet) {
     bc_inlet.values.has_p = false;
     bc_list.push_back(bc_inlet);
 
+    // We configure the pressure outlet at x_max:
     BoundaryCondition bc_outlet;
     bc_outlet.location = "x_max";
     bc_outlet.type = "pressure_outlet";
@@ -109,19 +144,26 @@ TEST(BoundaryConditionsTest, VelocityInletPressureOutlet) {
     bc_outlet.values.has_w = false;
     bc_outlet.values.has_p = true; bc_outlet.values.p = 0.0;
     bc_list.push_back(bc_outlet);
+    assert(bc_list.size() == 2);
 
     std::cout << "[VELOCITY_INLET_OUTLET] Starting orchestrated verification run..." << std::endl;
 
+    // We execute the simulation steps and verify divergence stability invariants at each step:
     for (int step = 0; step < total_steps; ++step) {
         orchestrator.step(dt, nu, gravity, fx, fy, fz, mask, bc_list, u, v, w, p);
 
         // Stability check: Divergence safety check on every step
         double current_div = ComputeMaxDivergence(u, v, w, nx, ny, nz, dx, dy, dz);
+        assert(std::isfinite(current_div));
+        assert(current_div < 10.0);
+
         ASSERT_TRUE(std::isfinite(current_div)) << "[FATAL] Non-finite divergence encountered at step " << step;
         ASSERT_LT(current_div, 10.0) << "[FATAL] Divergence safety ceiling exceeded at step " << step 
-                                     << " | Divergence Value: " << current_div;
+                                    << " | Divergence Value: " << current_div;
     }
 
+    // We compute total mass flow rates at the inlet and outlet faces:
+    //     m_dot = sum(rho * u * dy * dz)
     double inlet_mass_flow = 0.0;
     double outlet_mass_flow = 0.0;
     double face_area = dy * dz;
@@ -135,6 +177,8 @@ TEST(BoundaryConditionsTest, VelocityInletPressureOutlet) {
         }
     }
 
+    // We assert mass conservation between inlet and outlet:
+    assert(std::abs(inlet_mass_flow - outlet_mass_flow) < 1e-2);
     ASSERT_NEAR(inlet_mass_flow, outlet_mass_flow, 1e-2)
         << "Mass flow conservation failure: Inlet mass rate does not match outlet mass rate.";
 }
