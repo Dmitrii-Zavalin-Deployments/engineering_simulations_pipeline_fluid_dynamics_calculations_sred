@@ -42,10 +42,6 @@ void NavierStokesOrchestrator::step(
     std::vector<double>& w,
     std::vector<double>& p
 ) {
-    if (gravity.size() != 3) {
-        throw std::invalid_argument("CONTRACT VIOLATION: gravity vector must have exactly 3 components.");
-    }
-
     #ifdef _OPENMP
     int active_threads = omp_get_max_threads();
     #else
