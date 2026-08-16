@@ -7,41 +7,48 @@
 set -euo pipefail
 
 echo "=============================================================================="
-echo "[PHASE 1] Diagnostics: Locating schema files, validation logic, and float values"
+echo "[PHASE 1] Diagnostics: Locating root cause of float '0.2' in integer schema fields"
 echo "=============================================================================="
 
-echo "--- Searching for JSON schema definition files ---"
-find . -name "*.json" -not -path "*/.*" -not -path "*/venv/*" || true
-
-echo "--- Searching for schema validation execution points ---"
-grep -rn "validate" src/ tests/ || true
-grep -rn "schema" src/ tests/ || true
-
-echo "--- Searching for references to '0.2' in codebase ---"
+echo "--- Searching for references to '0.2' across codebase ---"
 grep -rn "0.2" src/ tests/ || true
+
+echo "--- Searching for 'output_interval' and integer parameter definitions ---"
+grep -rn "output_interval" src/ tests/ schema/ || true
+
+echo "--- Inspecting generated output JSON payload for float/integer mismatches ---"
+if [ -f "data/testing-input-output/navier_stokes_output.json" ]; then
+    grep -rn "0.2" data/testing-input-output/navier_stokes_output.json || true
+    cat data/testing-input-output/navier_stokes_output.json
+fi
 
 echo "=============================================================================="
 echo "[PHASE 2] Smoking-Gun Source Audits (cat -n)"
 echo "=============================================================================="
 
-if [ -f "src/utils/validate_schema.py" ]; then
-    echo "--- Auditing src/utils/validate_schema.py ---"
-    cat -n src/utils/validate_schema.py
+if [ -f "src/archivist.py" ]; then
+    echo "--- Auditing src/archivist.py ---"
+    cat -n src/archivist.py
 fi
 
-# Locate and audit any schema json files found in the repository
-for schema_file in $(find . -name "*schema*.json" -not -path "*/venv/*" 2>/dev/null); do
-    echo "--- Auditing schema file: $schema_file ---"
-    cat -n "$schema_file"
-done
+if [ -f "src/ingestion.py" ]; then
+    echo "--- Auditing src/ingestion.py ---"
+    cat -n src/ingestion.py
+fi
+
+if [ -f "src/state.py" ]; then
+    echo "--- Auditing src/state.py ---"
+    cat -n src/state.py
+fi
 
 echo "=============================================================================="
 echo "[PHASE 3] Automated Repair Templates (sed injections)"
 echo "=============================================================================="
-echo "Use the following commented sed patterns to adjust schema types or parsing logic:"
+echo "Use the following commented sed patterns for automated repairs:"
 echo ""
-echo "# sed -i 's/\"type\": \"integer\"/\"type\": \"number\"/g' path/to/schema.json"
-echo "# sed -i 's/\"type\":\s*\"integer\"/\"type\": \"number\"/g' src/utils/validate_schema.py"
-echo "# sed -i 's/int(/float(/g' src/utils/validate_schema.py"
+echo "# sed -i 's/int(/int(float(/g' src/archivist.py"
+echo "# sed -i 's/\"output_interval\": 0.2/\"output_interval\": 1/g' data/testing-input-output/navier_stokes_output.json"
+echo "# sed -i 's/\"type\": \"integer\"/\"type\": \"number\"/g' schema/solver_input_schema.json"
+echo "# sed -i 's/\"type\": \"integer\"/\"type\": \"number\"/g' schema/solver_output_schema.json"
 echo ""
 echo "Forensic audit execution completed successfully."
