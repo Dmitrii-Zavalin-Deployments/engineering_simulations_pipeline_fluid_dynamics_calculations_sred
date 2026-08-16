@@ -73,9 +73,10 @@ def test_run_simulation_missing_config_file(tmp_path):
     fake_base_dir = tmp_path / "fake_base"
     fake_base_dir.mkdir()
 
-    with patch("src.main.BASE_DIR", fake_base_dir):
-        with pytest.raises(FileNotFoundError, match="Configuration file not found at"):
-            run_simulation(tmp_path, input_file.name, "output.json")
+    with patch("src.main.BASE_DIR", fake_base_dir), pytest.raises(
+        FileNotFoundError, match="Configuration file not found at"
+    ):
+        run_simulation(tmp_path, input_file.name, "output.json")
 
 
 # ============================================================================
