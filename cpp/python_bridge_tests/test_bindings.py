@@ -4,7 +4,8 @@
 
 This test file acts as a narrative document. Explanatory text and physical
 principles are written as commented prose, while the executable Python assertions
-verify correct interaction between the Python runtime container and the C++ Navier-Stokes Orchestrator.
+verify correct interaction between the Python runtime container and the C++ Navier-Stokes Orchestrator,
+including rigorous exception handling and state synchronization paths.
 """
 
 import numpy as np
@@ -177,3 +178,94 @@ def test_navier_stokes_solver_container_execution():
     assert len(state.boundary_conditions) == 1
     assert state.boundary_conditions[0].location == "wall"
     assert state.boundary_conditions[0].type == "no-slip"
+
+
+# ============================================================================
+# NARRATIVE SECTION 3: Robustness, Contract Enforcement, and Field Synchronization
+# ============================================================================
+# Verifies exception paths for None-state inputs, invalid vector component sizes,
+# non-finite field explosions, and explicit field synchronization back to Python.
+# ============================================================================
+
+def test_step_none_state_error():
+    """Triggers exception branches when passing None as state to step()."""
+    if navier_stokes_cpp is None:
+        pytest.skip("navier_stokes_cpp module not available.")
+
+    nx, ny, nz = 8, 8, 8
+    state = DummySolverState(nx=nx, ny=ny, nz=nz)
+    solver = navier_stokes_cpp.NavierStokesSolver(state)
+
+    with pytest.raises((TypeError, ValueError)):
+        solver.step(None)
+
+
+def test_invalid_gravity_vector_size():
+    """Triggers contract violation exception when gravity_vector does not contain exactly 3 components [gx, gy, gz]."""
+    if navier_stokes_cpp is None:
+        pytest.skip("navier_stokes_cpp module not available.")
+
+    nx, ny, nz = 8, 8, 8
+    state = DummySolverState(nx=nx, ny=ny, nz=nz)
+    state.external_forces["gravity_vector"] = [0.0, -9.81]  # Invalid size != 3
+    solver = navier_stokes_cpp.NavierStokesSolver(state)
+
+    with pytest.raises((TypeError, ValueError)):
+        solver.step(state)
+
+
+def test_invalid_force_vector_size():
+    """Triggers contract violation exception when force_vector does not contain exactly 3 components [fx, fy, fz]."""
+    if navier_stokes_cpp is None:
+        pytest.skip("navier_stokes_cpp module not available.")
+
+    nx, ny, nz = 8, 8, 8
+    state = DummySolverState(nx=nx, ny=ny, nz=nz)
+    state.external_forces["force_vector"] = [10.0, 0.0]  # Invalid size != 3
+    solver = navier_stokes_cpp.NavierStokesSolver(state)
+
+    with pytest.raises((TypeError, ValueError)):
+        solver.step(state)
+
+
+def test_non_finite_field_simulation_failure():
+    """Triggers runtime error when fields contain non-finite (NaN/inf) values after a time step."""
+    if navier_stokes_cpp is None:
+        pytest.skip("navier_stokes_cpp module not available.")
+
+    nx, ny, nz = 8, 8, 8
+    state = DummySolverState(nx=nx, ny=ny, nz=nz)
+    state.fields[0, :, :, :] = np.nan  # Seed with NaN to trigger simulation failure guard
+    solver = navier_stokes_cpp.NavierStokesSolver(state)
+
+    with pytest.raises((TypeError, ValueError, RuntimeError)):
+        solver.step(state)
+
+
+def test_sync_fields_none_error():
+    """Triggers exception when passing None to sync_fields()."""
+    if navier_stokes_cpp is None:
+        pytest.skip("navier_stokes_cpp module not available.")
+
+    nx, ny, nz = 8, 8, 8
+    state = DummySolverState(nx=nx, ny=ny, nz=nz)
+    solver = navier_stokes_cpp.NavierStokesSolver(state)
+
+    with pytest.raises((TypeError, ValueError)):
+        solver.sync_fields(None)
+
+
+def test_sync_fields_execution():
+    """Executes sync_fields() explicitly to synchronize C++ persistent solution vectors back into Python state buffers."""
+    if navier_stokes_cpp is None:
+        pytest.skip("navier_stokes_cpp module not available.")
+
+    nx, ny, nz = 8, 8, 8
+    state = DummySolverState(nx=nx, ny=ny, nz=nz)
+    solver = navier_stokes_cpp.NavierStokesSolver(state)
+    
+    # Run a valid step and then explicitly invoke sync_fields
+    solver.step(state)
+    solver.sync_fields(state)
+
+    assert np.all(np.isfinite(state.fields))

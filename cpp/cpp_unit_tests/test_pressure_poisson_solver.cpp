@@ -3,9 +3,9 @@
  * @brief Literate Test Suite for Pressure Poisson Solver and Boundary Conditions
  *
  * This test file acts as a narrative document. Explanatory text and physical 
- * equations are written as commented prose, while the executable C++ assertions 
- * verify Neumann boundary applications, solid cell pressure averaging, and 
- * Red-Black Gauss-Seidel Poisson solver convergence.
+ * equations are written as commented prose using ASCII formatting, while the executable C++ assertions 
+ * verify Neumann boundary applications, solid cell pressure averaging, error-handling paths,
+ * and Red-Black Gauss-Seidel Poisson solver convergence.
  */
 
 #include <gtest/gtest.h>
@@ -22,11 +22,12 @@ using namespace navier_stokes_solver;
 // NARRATIVE SECTION 1: Neumann Pressure Boundary Conditions
 // ============================================================================
 // Neumann boundary conditions impose a zero-gradient constraint normal to the 
-// boundary surfaces ($\frac{\partial p}{\partial n} = 0$). Numerically, this sets 
-// the boundary cell pressure equal to the adjacent interior cell pressure:
-//        $p_{\text{boundary}} = p_{\text{interior}}$
+// boundary surfaces (dp/dn = 0). Numerically, this sets the boundary cell pressure 
+// equal to the adjacent interior cell pressure adjusted for hydrostatic body forces:
+//        p_boundary = p_interior - (density * g_n * d_n)
 // Here we verify all directional variants ("x_min", "x_max", "y_min", "y_max", 
-// "z_min", "z_max") as well as the composite "wall" boundary type.
+// "z_min", "z_max") as well as the composite "wall" boundary type, and defensive 
+// exception handling for grid spacing and gravity vector dimensions.
 // ============================================================================
 
 TEST(PressurePoissonTest, ApplyNeumannPressureDirections) {
@@ -109,12 +110,36 @@ TEST(PressurePoissonTest, ApplyNeumannPressureDirections) {
 }
 
 // ============================================================================
-// NARRATIVE SECTION 2: Solid Internal Cell Pressure Averaging
+// NARRATIVE SECTION 2: Neumann Pressure Validation and Exception Checks
+// ============================================================================
+// Verifies that invalid grid configurations or incorrect gravity vector dimensions 
+// throw appropriate exceptions during Neumann boundary application.
+// ============================================================================
+
+TEST(PressurePoissonTest, ApplyNeumannPressureValidationErrors) {
+    int nx = 5, ny = 5, nz = 5;
+    std::vector<double> p(nx * ny * nz, 0.0);
+
+    // Invalid spacing (dx <= 0.0)
+    EXPECT_THROW(
+        apply_neumann_pressure(p, "x_min", nx, ny, nz, 0.0, 1.0, 1.0, 1.0, {0.0, 0.0, 0.0}),
+        std::invalid_argument
+    );
+
+    // Invalid gravity vector size (!= 3)
+    EXPECT_THROW(
+        apply_neumann_pressure(p, "x_min", nx, ny, nz, 1.0, 1.0, 1.0, 1.0, {0.0, 0.0}),
+        std::invalid_argument
+    );
+}
+
+// ============================================================================
+// NARRATIVE SECTION 3: Solid Internal Cell Pressure Averaging
 // ============================================================================
 // For immersed boundaries or internal solid regions where the mask value is 0,
 // the pressure is interpolated from the 6 orthogonal neighbor cells to ensure 
 // smoothness and satisfy discrete Neumann equilibrium:
-//        $p_{i,j,k} = \frac{p_{i+1,j,k} + p_{i-1,j,k} + p_{i,j+1,k} + p_{i,j-1,k} + p_{i,j,k+1} + p_{i,j,k-1}}{6}$
+//        p_{i,j,k} = (p_{i+1,j,k} + p_{i-1,j,k} + p_{i,j+1,k} + p_{i,j-1,k} + p_{i,j,k+1} + p_{i,j,k-1}) / 6
 // ============================================================================
 
 TEST(PressurePoissonTest, SolidNeumannPressureAveraging) {
@@ -145,11 +170,53 @@ TEST(PressurePoissonTest, SolidNeumannPressureAveraging) {
 }
 
 // ============================================================================
-// NARRATIVE SECTION 3: Red-Black Gauss-Seidel Poisson Solver Execution
+// NARRATIVE SECTION 4: Poisson Solver Validation and Error-Handling Paths
+// ============================================================================
+// Verifies that solve_poisson_red_black_parallel robustly catches invalid inputs
+// such as small grid dimensions, negative spacing, invalid iteration bounds,
+// and vector size mismatches.
+// ============================================================================
+
+TEST(PressurePoissonTest, PoissonSolverValidationErrors) {
+    int nx = 5, ny = 5, nz = 5;
+    std::vector<double> p(nx * ny * nz, 0.0);
+    std::vector<double> rhs(nx * ny * nz, 0.0);
+    std::vector<int> mask(nx * ny * nz, 1);
+    std::vector<BoundaryCondition> bc_list;
+
+    // Small grid dimensions (< 3x3x3)
+    EXPECT_THROW(
+        solve_poisson_red_black_parallel(p, rhs, mask, bc_list, 2, ny, nz, 1.0, 1.0, 1.0, 10, 1e-6, 1.0, {0.0, 0.0, 0.0}),
+        std::invalid_argument
+    );
+
+    // Non-positive grid spacing
+    EXPECT_THROW(
+        solve_poisson_red_black_parallel(p, rhs, mask, bc_list, nx, ny, nz, 0.0, 1.0, 1.0, 10, 1e-6, 1.0, {0.0, 0.0, 0.0}),
+        std::invalid_argument
+    );
+
+    // Invalid max iterations
+    EXPECT_THROW(
+        solve_poisson_red_black_parallel(p, rhs, mask, bc_list, nx, ny, nz, 1.0, 1.0, 1.0, 0, 1e-6, 1.0, {0.0, 0.0, 0.0}),
+        std::invalid_argument
+    );
+
+    // Vector size mismatch
+    std::vector<double> bad_p(10, 0.0);
+    EXPECT_THROW(
+        solve_poisson_red_black_parallel(bad_p, rhs, mask, bc_list, nx, ny, nz, 1.0, 1.0, 1.0, 10, 1e-6, 1.0, {0.0, 0.0, 0.0}),
+        std::invalid_argument
+    );
+}
+
+// ============================================================================
+// NARRATIVE SECTION 5: Red-Black Gauss-Seidel Poisson Solver Execution & Explosion
 // ============================================================================
 // Verifies that the complete Red-Black parallel Poisson solver successfully 
 // iterates over fluid cells, integrates source terms (rhs), and updates boundary 
-// conditions via the provided boundary condition list without throwing errors.
+// conditions. Also tests that non-finite (NaN/inf) values trigger an immediate 
+// runtime explosion exception.
 // ============================================================================
 
 TEST(PressurePoissonTest, RedBlackPoissonSolverExecution) {
@@ -183,4 +250,25 @@ TEST(PressurePoissonTest, RedBlackPoissonSolverExecution) {
     // Verify that interior fluid cells were updated from initial zero state
     int interior_idx = 2 + nx * (2 + ny * 2);
     EXPECT_NE(p[interior_idx], 0.0);
+}
+
+TEST(PressurePoissonTest, RedBlackPoissonSolverExplosionHandling) {
+    int nx = 5, ny = 5, nz = 5;
+    size_t total_cells = static_cast<size_t>(nx) * ny * nz;
+
+    std::vector<double> p(total_cells, NAN); // Seed with NaN to trigger explosion path
+    std::vector<double> rhs(total_cells, 0.1);
+    std::vector<int> mask(total_cells, 1);
+    std::vector<BoundaryCondition> bc_list;
+
+    EXPECT_THROW(
+        solve_poisson_red_black_parallel(
+            p, rhs, mask, bc_list,
+            nx, ny, nz,
+            0.1, 0.1, 0.1,
+            5, 1e-6,
+            1.0, {0.0, 0.0, 0.0}
+        ),
+        std::runtime_error
+    );
 }

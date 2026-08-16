@@ -4,7 +4,7 @@
  * 
  * This test file narrates and verifies the analytical accuracy, vacuum/zero 
  * safety guards, and numerical exception handling of the C++ scaling factor 
- * kernels: Δt / ρ and ρ / Δt.
+ * kernels: dt / rho and rho / dt.
  */
 
 #include <gtest/gtest.h>
@@ -19,8 +19,8 @@ class ScalingTest : public ::testing::Test {
 protected:
     void SetUp() override {
         // We define standard fluid properties for our test domain.
-        dt = 0.02;     // Time step (s)
-        rho = 1.225;   // Fluid density (kg/m³)
+        dt = 0.02;   // Time step (s)
+        rho = 1.225; // Fluid density (kg/m^3)
     }
 
     double dt;
@@ -28,17 +28,17 @@ protected:
 };
 
 /**
- * Test Case 1: Predictor/Corrector Scaling Factor Exactness (Δt / ρ)
+ * Test Case 1: Predictor/Corrector Scaling Factor Exactness (dt / rho)
  * 
- * For a time step Δt = 0.02 s and density ρ = 1.225 kg/m³, we compute:
- *       scaling = Δt / ρ = 0.02 / 1.225 ≈ 0.0163265306122449
+ * For a time step dt = 0.02 s and density rho = 1.225 kg/m^3, we compute:
+ *       scaling = dt / rho = 0.02 / 1.225 approx 0.0163265306122449
  */
 TEST_F(ScalingTest, DtOverRhoValidComputation) {
     // We compute the predictor/corrector scaling factor.
     double result = get_dt_over_rho(dt, rho);
 
     // The expected value is:
-    //       expected = 0.02 / 1.225
+    //       expected = dt / rho
     double expected = dt / rho;
 
     // We assert that the computed scaling matches the analytical value within machine precision.
@@ -46,9 +46,9 @@ TEST_F(ScalingTest, DtOverRhoValidComputation) {
 }
 
 /**
- * Test Case 2: Vacuum/Negative Density Guard Verification (Δt / ρ)
+ * Test Case 2: Vacuum/Negative Density Guard Verification (dt / rho)
  * 
- * Providing a zero or negative density (ρ <= 0.0) represents an unphysical 
+ * Providing a zero or negative density (rho <= 0.0) represents an unphysical 
  * vacuum state and must trigger an invalid_argument exception.
  */
 TEST_F(ScalingTest, DtOverRhoInvalidDensityThrows) {
@@ -78,17 +78,17 @@ TEST_F(ScalingTest, DtOverRhoNonFiniteThrows) {
 }
 
 /**
- * Test Case 4: Pressure Poisson Equation Scaling Factor Exactness (ρ / Δt)
+ * Test Case 4: Pressure Poisson Equation Scaling Factor Exactness (rho / dt)
  * 
- * For density ρ = 1.225 kg/m³ and time step Δt = 0.02 s, we compute:
- *       scaling = ρ / Δt = 1.225 / 0.02 = 61.25
+ * For density rho = 1.225 kg/m^3 and time step dt = 0.02 s, we compute:
+ *       scaling = rho / dt = 1.225 / 0.02 = 61.25
  */
 TEST_F(ScalingTest, RhoOverDtValidComputation) {
     // We compute the pressure Poisson equation scaling factor.
     double result = get_rho_over_dt(dt, rho);
 
     // The expected value is:
-    //       expected = 1.225 / 0.02 = 61.25
+    //       expected = rho / dt = 1.225 / 0.02 = 61.25
     double expected = rho / dt;
 
     // We assert that the computed scaling matches the analytical value within machine precision.
@@ -96,9 +96,9 @@ TEST_F(ScalingTest, RhoOverDtValidComputation) {
 }
 
 /**
- * Test Case 5: Zero/Negative Time-Step Guard Verification (ρ / Δt)
+ * Test Case 5: Zero/Negative Time-Step Guard Verification (rho / dt)
  * 
- * Providing a zero or negative time-step (Δt <= 0.0) represents an invalid 
+ * Providing a zero or negative time-step (dt <= 0.0) represents an invalid 
  * temporal configuration and must trigger an invalid_argument exception.
  */
 TEST_F(ScalingTest, RhoOverDtInvalidTimeStepThrows) {
