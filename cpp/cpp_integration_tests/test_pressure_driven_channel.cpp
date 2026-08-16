@@ -1,6 +1,26 @@
 /**
  * @file test_pressure_driven_channel.cpp
  * @brief Scenario 3.2: Pressure-Driven Channel Flow Verification
+ *
+ * LITERATE TESTING NARRATIVE & MATHEMATICAL GOVERNING EQUATIONS:
+ * ---------------------------------------------------------------------------------
+ * Pressure-driven channel flows are accelerated by imposing a pressure gradient 
+ * along the streamwise direction (x-axis):
+ * 
+ *     dp/dx = (p_out - p_in) / L
+ * 
+ * According to the Navier-Stokes momentum equations, this pressure gradient acts as 
+ * a driving body force that accelerates fluid from regions of high pressure to low pressure:
+ * 
+ *     du/dt = -(1 / rho) * (dp/dx) + nu * laplacian(u)
+ * 
+ * TEST SCENARIO:
+ *   - We initialize a linear pressure drop from p_in = 10.0 Pa to p_out = 0.0 Pa across the channel.
+ *   - We execute a multi-step time integration loop combining pre-step enforcement, trial velocity
+ *     computation, pressure Poisson equation solving, and velocity correction.
+ *   - We verify that the mean streamwise velocity in the channel core becomes positive (u > 0.0),
+ *     confirming that the pressure gradient successfully accelerates the fluid from rest.
+ * ---------------------------------------------------------------------------------
  */
 
 #include <gtest/gtest.h>
@@ -17,23 +37,31 @@
 using namespace navier_stokes_solver;
 
 TEST(BoundaryConditionsTest, PressureDrivenChannelFlow) {
+    // We define grid dimensions and spatial step sizes:
+    //     nx = 10, ny = 6, nz = 6
+    //     dx = 0.1 m, dy = 0.1 m, dz = 0.1 m
     int nx = 10, ny = 6, nz = 6;
     double dx = 0.1, dy = 0.1, dz = 0.1;
     GridDimensions dims{nx, ny, nz, dx, dy, dz};
     size_t total_cells = static_cast<size_t>(nx) * ny * nz;
 
+    // We define physical properties and boundary pressures:
+    //     density = 1000.0 kg/m^3, mu = 0.001 Pa*s, dt = 0.001 s
+    //     p_in = 10.0 Pa, p_out = 0.0 Pa
     double density = 1000.0;
     double mu = 0.001;
     double dt = 0.001;
     double p_in = 10.0;
     double p_out = 0.0;
 
+    // We initialize velocity fields to rest (u = v = w = 0.0):
     std::vector<int> mask(total_cells, 1);
     std::vector<double> u(total_cells, 0.0);
     std::vector<double> v(total_cells, 0.0);
     std::vector<double> w(total_cells, 0.0);
     
-    // Initialize pressure with a linear gradient from inlet to outlet to drive initial momentum
+    // We initialize pressure with a linear gradient from inlet to outlet to drive initial momentum:
+    //     p(x) = p_in + (x / L) * (p_out - p_in)
     std::vector<double> p(total_cells, 0.0);
     for (int k = 0; k < nz; ++k) {
         for (int j = 0; j < ny; ++j) {
@@ -45,6 +73,7 @@ TEST(BoundaryConditionsTest, PressureDrivenChannelFlow) {
         }
     }
 
+    // We configure boundary condition descriptors for pressure inlet and outlet:
     std::vector<BoundaryCondition> bc_list;
 
     BoundaryCondition bc_in;
@@ -74,7 +103,7 @@ TEST(BoundaryConditionsTest, PressureDrivenChannelFlow) {
     std::vector<double> gravity = {0.0, 0.0, 0.0};
     FluidProperties fluid{mu / density, density};
 
-    // Run multi-step time integration loop to allow pressure gradient acceleration from rest
+    // We run a multi-step time integration loop to allow pressure gradient acceleration from rest:
     for (int step = 0; step < 150; ++step) {
         execute_pre_step(u, v, w, p, mask, bc_list, nx, ny, nz);
 
@@ -129,6 +158,7 @@ TEST(BoundaryConditionsTest, PressureDrivenChannelFlow) {
         );
     }
 
+    // We compute the mean streamwise velocity across the channel core region:
     double center_u_sum = 0.0;
     int count = 0;
     for (int k = 2; k <= 3; ++k) {
