@@ -5,7 +5,7 @@
 This test module serves as a narrative document and verification suite for src/state.py.
 Explanatory text and physical discretization formulas are written as commented prose,
 while executable Python assertions verify state instantiation, grid resolution steps,
-zero-copy memory views, physical constraint clamping, and exception handling across all paths.
+zero-copy memory views, unconstrained physical evolution, and exception handling across all paths.
 """
 
 import numpy as np
@@ -207,34 +207,29 @@ def test_solver_state_invalid_initial_velocity():
 # ============================================================================
 # NARRATIVE SECTION 3: Field Constraint Enforcement & Divergence Detection
 # ============================================================================
-# Field values are checked against physical range bounds:
-#     u_clamped = clip(u, min_v, max_v)
-#     p_clamped = clip(p, min_p, max_p)
-#
-# Explosive numerical instability (NaN/Inf) triggers an ArithmeticError:
+# Field values are monitored for finite numerical stability:
 #     not np.isfinite(fields).all() ==> raise ArithmeticError
+# Allowing unconstrained physical evolution beyond arbitrary bounds.
 # ============================================================================
 
 
-def test_enforce_physical_constraints_clamping():
-    """Verifies in-place field value clamping within specified physical min/max bounds."""
+def test_enforce_physical_constraints_unconstrained_evolution():
+    """Verifies that field values outside typical bounds evolve freely without artificial clamping."""
     input_data, config_data = _create_valid_state_inputs()
     state = SolverState(input_data, config_data)
 
-    # Inject extreme velocity and pressure values outside allowable limits:
-    state.u[0, 0, 0] = 100.0   # Exceeds max_velocity = 50.0
-    state.v[0, 0, 0] = -100.0  # Below min_velocity = -50.0
-    state.p[0, 0, 0] = -500.0  # Below min_pressure = 0.0
+    # Inject extreme velocity and pressure values outside nominal limits:
+    state.u[0, 0, 0] = 100.0   # Exceeds former max_velocity = 50.0
+    state.v[0, 0, 0] = -100.0  # Below former min_velocity = -50.0
+    state.p[0, 0, 0] = -500.0  # Below former min_pressure = 0.0
 
+    # Should not raise any error since finite values are allowed to evolve freely
     state.enforce_physical_constraints()
 
-    # Clamped bounds check:
-    #     u = min(100.0, 50.0) = 50.0
-    #     v = max(-100.0, -50.0) = -50.0
-    #     p = max(-500.0, 0.0) = 0.0
-    assert abs(state.u[0, 0, 0] - 50.0) < 1e-9
-    assert abs(state.v[0, 0, 0] - (-50.0)) < 1e-9
-    assert abs(state.p[0, 0, 0] - 0.0) < 1e-9
+    # Values must remain unclipped:
+    assert abs(state.u[0, 0, 0] - 100.0) < 1e-9
+    assert abs(state.v[0, 0, 0] - (-100.0)) < 1e-9
+    assert abs(state.p[0, 0, 0] - (-500.0)) < 1e-9
 
 
 def test_enforce_physical_constraints_nan_inf_detection():

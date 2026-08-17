@@ -129,24 +129,13 @@ class SolverState:
 
     def enforce_physical_constraints(self) -> None:
         """
-        Validates velocity and pressure fields against physical bounds specified in input schema,
-        clamping values to prevent unphysical numerical divergence.
+        Validates fields for numerical stability (NaN/Inf detection),
+        allowing unconstrained physical evolution.
         """
-        min_v = float(self.physical_constraints["min_velocity"])
-        max_v = float(self.physical_constraints["max_velocity"])
-        min_p = float(self.physical_constraints["min_pressure"])
-        max_p = float(self.physical_constraints["max_pressure"])
-
         # Check for potential explosive NaNs/Infs
         if not np.isfinite(self.fields).all():
             logger.critical(f"Non-finite values (NaN/Inf) detected at iteration {self.current_iteration}.")
             raise ArithmeticError("Numerical instability detected: fields contain NaN or Inf values.")
-
-        # In-place clamping across shared memory views
-        np.clip(self.u, min_v, max_v, out=self.u)
-        np.clip(self.v, min_v, max_v, out=self.v)
-        np.clip(self.w, min_v, max_v, out=self.w)
-        np.clip(self.p, min_p, max_p, out=self.p)
 
     def get_boundary_condition_dicts(self) -> list[dict[str, Any]]:
         """
