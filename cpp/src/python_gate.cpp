@@ -117,14 +117,7 @@ public:
             throw std::invalid_argument("CONTRACT VIOLATION: force_vector must contain exactly 3 components [fx, fy, fz].");
         }
 
-        // 7. Extract Physical Constraints (Velocity & Pressure clamping limits)
-        py::dict phys_constraints = state.attr("physical_constraints");
-        double min_v = phys_constraints["min_velocity"].cast<double>();
-        double max_v = phys_constraints["max_velocity"].cast<double>();
-        double min_p = phys_constraints["min_pressure"].cast<double>();
-        double max_p = phys_constraints["max_pressure"].cast<double>();
-
-        // 8. Map NumPy fields to C++ persistent vectors for Orchestrator consumption
+        // 7. Map NumPy fields to C++ persistent vectors for Orchestrator consumption
         std::vector<int> mask_vec(total_cells);
         std::vector<double> fx_vec(total_cells, force_vec[0]);
         std::vector<double> fy_vec(total_cells, force_vec[1]);
@@ -144,26 +137,26 @@ public:
             }
         }
 
-        // 9. Extract Boundary Conditions List
+        // 8. Extract Boundary Conditions List
         py::list py_bc_list = state.attr("boundary_conditions");
         std::vector<navier_stokes_solver::BoundaryCondition> bc_list;
         for (auto item : py_bc_list) {
             bc_list.push_back(item.cast<navier_stokes_solver::BoundaryCondition>());
         }
 
-        // 10. Execute full time-step inside the C++ Orchestrator Core (handles non-finite safety internally)
+        // 9. Execute full time-step inside the C++ Orchestrator Core (handles non-finite safety internally)
         orchestrator_->step(dt, mu, gravity, fx_vec, fy_vec, fz_vec, mask_vec, bc_list, u_, v_, w_, p_);
 
-        // 11. Copy modified fields back into the mutable Python NumPy array in-place with clamping
+        // 10. Copy modified fields back into the mutable Python NumPy array in-place without artificial clamping
         for (int k = 0; k < nz; ++k) {
             for (int j = 0; j < ny; ++j) {
                 for (int i = 0; i < nx; ++i) {
                     size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
 
-                    r_fields(0, i, j, k) = std::max(min_v, std::min(max_v, u_[idx]));
-                    r_fields(1, i, j, k) = std::max(min_v, std::min(max_v, v_[idx]));
-                    r_fields(2, i, j, k) = std::max(min_v, std::min(max_v, w_[idx]));
-                    r_fields(3, i, j, k) = std::max(min_p, std::min(max_p, p_[idx]));
+                    r_fields(0, i, j, k) = u_[idx];
+                    r_fields(1, i, j, k) = v_[idx];
+                    r_fields(2, i, j, k) = w_[idx];
+                    r_fields(3, i, j, k) = p_[idx];
                 }
             }
         }
@@ -178,12 +171,6 @@ public:
         int ny = dims_.ny;
         int nz = dims_.nz;
 
-        py::dict phys_constraints = state.attr("physical_constraints");
-        double min_v = phys_constraints["min_velocity"].cast<double>();
-        double max_v = phys_constraints["max_velocity"].cast<double>();
-        double min_p = phys_constraints["min_pressure"].cast<double>();
-        double max_p = phys_constraints["max_pressure"].cast<double>();
-
         py::array_t<double, py::array::c_style> fields = state.attr("fields").cast<py::array_t<double, py::array::c_style>>();
         auto r_fields = fields.mutable_unchecked<4>();
 
@@ -191,10 +178,10 @@ public:
             for (int j = 0; j < ny; ++j) {
                 for (int i = 0; i < nx; ++i) {
                     size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
-                    r_fields(0, i, j, k) = std::max(min_v, std::min(max_v, u_[idx]));
-                    r_fields(1, i, j, k) = std::max(min_v, std::min(max_v, v_[idx]));
-                    r_fields(2, i, j, k) = std::max(min_v, std::min(max_v, w_[idx]));
-                    r_fields(3, i, j, k) = std::max(min_p, std::min(max_p, p_[idx]));
+                    r_fields(0, i, j, k) = u_[idx];
+                    r_fields(1, i, j, k) = v_[idx];
+                    r_fields(2, i, j, k) = w_[idx];
+                    r_fields(3, i, j, k) = p_[idx];
                 }
             }
         }
