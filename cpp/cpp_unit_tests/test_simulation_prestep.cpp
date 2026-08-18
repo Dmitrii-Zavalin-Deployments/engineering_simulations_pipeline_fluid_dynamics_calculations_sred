@@ -4,7 +4,7 @@
  *
  * This test suite acts as a literate narrative document for verifying the pre-step boundary
  * condition and spatial initialization subsystem (simulation_prestep.cpp), including the
- * strict non-overwriting exclusivity policy and fallback wall assignment rules.
+ * layered overwrite precedence policy, mask interface detection, and baseline wall assignment rules.
  * Explanatory text and physical principles are documented in prose comments, while
  * mathematical constraints and boundary assertions are executed via Google Test assertions.
  */
@@ -32,18 +32,12 @@ namespace navier_stokes_solver {
 //         total_cells = nx * ny * nz
 //         size(u) == size(v) == size(w) == size(p) == size(mask) == total_cells
 //
-// Violations of these constraints throw std::invalid_argument exceptions,
-// explicitly exercising lines 43 and 49 in simulation_prestep.cpp.
+// Violations of these constraints throw std::invalid_argument exceptions.
 // ============================================================================
 
 TEST(SimulationPrestepTest, InvalidGridDimensions) {
     // A 3D fluid grid requires at least 3 cells along each spatial axis (nx >= 3, ny >= 3, nz >= 3)
     // to establish distinct interior and boundary domain interfaces.
-    //
-    // We evaluate invalid grid configurations where each axis dimension falls below 3:
-    //      Case A: nx = 2, ny = 4, nz = 4  (nx < 3)
-    //      Case B: nx = 4, ny = 2, nz = 4  (ny < 3)
-    //      Case C: nx = 4, ny = 4, nz = 2  (nz < 3)
     std::vector<BoundaryCondition> bc_list;
 
     // Case A: Invalid nx dimension (nx = 2)
@@ -53,7 +47,6 @@ TEST(SimulationPrestepTest, InvalidGridDimensions) {
         std::vector<double> u(total_cells, 0.0), v(total_cells, 0.0), w(total_cells, 0.0), p(total_cells, 0.0);
         std::vector<int> mask(total_cells, 1);
 
-        // Line 43 execution: Grid dimensions smaller than 3x3x3 throw GEOMETRY ERROR
         EXPECT_THROW(
             execute_pre_step(u, v, w, p, mask, bc_list, nx, ny, nz),
             std::invalid_argument
@@ -88,10 +81,7 @@ TEST(SimulationPrestepTest, InvalidGridDimensions) {
 }
 
 TEST(SimulationPrestepTest, FieldVectorSizeMismatch) {
-    // Memory safety requires every state tensor buffer (u, v, w, p, mask) to exactly match:
-    //      total_cells = nx * ny * nz
-    //
-    // Any buffer size mismatch triggers line 49 in simulation_prestep.cpp.
+    // Memory safety requires every state tensor buffer (u, v, w, p, mask) to match total_cells exactly.
     int nx = 4, ny = 4, nz = 4;
     size_t total_cells = static_cast<size_t>(nx) * ny * nz;
     std::vector<BoundaryCondition> bc_list;
@@ -101,7 +91,6 @@ TEST(SimulationPrestepTest, FieldVectorSizeMismatch) {
         std::vector<double> u(total_cells - 1, 0.0), v(total_cells, 0.0), w(total_cells, 0.0), p(total_cells, 0.0);
         std::vector<int> mask(total_cells, 1);
 
-        // Line 49 execution: Buffer size mismatch throws CONTRACT VIOLATION
         EXPECT_THROW(
             execute_pre_step(u, v, w, p, mask, bc_list, nx, ny, nz),
             std::invalid_argument
@@ -128,15 +117,15 @@ TEST(SimulationPrestepTest, FieldVectorSizeMismatch) {
 //      1. Inflow Dirichlet condition:
 //         u[idx] = u_val,  v[idx] = v_val,  w[idx] = w_val
 //
-//      2. Pressure & Outflow Neumann condition:
+//      2. Pressure & Outflow condition:
 //         p[idx] = scalar_p
-//         du/dn = 0  =>  u[boundary] = u[adjacent_interior]
+//         Extrapolates velocity from interior neighbors when unconstrained
 //
 //      3. No-slip Dirichlet condition:
-//         u[idx] = 0.0,  v[idx] = 0.0,  w[idx] = 0.0
+//         u[idx] = u_val,  v[idx] = v_val,  w[idx] = w_val
 //
 //      4. Free-slip condition:
-//         u_normal = 0.0,  d(u_tangential)/dn = 0
+//         Enforces zero normal velocity on boundary faces while allowing tangential flow
 // ============================================================================
 
 TEST(SimulationPrestepTest, BoundaryConditionDispatch) {
@@ -200,16 +189,18 @@ TEST(SimulationPrestepTest, BoundaryConditionDispatch) {
 }
 
 // ============================================================================
-// NARRATIVE SECTION 3: Non-Overwriting Exclusivity and Wall Shorthand Verification
+// NARRATIVE SECTION 3: Two-Pass Layered Overwrite Precedence Verification
 // ============================================================================
-// The solver enforces a strict non-overwriting policy where explicit face-specific
-// boundary rules (e.g. "x_min", "y_max") take absolute precedence, and generic
-// catch-all "wall" rules only apply to unclaimed boundary cells.
+// The solver enforces a two-pass execution sequence:
+//      Pass 1: Generic catch-all "wall" rules establish baseline conditions
+//              across outer boundaries and internal solid mask interfaces.
+//      Pass 2: Explicit face rules ("x_min", "x_max", "y_min", "y_max", etc.)
+//              execute second and overwrite Pass 1 baseline values for those faces.
 // ============================================================================
 
-TEST(SimulationPrestepTest, WallDoesNotOverrideExplicitFaces) {
-    // Verify that a generic catch-all "wall" rule does not overwrite or clobber
-    // an explicit face-specific boundary rule (e.g. an inflow condition on x_min).
+TEST(SimulationPrestepTest, ExplicitFacesOverrideWallBaseline) {
+    // Verify that explicit face-specific boundary rules (e.g. inflow on x_min)
+    // override generic wall baseline rules regardless of list ordering.
     int nx = 4, ny = 4, nz = 4;
     size_t total_cells = static_cast<size_t>(nx) * ny * nz;
 
@@ -219,7 +210,15 @@ TEST(SimulationPrestepTest, WallDoesNotOverrideExplicitFaces) {
     std::vector<double> p(total_cells, 0.0);
     std::vector<int> mask(total_cells, 1);
 
-    // Rule 1: Explicit inflow on x_min with distinctive velocity values (u = 7.5)
+    // Rule 1: Generic wall rule specifying no-slip (u = 0.0)
+    BoundaryCondition bc_generic_wall;
+    bc_generic_wall.location = "wall";
+    bc_generic_wall.type = "no-slip";
+    bc_generic_wall.u_val = 0.0;
+    bc_generic_wall.v_val = 0.0;
+    bc_generic_wall.w_val = 0.0;
+
+    // Rule 2: Explicit inflow on x_min with distinctive velocity values (u = 7.5)
     BoundaryCondition bc_explicit_inflow;
     bc_explicit_inflow.location = "x_min";
     bc_explicit_inflow.type = "inflow";
@@ -227,19 +226,12 @@ TEST(SimulationPrestepTest, WallDoesNotOverrideExplicitFaces) {
     bc_explicit_inflow.v_val = 2.0;
     bc_explicit_inflow.w_val = 3.0;
 
-    // Rule 2: Generic wall rule with no-slip (u = 0.0) placed after the explicit rule
-    BoundaryCondition bc_generic_wall;
-    bc_generic_wall.location = "wall";
-    bc_generic_wall.type = "no-slip";
-
-    // Even though the generic wall rule specifies "no-slip", the explicit x_min cells
-    // must remain claimed and protected by Pass 1.
-    std::vector<BoundaryCondition> bc_list = {bc_explicit_inflow, bc_generic_wall};
+    // Pass 1 applies wall baseline, then Pass 2 overwrites face targets with explicit conditions
+    std::vector<BoundaryCondition> bc_list = {bc_generic_wall, bc_explicit_inflow};
 
     EXPECT_NO_THROW(execute_pre_step(u, v, w, p, mask, bc_list, nx, ny, nz));
 
-    // Verify cells on x_min (i = 0) retain the explicit inflow values (7.5, 2.0, 3.0)
-    // rather than being overwritten to 0.0 by the generic wall no-slip rule.
+    // Verify cells on x_min (i = 0) reflect explicit inflow values (7.5, 2.0, 3.0) from Pass 2
     for (int k = 0; k < nz; ++k) {
         for (int j = 0; j < ny; ++j) {
             size_t idx = static_cast<size_t>(get_flat_index(0, j, k, nx, ny));

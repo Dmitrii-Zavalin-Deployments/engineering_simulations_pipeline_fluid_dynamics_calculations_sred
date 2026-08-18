@@ -1,6 +1,6 @@
 /**
  * @file simulation_prestep.cpp
- * @brief Implementation of Pre-Step Boundary & Initial Condition Setup using layered overwrite precedence.
+ * @brief Implementation of Pre-Step Boundary & Initial Condition Setup using layered overwrite precedence and mask interface detection.
  */
 
 #include "orchestrator.hpp"
@@ -60,7 +60,7 @@ void execute_pre_step(
               << " | Grid: " << nx << "x" << ny << "x" << nz 
               << " | Active Threads: " << active_threads << "\n";
 
-    // Separate wall baseline definitions from explicit face-specific overrides
+    // Separate generic wall baseline definitions from explicit face boundary conditions
     std::vector<BoundaryCondition> wall_bc_list;
     std::vector<BoundaryCondition> face_bc_list;
 
@@ -72,7 +72,7 @@ void execute_pre_step(
         }
     }
 
-    // Fetch nearest interior neighbor cell index for zero-gradient Neumann extrapolation
+    // Fetch nearest interior neighbor cell index for zero-gradient Neumann extrapolation fallback
     auto get_interior_index = [&](int i, int j, int k) -> size_t {
         int ii = (i == 0) ? 1 : (i == nx - 1) ? nx - 2 : i;
         int jj = (j == 0) ? 1 : (j == ny - 1) ? ny - 2 : j;
@@ -80,45 +80,58 @@ void execute_pre_step(
         return static_cast<size_t>(get_flat_index(ii, jj, kk, nx, ny));
     };
 
-    // Boundary condition application closure
+    // Evaluates whether a cell is an outer domain wall OR an internal fluid-solid mask interface
+    auto is_wall_cell = [&](int i, int j, int k) -> bool {
+        if (is_boundary_cell(i, j, k, nx, ny, nz)) {
+            return true;
+        }
+
+        // Internal domain check: test opposing neighbor pairs along X, Y, and Z
+        size_t idx_west  = static_cast<size_t>(get_flat_index(i - 1, j, k, nx, ny));
+        size_t idx_east  = static_cast<size_t>(get_flat_index(i + 1, j, k, nx, ny));
+        size_t idx_south = static_cast<size_t>(get_flat_index(i, j - 1, k, nx, ny));
+        size_t idx_north = static_cast<size_t>(get_flat_index(i, j + 1, k, nx, ny));
+        size_t idx_bot   = static_cast<size_t>(get_flat_index(i, j, k - 1, nx, ny));
+        size_t idx_top   = static_cast<size_t>(get_flat_index(i, j, k + 1, nx, ny));
+
+        bool x_interface = (mask[idx_west] != mask[idx_east]);
+        bool y_interface = (mask[idx_south] != mask[idx_north]);
+        bool z_interface = (mask[idx_bot] != mask[idx_top]);
+
+        return x_interface || y_interface || z_interface;
+    };
+
+    // Flexible boundary condition application closure
     auto apply_bc = [&](const BoundaryCondition& bc, int i, int j, int k, size_t idx) {
         size_t int_idx = get_interior_index(i, j, k);
 
-        // 1. Flexible Inflow & Outflow Field Assignments (u, v, w, p)
-        if (bc.type == "inflow" || bc.type == "outflow") {
+        if (bc.type == "no-slip") {
+            u[idx] = bc.u_val;
+            v[idx] = bc.v_val;
+            w[idx] = bc.w_val;
+            if (bc.scalar_p != 0.0) p[idx] = bc.scalar_p;
+        } 
+        else if (bc.type == "free-slip") {
+            u[idx] = (i == 0 || i == nx - 1) ? 0.0 : ((bc.u_val != 0.0) ? bc.u_val : u[int_idx]);
+            v[idx] = (j == 0 || j == ny - 1) ? 0.0 : ((bc.v_val != 0.0) ? bc.v_val : v[int_idx]);
+            w[idx] = (k == 0 || k == nz - 1) ? 0.0 : ((bc.w_val != 0.0) ? bc.w_val : w[int_idx]);
+            if (bc.scalar_p != 0.0) p[idx] = bc.scalar_p;
+        } 
+        else if (bc.type == "inflow" || bc.type == "outflow" || bc.type == "pressure") {
             u[idx] = (bc.u_val != 0.0 || bc.type == "inflow") ? bc.u_val : u[int_idx];
             v[idx] = (bc.v_val != 0.0 || bc.type == "inflow") ? bc.v_val : v[int_idx];
             w[idx] = (bc.w_val != 0.0 || bc.type == "inflow") ? bc.w_val : w[int_idx];
             p[idx] = bc.scalar_p;
-        } 
-        // 2. No-Slip Wall Condition
-        else if (bc.type == "no-slip") {
-            u[idx] = 0.0;
-            v[idx] = 0.0;
-            w[idx] = 0.0;
-        } 
-        // 3. Free-Slip Wall Condition
-        else if (bc.type == "free-slip") {
-            if (i == 0 || i == nx - 1) { u[idx] = 0.0;        v[idx] = v[int_idx]; w[idx] = w[int_idx]; }
-            if (j == 0 || j == ny - 1) { u[idx] = u[int_idx]; v[idx] = 0.0;        w[idx] = w[int_idx]; }
-            if (k == 0 || k == nz - 1) { u[idx] = u[int_idx]; v[idx] = v[int_idx]; w[idx] = 0.0;        }
-        } 
-        // 4. Pure Pressure Anchor Condition
-        else if (bc.type == "pressure") {
-            p[idx] = bc.scalar_p;
-            u[idx] = u[int_idx];
-            v[idx] = v[int_idx];
-            w[idx] = w[int_idx];
         }
     };
 
-    // Layer 1: Apply generic domain wall defaults
+    // Pass 1: Set generic wall baseline across domain boundary cells and internal mask interfaces
     for (const auto& bc : wall_bc_list) {
         #pragma omp parallel for collapse(3) schedule(static)
         for (int k = 0; k < nz; ++k) {
             for (int j = 0; j < ny; ++j) {
                 for (int i = 0; i < nx; ++i) {
-                    if (is_boundary_cell(i, j, k, nx, ny, nz)) {
+                    if (is_wall_cell(i, j, k)) {
                         size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
                         apply_bc(bc, i, j, k, idx);
                     }
@@ -127,7 +140,7 @@ void execute_pre_step(
         }
     }
 
-    // Layer 2: Overwrite with explicit face boundary conditions (x_min, x_max, etc.)
+    // Pass 2: Overwrite domain face boundary cells with explicit conditions (x_min, x_max, etc.)
     for (const auto& bc : face_bc_list) {
         #pragma omp parallel for collapse(3) schedule(static)
         for (int k = 0; k < nz; ++k) {
