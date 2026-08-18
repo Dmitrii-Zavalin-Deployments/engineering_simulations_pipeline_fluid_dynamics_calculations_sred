@@ -92,7 +92,7 @@ class SolverState:
                 raise KeyError(f"Non-default policy violation in 'physical_constraints': missing required key '{k}'.")
 
         # 4D fields buffer: shape (4, nx, ny, nz) -> [0]: u, [1]: v, [2]: w, [3]: p (C-contiguous for zero-copy C++ binding)
-        self.fields: np.ndarray = np.zeros((4, self.nx, self.ny, self.nz), dtype=np.float64, order='C')
+        self.fields: np.ndarray = np.zeros((self.nx, self.ny, self.nz, 4), dtype=np.float64, order='C')
         
         ic_v = ic["velocity"]
         if not isinstance(ic_v, (list, tuple)) or len(ic_v) < 3:
@@ -104,10 +104,10 @@ class SolverState:
         self.fields[3, :, :, :] = ic["pressure"]
 
         # Convenience slices sharing memory views with self.fields
-        self.u = self.fields[0]
-        self.v = self.fields[1]
-        self.w = self.fields[2]
-        self.p = self.fields[3]
+        self.u = self.fields[..., 0]
+        self.v = self.fields[..., 1]
+        self.v = self.fields[..., 2]
+        self.p = self.fields[..., 3]
 
         # Mask buffer: shape (nx, ny, nz)
         self.mask: np.ndarray = np.array(input_data["mask"], dtype=np.int32, order='C').reshape(
