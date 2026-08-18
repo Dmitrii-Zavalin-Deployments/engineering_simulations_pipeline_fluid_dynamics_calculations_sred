@@ -92,16 +92,16 @@ public:
                   << " | Grid: " << nx << "x" << ny << "x" << nz 
                   << " | Active Threads: " << active_threads << "\n";
 
-        // 4. Extract Tensors & Buffers using explicit C-style array binding to guarantee in-place memory mutation
-        py::array_t<double, py::array::c_style> fields = state.attr("fields").cast<py::array_t<double, py::array::c_style>>();
-        py::array_t<int, py::array::c_style> mask = state.attr("mask").cast<py::array_t<int, py::array::c_style>>();
+        // 4. Extract Tensors directly without enforcing layout copies
+        py::array_t<double> fields = state.attr("fields").cast<py::array_t<double>>();
+        py::array_t<int> mask = state.attr("mask").cast<py::array_t<int>>();
 
         auto r_fields = fields.mutable_unchecked<4>();
         auto r_mask = mask.unchecked<3>();
 
         // 5. Extract Simulation Parameters & Fluid Viscosity
         double dt = state.attr("dt").cast<double>();
-        
+
         py::dict fluid_props = state.attr("fluid_properties");
         double mu = fluid_props["viscosity"].cast<double>();
 
@@ -131,7 +131,7 @@ public:
                     v_[idx] = r_fields(1, i, j, k);
                     w_[idx] = r_fields(2, i, j, k);
                     p_[idx] = r_fields(3, i, j, k);
-                    
+
                     mask_vec[idx] = r_mask(i, j, k);
                 }
             }
@@ -144,10 +144,10 @@ public:
             bc_list.push_back(item.cast<navier_stokes_solver::BoundaryCondition>());
         }
 
-        // 9. Execute full time-step inside the C++ Orchestrator Core (handles non-finite safety internally)
+        // 9. Execute full time-step inside the C++ Orchestrator Core
         orchestrator_->step(dt, mu, gravity, fx_vec, fy_vec, fz_vec, mask_vec, bc_list, u_, v_, w_, p_);
 
-        // 10. Copy modified fields back into the mutable Python NumPy array in-place without artificial clamping
+        // 10. Copy modified fields directly back into Python NumPy memory in-place
         for (int k = 0; k < nz; ++k) {
             for (int j = 0; j < ny; ++j) {
                 for (int i = 0; i < nx; ++i) {
@@ -171,7 +171,7 @@ public:
         int ny = dims_.ny;
         int nz = dims_.nz;
 
-        py::array_t<double, py::array::c_style> fields = state.attr("fields").cast<py::array_t<double, py::array::c_style>>();
+        py::array_t<double> fields = state.attr("fields").cast<py::array_t<double>>();
         auto r_fields = fields.mutable_unchecked<4>();
 
         for (int k = 0; k < nz; ++k) {
