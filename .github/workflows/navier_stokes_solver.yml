@@ -24,6 +24,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: 🌐 Fix APT Mirrors
+        run: |
+          # Prevent runner hangs on Azure regional mirrors globally for the job
+          sudo sed -i 's|azure.archive.ubuntu.com|archive.ubuntu.com|g' /etc/apt/sources.list || true
+
       # 🔧 ROBOT A IDENTITY + NOTES INITIALIZATION
       - name: 🤖 Initialize Robot A Identity & Notes
         run: |
@@ -51,9 +56,6 @@ jobs:
 
       - name: 🌐 Install Headless Rendering Dependencies
         run: |
-          # Fix APT mirrors to prevent runner hangs on Azure regional mirrors
-          sudo sed -i 's|azure.archive.ubuntu.com|archive.ubuntu.com|g' /etc/apt/sources.list || true
-
           # Establish virtual display device infrastructure and OpenGL bindings
           sudo apt-get update -y
           # libgl1 replaces the deprecated libgl1-mesa-glx on Ubuntu 24.04+
@@ -230,6 +232,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: 🌐 Fix APT Mirrors
+        run: |
+          # Prevent runner hangs on Azure regional mirrors globally for the job
+          sudo sed -i 's|azure.archive.ubuntu.com|archive.ubuntu.com|g' /etc/apt/sources.list || true
+
       # 🔧 ROBOT B IDENTITY + NOTES INITIALIZATION
       - name: 🤖 Initialize Robot B Identity & Notes
         run: |
@@ -257,9 +264,6 @@ jobs:
 
       - name: 🌐 Install Headless Rendering Dependencies
         run: |
-          # Fix APT mirrors to prevent runner hangs on Azure regional mirrors
-          sudo sed -i 's|azure.archive.ubuntu.com|archive.ubuntu.com|g' /etc/apt/sources.list || true
-
           # Establish virtual display device infrastructure and OpenGL bindings
           sudo apt-get update -y
           # libgl1 replaces the deprecated libgl1-mesa-glx on Ubuntu 24.04+
