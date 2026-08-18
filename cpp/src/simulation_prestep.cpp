@@ -1,6 +1,6 @@
 /**
  * @file simulation_prestep.cpp
- * @brief Implementation of Pre-Step Boundary & Initial Condition Setup with robust safety validation and non-overwriting exclusivity policy.
+ * @brief Implementation of Pre-Step Boundary & Initial Condition Setup using layered overwrite precedence.
  */
 
 #include "orchestrator.hpp"
@@ -16,18 +16,18 @@
 
 namespace navier_stokes_solver {
 
+inline bool is_boundary_cell(int i, int j, int k, int nx, int ny, int nz) {
+    return (i == 0 || i == nx - 1 || j == 0 || j == ny - 1 || k == 0 || k == nz - 1);
+}
+
 inline bool matches_location(int i, int j, int k, int nx, int ny, int nz, const std::string& location) {
-    if (location == "x_min" && i == 0) return true;
-    if (location == "x_max" && i == nx - 1) return true;
-    if (location == "y_min" && j == 0) return true;
-    if (location == "y_max" && j == ny - 1) return true;
-    if (location == "z_min" && k == 0) return true;
-    if (location == "z_max" && k == nz - 1) return true;
-    if (location == "wall") {
-        if (i == 0 || i == nx - 1 || j == 0 || j == ny - 1 || k == 0 || k == nz - 1) {
-            return true;
-        }
-    }
+    if (location == "x_min") return i == 0;
+    if (location == "x_max") return i == nx - 1;
+    if (location == "y_min") return j == 0;
+    if (location == "y_max") return j == ny - 1;
+    if (location == "z_min") return k == 0;
+    if (location == "z_max") return k == nz - 1;
+    if (location == "wall")  return is_boundary_cell(i, j, k, nx, ny, nz);
     return false;
 }
 
@@ -60,136 +60,82 @@ void execute_pre_step(
               << " | Grid: " << nx << "x" << ny << "x" << nz 
               << " | Active Threads: " << active_threads << "\n";
 
-    // Track which boundary cells have been claimed by explicit face-specific boundary conditions
-    std::vector<int> claimed_boundary(total_cells, 0);
-
-    // Separate boundary conditions into explicit face rules and generic wall rules
-    // to enforce strict non-overwriting precedence.
-    std::vector<BoundaryCondition> explicit_bc_list;
+    // Separate wall baseline definitions from explicit face-specific overrides
     std::vector<BoundaryCondition> wall_bc_list;
+    std::vector<BoundaryCondition> face_bc_list;
 
     for (const auto& bc : bc_list) {
         if (bc.location == "wall") {
             wall_bc_list.push_back(bc);
         } else {
-            explicit_bc_list.push_back(bc);
+            face_bc_list.push_back(bc);
         }
     }
 
-    // Helper lambda to apply a boundary condition to a specific cell index
-    auto apply_bc = [&](const BoundaryCondition& bc, int i, int j, int k, size_t idx) {
-        if (bc.type == "inflow") {
-            u[idx] = bc.u_val;
-            v[idx] = bc.v_val;
-            w[idx] = bc.w_val;
-        } 
-        else if (bc.type == "pressure" || bc.type == "outflow") {
-            if (bc.type == "pressure") {
-                p[idx] = bc.scalar_p;
-            }
+    // Fetch nearest interior neighbor cell index for zero-gradient Neumann extrapolation
+    auto get_interior_index = [&](int i, int j, int k) -> size_t {
+        int ii = (i == 0) ? 1 : (i == nx - 1) ? nx - 2 : i;
+        int jj = (j == 0) ? 1 : (j == ny - 1) ? ny - 2 : j;
+        int kk = (k == 0) ? 1 : (k == nz - 1) ? nz - 2 : k;
+        return static_cast<size_t>(get_flat_index(ii, jj, kk, nx, ny));
+    };
 
-            // Zero-gradient Neumann velocity extrapolation across domain boundaries and generic walls
-            if (bc.location == "x_max" || (bc.location == "wall" && i == nx - 1)) {
-                size_t int_idx = static_cast<size_t>(get_flat_index(nx - 2, j, k, nx, ny));
-                u[idx] = u[int_idx]; v[idx] = v[int_idx]; w[idx] = w[int_idx];
-            }
-            if (bc.location == "x_min" || (bc.location == "wall" && i == 0)) {
-                size_t int_idx = static_cast<size_t>(get_flat_index(1, j, k, nx, ny));
-                u[idx] = u[int_idx]; v[idx] = v[int_idx]; w[idx] = w[int_idx];
-            }
-            if (bc.location == "y_max" || (bc.location == "wall" && j == ny - 1)) {
-                size_t int_idx = static_cast<size_t>(get_flat_index(i, ny - 2, k, nx, ny));
-                u[idx] = u[int_idx]; v[idx] = v[int_idx]; w[idx] = w[int_idx];
-            }
-            if (bc.location == "y_min" || (bc.location == "wall" && j == 0)) {
-                size_t int_idx = static_cast<size_t>(get_flat_index(i, 1, k, nx, ny));
-                u[idx] = u[int_idx]; v[idx] = v[int_idx]; w[idx] = w[int_idx];
-            }
-            if (bc.location == "z_max" || (bc.location == "wall" && k == nz - 1)) {
-                size_t int_idx = static_cast<size_t>(get_flat_index(i, j, nz - 2, nx, ny));
-                u[idx] = u[int_idx]; v[idx] = v[int_idx]; w[idx] = w[int_idx];
-            }
-            if (bc.location == "z_min" || (bc.location == "wall" && k == 0)) {
-                size_t int_idx = static_cast<size_t>(get_flat_index(i, j, 1, nx, ny));
-                u[idx] = u[int_idx]; v[idx] = v[int_idx]; w[idx] = w[int_idx];
-            }
+    // Boundary condition application closure
+    auto apply_bc = [&](const BoundaryCondition& bc, int i, int j, int k, size_t idx) {
+        size_t int_idx = get_interior_index(i, j, k);
+
+        // 1. Flexible Inflow & Outflow Field Assignments (u, v, w, p)
+        if (bc.type == "inflow" || bc.type == "outflow") {
+            u[idx] = (bc.u_val != 0.0 || bc.type == "inflow") ? bc.u_val : u[int_idx];
+            v[idx] = (bc.v_val != 0.0 || bc.type == "inflow") ? bc.v_val : v[int_idx];
+            w[idx] = (bc.w_val != 0.0 || bc.type == "inflow") ? bc.w_val : w[int_idx];
+            p[idx] = bc.scalar_p;
         } 
+        // 2. No-Slip Wall Condition
         else if (bc.type == "no-slip") {
             u[idx] = 0.0;
             v[idx] = 0.0;
             w[idx] = 0.0;
         } 
+        // 3. Free-Slip Wall Condition
         else if (bc.type == "free-slip") {
-            if (bc.location == "x_max" || (bc.location == "wall" && i == nx - 1)) {
-                size_t int_idx = static_cast<size_t>(get_flat_index(nx - 2, j, k, nx, ny));
-                u[idx] = 0.0; v[idx] = v[int_idx]; w[idx] = w[int_idx];
-            }
-            if (bc.location == "x_min" || (bc.location == "wall" && i == 0)) {
-                size_t int_idx = static_cast<size_t>(get_flat_index(1, j, k, nx, ny));
-                u[idx] = 0.0; v[idx] = v[int_idx]; w[idx] = w[int_idx];
-            }
-            if (bc.location == "y_max" || (bc.location == "wall" && j == ny - 1)) {
-                size_t int_idx = static_cast<size_t>(get_flat_index(i, ny - 2, k, nx, ny));
-                u[idx] = u[int_idx]; v[idx] = 0.0; w[idx] = w[int_idx];
-            }
-            if (bc.location == "y_min" || (bc.location == "wall" && j == 0)) {
-                size_t int_idx = static_cast<size_t>(get_flat_index(i, 1, k, nx, ny));
-                u[idx] = u[int_idx]; v[idx] = 0.0; w[idx] = w[int_idx];
-            }
-            if (bc.location == "z_max" || (bc.location == "wall" && k == nz - 1)) {
-                size_t int_idx = static_cast<size_t>(get_flat_index(i, j, nz - 2, nx, ny));
-                u[idx] = u[int_idx]; v[idx] = v[int_idx]; w[idx] = 0.0;
-            }
-            if (bc.location == "z_min" || (bc.location == "wall" && k == 0)) {
-                size_t int_idx = static_cast<size_t>(get_flat_index(i, j, 1, nx, ny));
-                u[idx] = u[int_idx]; v[idx] = v[int_idx]; w[idx] = 0.0;
-            }
+            if (i == 0 || i == nx - 1) { u[idx] = 0.0;        v[idx] = v[int_idx]; w[idx] = w[int_idx]; }
+            if (j == 0 || j == ny - 1) { u[idx] = u[int_idx]; v[idx] = 0.0;        w[idx] = w[int_idx]; }
+            if (k == 0 || k == nz - 1) { u[idx] = u[int_idx]; v[idx] = v[int_idx]; w[idx] = 0.0;        }
+        } 
+        // 4. Pure Pressure Anchor Condition
+        else if (bc.type == "pressure") {
+            p[idx] = bc.scalar_p;
+            u[idx] = u[int_idx];
+            v[idx] = v[int_idx];
+            w[idx] = w[int_idx];
         }
     };
 
-    // Pass 1: Apply explicit face-specific boundary conditions and mark cells as claimed
-    for (size_t b = 0; b < explicit_bc_list.size(); ++b) {
-        const auto& bc = explicit_bc_list[b];
-
+    // Layer 1: Apply generic domain wall defaults
+    for (const auto& bc : wall_bc_list) {
         #pragma omp parallel for collapse(3) schedule(static)
         for (int k = 0; k < nz; ++k) {
             for (int j = 0; j < ny; ++j) {
                 for (int i = 0; i < nx; ++i) {
-                    if (!matches_location(i, j, k, nx, ny, nz, bc.location)) {
-                        continue;
+                    if (is_boundary_cell(i, j, k, nx, ny, nz)) {
+                        size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
+                        apply_bc(bc, i, j, k, idx);
                     }
-                    const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
-                    
-                    apply_bc(bc, i, j, k, idx);
-
-                    #pragma omp atomic write
-                    claimed_boundary[idx] = 1;
                 }
             }
         }
     }
 
-    // Pass 2: Apply generic wall boundary conditions ONLY to unclaimed boundary cells
-    for (size_t b = 0; b < wall_bc_list.size(); ++b) {
-        const auto& bc = wall_bc_list[b];
-
+    // Layer 2: Overwrite with explicit face boundary conditions (x_min, x_max, etc.)
+    for (const auto& bc : face_bc_list) {
         #pragma omp parallel for collapse(3) schedule(static)
         for (int k = 0; k < nz; ++k) {
             for (int j = 0; j < ny; ++j) {
                 for (int i = 0; i < nx; ++i) {
-                    if (!matches_location(i, j, k, nx, ny, nz, bc.location)) {
-                        continue;
-                    }
-                    const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
-
-                    int already_claimed = 0;
-                    #pragma omp atomic read
-                    already_claimed = claimed_boundary[idx];
-
-                    if (!already_claimed) {
+                    if (matches_location(i, j, k, nx, ny, nz, bc.location)) {
+                        size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
                         apply_bc(bc, i, j, k, idx);
-                        #pragma omp atomic write
-                        claimed_boundary[idx] = 1;
                     }
                 }
             }
