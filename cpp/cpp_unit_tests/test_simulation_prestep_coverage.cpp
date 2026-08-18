@@ -3,7 +3,8 @@
  * @brief Literate Test Suite for Complete Boundary Condition Branch Coverage.
  *
  * This test suite provides exhaustive narrative coverage for all remaining directional
- * Neumann extrapolation and free-slip boundary condition branches in simulation_prestep.cpp.
+ * Neumann extrapolation, free-slip, and face-specific boundary condition branches in
+ * simulation_prestep.cpp, aligned with the two-pass execution architecture.
  * 
  * Physical Principles:
  *      1. Zero-Gradient Neumann Extrapolation (Outflow / Pressure):
@@ -27,11 +28,13 @@
 namespace navier_stokes_solver {
 
 // ============================================================================
-// NARRATIVE SECTION: Exhaustive Directional Neumann and Free-Slip Coverage
+// NARRATIVE SECTION 1: Exhaustive Directional Neumann and Free-Slip Coverage
 // ============================================================================
-// To achieve 100% branch and line coverage, we explicitly dispatch outflow/pressure
-// and free-slip conditions across every coordinate face (x_min, x_max, y_min, y_max,
-// z_min, z_max) which ensures all directional index-mapping statements are executed.
+// To achieve full branch and line coverage across the two-pass pre-step dispatcher,
+// we explicitly dispatch outflow, pressure, inflow, and free-slip conditions
+// across every coordinate face (x_min, x_max, y_min, y_max, z_min, z_max).
+// This verifies that all directional location matchers and boundary condition closures
+// execute accurately without numerical instability or buffer out-of-bounds access.
 // ============================================================================
 
 TEST(SimulationPrestepCoverageTest, ExhaustiveFaceBoundaryBranches) {
@@ -58,18 +61,15 @@ TEST(SimulationPrestepCoverageTest, ExhaustiveFaceBoundaryBranches) {
         }
     }
 
-    // Construct a comprehensive boundary condition list covering all uncovered face branches:
-    //      - x_min pressure/outflow (lines 97-98)
-    //      - y_max pressure/outflow (lines 101-102)
-    //      - y_min pressure/outflow (lines 105-106)
-    //      - x_max free-slip (lines 124-125)
-    //      - x_min free-slip (lines 128-129)
-    //      - y_min free-slip (lines 136-137)
-    //      - z_max free-slip (lines 140-141)
-    //      - z_min free-slip (lines 144-145)
+    // Construct a comprehensive boundary condition list covering all coordinate faces and condition types
     BoundaryCondition bc_xmin_outflow;
     bc_xmin_outflow.location = "x_min";
     bc_xmin_outflow.type = "outflow";
+
+    BoundaryCondition bc_xmax_pressure;
+    bc_xmax_pressure.location = "x_max";
+    bc_xmax_pressure.type = "pressure";
+    bc_xmax_pressure.scalar_p = 101325.0;
 
     BoundaryCondition bc_ymin_outflow;
     bc_ymin_outflow.location = "y_min";
@@ -78,6 +78,15 @@ TEST(SimulationPrestepCoverageTest, ExhaustiveFaceBoundaryBranches) {
     BoundaryCondition bc_ymax_outflow;
     bc_ymax_outflow.location = "y_max";
     bc_ymax_outflow.type = "outflow";
+
+    BoundaryCondition bc_zmin_pressure;
+    bc_zmin_pressure.location = "z_min";
+    bc_zmin_pressure.type = "pressure";
+    bc_zmin_pressure.scalar_p = 50000.0;
+
+    BoundaryCondition bc_zmax_outflow;
+    bc_zmax_outflow.location = "z_max";
+    bc_zmax_outflow.type = "outflow";
 
     BoundaryCondition bc_xmin_freeslip;
     bc_xmin_freeslip.location = "x_min";
@@ -91,6 +100,10 @@ TEST(SimulationPrestepCoverageTest, ExhaustiveFaceBoundaryBranches) {
     bc_ymin_freeslip.location = "y_min";
     bc_ymin_freeslip.type = "free-slip";
 
+    BoundaryCondition bc_ymax_freeslip;
+    bc_ymax_freeslip.location = "y_max";
+    bc_ymax_freeslip.type = "free-slip";
+
     BoundaryCondition bc_zmin_freeslip;
     bc_zmin_freeslip.location = "z_min";
     bc_zmin_freeslip.type = "free-slip";
@@ -100,15 +113,62 @@ TEST(SimulationPrestepCoverageTest, ExhaustiveFaceBoundaryBranches) {
     bc_zmax_freeslip.type = "free-slip";
 
     std::vector<BoundaryCondition> bc_list = {
-        bc_xmin_outflow, bc_ymin_outflow, bc_ymax_outflow,
-        bc_xmin_freeslip, bc_xmax_freeslip, bc_ymin_freeslip,
-        bc_zmin_freeslip, bc_zmax_freeslip
+        bc_xmin_outflow, bc_xmax_pressure, bc_ymin_outflow, bc_ymax_outflow,
+        bc_zmin_pressure, bc_zmax_outflow, bc_xmin_freeslip, bc_xmax_freeslip,
+        bc_ymin_freeslip, bc_ymax_freeslip, bc_zmin_freeslip, bc_zmax_freeslip
     };
 
     // Execute pre-step boundary setup routine to trigger all directional branches
     EXPECT_NO_THROW(execute_pre_step(u, v, w, p, mask, bc_list, nx, ny, nz));
 
     // Verify numerical stability and finite execution across all tensor elements
+    for (size_t idx = 0; idx < total_cells; ++idx) {
+        EXPECT_TRUE(std::isfinite(u[idx]));
+        EXPECT_TRUE(std::isfinite(v[idx]));
+        EXPECT_TRUE(std::isfinite(w[idx]));
+        EXPECT_TRUE(std::isfinite(p[idx]));
+    }
+}
+
+// ============================================================================
+// NARRATIVE SECTION 2: Internal Fluid-Solid Mask Interface Detection
+// ============================================================================
+// Pass 1 evaluates boundary conditions for outer domain boundaries as well as
+// internal fluid-solid mask interfaces where adjacent mask values change (mask != 1).
+// ============================================================================
+
+TEST(SimulationPrestepCoverageTest, InternalMaskInterfaceBranches) {
+    int nx = 5, ny = 5, nz = 5;
+    size_t total_cells = static_cast<size_t>(nx) * ny * nz;
+
+    std::vector<double> u(total_cells, 1.0);
+    std::vector<double> v(total_cells, 1.0);
+    std::vector<double> w(total_cells, 1.0);
+    std::vector<double> p(total_cells, 0.0);
+    std::vector<int> mask(total_cells, 1);
+
+    // Insert an internal solid body block (mask = 0) in the domain center to form interfaces
+    for (int k = 1; k <= 3; ++k) {
+        for (int j = 1; j <= 3; ++j) {
+            for (int i = 1; i <= 3; ++i) {
+                size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
+                mask[idx] = 0;
+            }
+        }
+    }
+
+    BoundaryCondition bc_wall;
+    bc_wall.location = "wall";
+    bc_wall.type = "no-slip";
+    bc_wall.u_val = 0.0;
+    bc_wall.v_val = 0.0;
+    bc_wall.w_val = 0.0;
+
+    std::vector<BoundaryCondition> bc_list = {bc_wall};
+
+    EXPECT_NO_THROW(execute_pre_step(u, v, w, p, mask, bc_list, nx, ny, nz));
+
+    // Ensure all internal interface cells and fluid fields remain stable and non-NaN
     for (size_t idx = 0; idx < total_cells; ++idx) {
         EXPECT_TRUE(std::isfinite(u[idx]));
         EXPECT_TRUE(std::isfinite(v[idx]));
