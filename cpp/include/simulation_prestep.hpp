@@ -1,6 +1,6 @@
 /**
  * @file simulation_prestep.hpp
- * @brief Header for the pre-step initialization phase applying boundary conditions.
+ * @brief Header for the pre-step initialization phase applying boundary conditions with non-overwriting exclusivity policy.
  */
 
 #ifndef SIMULATION_PRESTEP_HPP
@@ -14,7 +14,7 @@ namespace navier_stokes_solver {
 
 /**
  * @brief Executes the Pre-Step static initialization phase.
- *        Directly maps explicit boundary conditions onto matching boundary cells.
+ *        Directly maps explicit boundary conditions onto matching boundary cells with priority non-overwriting enforcement.
  */
 void execute_pre_step(
     std::vector<double>& u,
