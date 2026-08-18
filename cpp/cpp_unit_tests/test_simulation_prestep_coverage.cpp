@@ -4,7 +4,7 @@
  *
  * This test suite provides exhaustive narrative coverage for all remaining directional
  * Neumann extrapolation, free-slip, and face-specific boundary condition branches in
- * simulation_prestep.cpp, aligned with the two-pass execution architecture.
+ * simulation_prestep.cpp, aligned with the mask-driven execution architecture.
  * 
  * Physical Principles:
  *      1. Zero-Gradient Neumann Extrapolation (Outflow / Pressure):
@@ -48,6 +48,18 @@ TEST(SimulationPrestepCoverageTest, ExhaustiveFaceBoundaryBranches) {
     std::vector<double> w(total_cells, 0.0);
     std::vector<double> p(total_cells, 0.0);
     std::vector<int> mask(total_cells, 1);
+
+    // Designate outer domain boundary cells as wall mask (mask == -1)
+    for (int k = 0; k < nz; ++k) {
+        for (int j = 0; j < ny; ++j) {
+            for (int i = 0; i < nx; ++i) {
+                if (i == 0 || i == nx - 1 || j == 0 || j == ny - 1 || k == 0 || k == nz - 1) {
+                    size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
+                    mask[idx] = -1;
+                }
+            }
+        }
+    }
 
     // Populate interior cells with known test patterns
     for (int k = 0; k < nz; ++k) {
@@ -131,13 +143,14 @@ TEST(SimulationPrestepCoverageTest, ExhaustiveFaceBoundaryBranches) {
 }
 
 // ============================================================================
-// NARRATIVE SECTION 2: Internal Fluid-Solid Mask Interface Detection
+// NARRATIVE SECTION 2: Explicit Mask Isolation and Wall Assignment
 // ============================================================================
-// Pass 1 evaluates boundary conditions for outer domain boundaries as well as
-// internal fluid-solid mask interfaces where adjacent mask values change (mask != 1).
+// Pass 1 evaluates generic wall boundary conditions strictly across explicit wall
+// mask cells (mask == -1). Internal solid objects (mask == 0) and fluid cells
+// (mask == 1) remain unmolested during baseline wall condition dispatch.
 // ============================================================================
 
-TEST(SimulationPrestepCoverageTest, InternalMaskInterfaceBranches) {
+TEST(SimulationPrestepCoverageTest, ExplicitMaskIsolationBranches) {
     int nx = 5, ny = 5, nz = 5;
     size_t total_cells = static_cast<size_t>(nx) * ny * nz;
 
@@ -147,7 +160,19 @@ TEST(SimulationPrestepCoverageTest, InternalMaskInterfaceBranches) {
     std::vector<double> p(total_cells, 0.0);
     std::vector<int> mask(total_cells, 1);
 
-    // Insert an internal solid body block (mask = 0) in the domain center to form interfaces
+    // Designate outer domain boundary cells as wall cells (mask == -1)
+    for (int k = 0; k < nz; ++k) {
+        for (int j = 0; j < ny; ++j) {
+            for (int i = 0; i < nx; ++i) {
+                if (i == 0 || i == nx - 1 || j == 0 || j == ny - 1 || k == 0 || k == nz - 1) {
+                    size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
+                    mask[idx] = -1;
+                }
+            }
+        }
+    }
+
+    // Insert an internal solid body block (mask == 0) in the domain center
     for (int k = 1; k <= 3; ++k) {
         for (int j = 1; j <= 3; ++j) {
             for (int i = 1; i <= 3; ++i) {
@@ -168,12 +193,20 @@ TEST(SimulationPrestepCoverageTest, InternalMaskInterfaceBranches) {
 
     EXPECT_NO_THROW(execute_pre_step(u, v, w, p, mask, bc_list, nx, ny, nz));
 
-    // Ensure all internal interface cells and fluid fields remain stable and non-NaN
+    // Ensure all internal wall, solid, and fluid fields remain stable and non-NaN
     for (size_t idx = 0; idx < total_cells; ++idx) {
         EXPECT_TRUE(std::isfinite(u[idx]));
         EXPECT_TRUE(std::isfinite(v[idx]));
         EXPECT_TRUE(std::isfinite(w[idx]));
         EXPECT_TRUE(std::isfinite(p[idx]));
+
+        if (mask[idx] == -1) {
+            EXPECT_DOUBLE_EQ(u[idx], 0.0);
+            EXPECT_DOUBLE_EQ(v[idx], 0.0);
+            EXPECT_DOUBLE_EQ(w[idx], 0.0);
+        } else if (mask[idx] == 0) {
+            EXPECT_DOUBLE_EQ(u[idx], 1.0); // Solid interior holds initial value
+        }
     }
 }
 

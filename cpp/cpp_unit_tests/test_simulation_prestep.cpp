@@ -4,7 +4,7 @@
  *
  * This test suite acts as a literate narrative document for verifying the pre-step boundary
  * condition and spatial initialization subsystem (simulation_prestep.cpp), including the
- * layered overwrite precedence policy, mask interface detection, and baseline wall assignment rules.
+ * layered overwrite precedence policy and explicit mask-based wall condition assignment.
  * Explanatory text and physical principles are documented in prose comments, while
  * mathematical constraints and boundary assertions are executed via Google Test assertions.
  */
@@ -36,8 +36,6 @@ namespace navier_stokes_solver {
 // ============================================================================
 
 TEST(SimulationPrestepTest, InvalidGridDimensions) {
-    // A 3D fluid grid requires at least 3 cells along each spatial axis (nx >= 3, ny >= 3, nz >= 3)
-    // to establish distinct interior and boundary domain interfaces.
     std::vector<BoundaryCondition> bc_list;
 
     // Case A: Invalid nx dimension (nx = 2)
@@ -81,7 +79,6 @@ TEST(SimulationPrestepTest, InvalidGridDimensions) {
 }
 
 TEST(SimulationPrestepTest, FieldVectorSizeMismatch) {
-    // Memory safety requires every state tensor buffer (u, v, w, p, mask) to match total_cells exactly.
     int nx = 4, ny = 4, nz = 4;
     size_t total_cells = static_cast<size_t>(nx) * ny * nz;
     std::vector<BoundaryCondition> bc_list;
@@ -138,7 +135,18 @@ TEST(SimulationPrestepTest, BoundaryConditionDispatch) {
     std::vector<double> p(total_cells, 0.0);
     std::vector<int> mask(total_cells, 1);
 
-    // Construct boundary condition list covering all schema types and domain locations
+    // Set domain boundaries to wall mask (-1) for generic wall conditions
+    for (int k = 0; k < nz; ++k) {
+        for (int j = 0; j < ny; ++j) {
+            for (int i = 0; i < nx; ++i) {
+                if (i == 0 || i == nx - 1 || j == 0 || j == ny - 1 || k == 0 || k == nz - 1) {
+                    size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
+                    mask[idx] = -1;
+                }
+            }
+        }
+    }
+
     BoundaryCondition bc_inflow;
     bc_inflow.location = "x_min";
     bc_inflow.type = "inflow";
@@ -176,10 +184,8 @@ TEST(SimulationPrestepTest, BoundaryConditionDispatch) {
         bc_pressure, bc_wall_pressure, bc_wall_freeslip
     };
 
-    // Execute pre-step boundary setup routine
     EXPECT_NO_THROW(execute_pre_step(u, v, w, p, mask, bc_list, nx, ny, nz));
 
-    // Verify all buffer values remain finite and initialized
     for (size_t i = 0; i < total_cells; ++i) {
         EXPECT_TRUE(std::isfinite(u[i]));
         EXPECT_TRUE(std::isfinite(v[i]));
@@ -193,14 +199,12 @@ TEST(SimulationPrestepTest, BoundaryConditionDispatch) {
 // ============================================================================
 // The solver enforces a two-pass execution sequence:
 //      Pass 1: Generic catch-all "wall" rules establish baseline conditions
-//              across outer boundaries and internal solid mask interfaces.
+//              across explicit wall mask cells (mask == -1).
 //      Pass 2: Explicit face rules ("x_min", "x_max", "y_min", "y_max", etc.)
 //              execute second and overwrite Pass 1 baseline values for those faces.
 // ============================================================================
 
 TEST(SimulationPrestepTest, ExplicitFacesOverrideWallBaseline) {
-    // Verify that explicit face-specific boundary rules (e.g. inflow on x_min)
-    // override generic wall baseline rules regardless of list ordering.
     int nx = 4, ny = 4, nz = 4;
     size_t total_cells = static_cast<size_t>(nx) * ny * nz;
 
@@ -209,6 +213,18 @@ TEST(SimulationPrestepTest, ExplicitFacesOverrideWallBaseline) {
     std::vector<double> w(total_cells, 1.0);
     std::vector<double> p(total_cells, 0.0);
     std::vector<int> mask(total_cells, 1);
+
+    // Explicitly designate domain boundaries as wall cells (mask == -1)
+    for (int k = 0; k < nz; ++k) {
+        for (int j = 0; j < ny; ++j) {
+            for (int i = 0; i < nx; ++i) {
+                if (i == 0 || i == nx - 1 || j == 0 || j == ny - 1 || k == 0 || k == nz - 1) {
+                    size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
+                    mask[idx] = -1;
+                }
+            }
+        }
+    }
 
     // Rule 1: Generic wall rule specifying no-slip (u = 0.0)
     BoundaryCondition bc_generic_wall;
@@ -226,12 +242,11 @@ TEST(SimulationPrestepTest, ExplicitFacesOverrideWallBaseline) {
     bc_explicit_inflow.v_val = 2.0;
     bc_explicit_inflow.w_val = 3.0;
 
-    // Pass 1 applies wall baseline, then Pass 2 overwrites face targets with explicit conditions
     std::vector<BoundaryCondition> bc_list = {bc_generic_wall, bc_explicit_inflow};
 
     EXPECT_NO_THROW(execute_pre_step(u, v, w, p, mask, bc_list, nx, ny, nz));
 
-    // Verify cells on x_min (i = 0) reflect explicit inflow values (7.5, 2.0, 3.0) from Pass 2
+    // Verify cells on x_min (i = 0) reflect explicit inflow values from Pass 2
     for (int k = 0; k < nz; ++k) {
         for (int j = 0; j < ny; ++j) {
             size_t idx = static_cast<size_t>(get_flat_index(0, j, k, nx, ny));
@@ -243,9 +258,6 @@ TEST(SimulationPrestepTest, ExplicitFacesOverrideWallBaseline) {
 }
 
 TEST(SimulationPrestepTest, WallLocationAssignmentCorrectness) {
-    // Verify that the "wall" location correctly assigns boundary conditions to all
-    // outer boundary cells (where i=0, i=nx-1, j=0, j=ny-1, k=0, or k=nz-1)
-    // when no explicit face rules override them.
     int nx = 4, ny = 4, nz = 4;
     size_t total_cells = static_cast<size_t>(nx) * ny * nz;
 
@@ -255,7 +267,18 @@ TEST(SimulationPrestepTest, WallLocationAssignmentCorrectness) {
     std::vector<double> p(total_cells, 0.0);
     std::vector<int> mask(total_cells, 1);
 
-    // Apply a pure no-slip wall condition across all boundary surfaces using the "wall" shorthand
+    // Set domain boundary cells to wall mask (mask == -1)
+    for (int k = 0; k < nz; ++k) {
+        for (int j = 0; j < ny; ++j) {
+            for (int i = 0; i < nx; ++i) {
+                if (i == 0 || i == nx - 1 || j == 0 || j == ny - 1 || k == 0 || k == nz - 1) {
+                    size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
+                    mask[idx] = -1;
+                }
+            }
+        }
+    }
+
     BoundaryCondition bc_wall;
     bc_wall.location = "wall";
     bc_wall.type = "no-slip";
@@ -264,15 +287,19 @@ TEST(SimulationPrestepTest, WallLocationAssignmentCorrectness) {
 
     EXPECT_NO_THROW(execute_pre_step(u, v, w, p, mask, bc_list, nx, ny, nz));
 
-    // Verify boundary cells have velocity set to 0.0 (no-slip)
+    // Verify wall cells (mask == -1) are updated to no-slip (0.0) while interior fluid cells (mask == 1) remain 1.0
     for (int k = 0; k < nz; ++k) {
         for (int j = 0; j < ny; ++j) {
             for (int i = 0; i < nx; ++i) {
-                if (i == 0 || i == nx - 1 || j == 0 || j == ny - 1 || k == 0 || k == nz - 1) {
-                    size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
+                size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
+                if (mask[idx] == -1) {
                     EXPECT_DOUBLE_EQ(u[idx], 0.0);
                     EXPECT_DOUBLE_EQ(v[idx], 0.0);
                     EXPECT_DOUBLE_EQ(w[idx], 0.0);
+                } else {
+                    EXPECT_DOUBLE_EQ(u[idx], 1.0);
+                    EXPECT_DOUBLE_EQ(v[idx], 1.0);
+                    EXPECT_DOUBLE_EQ(w[idx], 1.0);
                 }
             }
         }

@@ -1,6 +1,6 @@
 /**
  * @file simulation_prestep.cpp
- * @brief Implementation of Pre-Step Boundary & Initial Condition Setup using layered overwrite precedence and mask interface detection.
+ * @brief Implementation of Pre-Step Boundary & Initial Condition Setup using layered overwrite precedence and explicit mask-based wall detection.
  */
 
 #include "orchestrator.hpp"
@@ -80,27 +80,6 @@ void execute_pre_step(
         return static_cast<size_t>(get_flat_index(ii, jj, kk, nx, ny));
     };
 
-    // Evaluates whether a cell is an outer domain wall OR an internal fluid-solid mask interface
-    auto is_wall_cell = [&](int i, int j, int k) -> bool {
-        if (is_boundary_cell(i, j, k, nx, ny, nz)) {
-            return true;
-        }
-
-        // Internal domain check: test opposing neighbor pairs along X, Y, and Z
-        size_t idx_west  = static_cast<size_t>(get_flat_index(i - 1, j, k, nx, ny));
-        size_t idx_east  = static_cast<size_t>(get_flat_index(i + 1, j, k, nx, ny));
-        size_t idx_south = static_cast<size_t>(get_flat_index(i, j - 1, k, nx, ny));
-        size_t idx_north = static_cast<size_t>(get_flat_index(i, j + 1, k, nx, ny));
-        size_t idx_bot   = static_cast<size_t>(get_flat_index(i, j, k - 1, nx, ny));
-        size_t idx_top   = static_cast<size_t>(get_flat_index(i, j, k + 1, nx, ny));
-
-        bool x_interface = (mask[idx_west] != mask[idx_east]);
-        bool y_interface = (mask[idx_south] != mask[idx_north]);
-        bool z_interface = (mask[idx_bot] != mask[idx_top]);
-
-        return x_interface || y_interface || z_interface;
-    };
-
     // Flexible boundary condition application closure
     auto apply_bc = [&](const BoundaryCondition& bc, int i, int j, int k, size_t idx) {
         size_t int_idx = get_interior_index(i, j, k);
@@ -125,14 +104,14 @@ void execute_pre_step(
         }
     };
 
-    // Pass 1: Set generic wall baseline across domain boundary cells and internal mask interfaces
+    // Pass 1: Apply generic wall boundary conditions strictly to explicit wall cells (mask == -1)
     for (const auto& bc : wall_bc_list) {
         #pragma omp parallel for collapse(3) schedule(static)
         for (int k = 0; k < nz; ++k) {
             for (int j = 0; j < ny; ++j) {
                 for (int i = 0; i < nx; ++i) {
-                    if (is_wall_cell(i, j, k)) {
-                        size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
+                    size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
+                    if (mask[idx] == -1) {
                         apply_bc(bc, i, j, k, idx);
                     }
                 }
