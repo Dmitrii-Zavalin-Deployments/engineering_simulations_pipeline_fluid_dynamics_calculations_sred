@@ -33,12 +33,13 @@ using namespace navier_stokes_solver;
 TEST(PressurePoissonTest, ApplyNeumannPressureDirections) {
     int nx = 5, ny = 5, nz = 5;
     size_t total_cells = static_cast<size_t>(nx) * ny * nz;
+    DirichletFaces dirichlet{}; // Default: no Dirichlet faces anchored for raw directional tests
 
     // Test x_min boundary
     {
         std::vector<double> p(total_cells, 0.0);
         p[1 + nx * (2 + ny * 2)] = 10.5; // Interior neighbor at i=1
-        apply_neumann_pressure(p, "x_min", nx, ny, nz, 1.0, 1.0, 1.0, 1.0, {0.0, 0.0, 0.0});
+        apply_neumann_pressure(p, "x_min", dirichlet, nx, ny, nz, 1.0, 1.0, 1.0, 1.0, {0.0, 0.0, 0.0});
         int idx_boundary = 0 + nx * (2 + ny * 2);
         EXPECT_NEAR(p[idx_boundary], 10.5, 1e-12);
     }
@@ -47,7 +48,7 @@ TEST(PressurePoissonTest, ApplyNeumannPressureDirections) {
     {
         std::vector<double> p(total_cells, 0.0);
         p[(nx - 2) + nx * (2 + ny * 2)] = 20.2; // Interior neighbor at i=nx-2
-        apply_neumann_pressure(p, "x_max", nx, ny, nz, 1.0, 1.0, 1.0, 1.0, {0.0, 0.0, 0.0});
+        apply_neumann_pressure(p, "x_max", dirichlet, nx, ny, nz, 1.0, 1.0, 1.0, 1.0, {0.0, 0.0, 0.0});
         int idx_boundary = (nx - 1) + nx * (2 + ny * 2);
         EXPECT_NEAR(p[idx_boundary], 20.2, 1e-12);
     }
@@ -56,7 +57,7 @@ TEST(PressurePoissonTest, ApplyNeumannPressureDirections) {
     {
         std::vector<double> p(total_cells, 0.0);
         p[2 + nx * (1 + ny * 2)] = 15.3; // Interior neighbor at j=1
-        apply_neumann_pressure(p, "y_min", nx, ny, nz, 1.0, 1.0, 1.0, 1.0, {0.0, 0.0, 0.0});
+        apply_neumann_pressure(p, "y_min", dirichlet, nx, ny, nz, 1.0, 1.0, 1.0, 1.0, {0.0, 0.0, 0.0});
         int idx_boundary = 2 + nx * (0 + ny * 2);
         EXPECT_NEAR(p[idx_boundary], 15.3, 1e-12);
     }
@@ -65,7 +66,7 @@ TEST(PressurePoissonTest, ApplyNeumannPressureDirections) {
     {
         std::vector<double> p(total_cells, 0.0);
         p[2 + nx * ((ny - 2) + ny * 2)] = 25.4; // Interior neighbor at j=ny-2
-        apply_neumann_pressure(p, "y_max", nx, ny, nz, 1.0, 1.0, 1.0, 1.0, {0.0, 0.0, 0.0});
+        apply_neumann_pressure(p, "y_max", dirichlet, nx, ny, nz, 1.0, 1.0, 1.0, 1.0, {0.0, 0.0, 0.0});
         int idx_boundary = 2 + nx * ((ny - 1) + ny * 2);
         EXPECT_NEAR(p[idx_boundary], 25.4, 1e-12);
     }
@@ -74,7 +75,7 @@ TEST(PressurePoissonTest, ApplyNeumannPressureDirections) {
     {
         std::vector<double> p(total_cells, 0.0);
         p[2 + nx * (2 + ny * 1)] = 30.1; // Interior neighbor at k=1
-        apply_neumann_pressure(p, "z_min", nx, ny, nz, 1.0, 1.0, 1.0, 1.0, {0.0, 0.0, 0.0});
+        apply_neumann_pressure(p, "z_min", dirichlet, nx, ny, nz, 1.0, 1.0, 1.0, 1.0, {0.0, 0.0, 0.0});
         int idx_boundary = 2 + nx * (2 + ny * 0);
         EXPECT_NEAR(p[idx_boundary], 30.1, 1e-12);
     }
@@ -83,7 +84,7 @@ TEST(PressurePoissonTest, ApplyNeumannPressureDirections) {
     {
         std::vector<double> p(total_cells, 0.0);
         p[2 + nx * (2 + ny * (nz - 2))] = 35.6; // Interior neighbor at k=nz-2
-        apply_neumann_pressure(p, "z_max", nx, ny, nz, 1.0, 1.0, 1.0, 1.0, {0.0, 0.0, 0.0});
+        apply_neumann_pressure(p, "z_max", dirichlet, nx, ny, nz, 1.0, 1.0, 1.0, 1.0, {0.0, 0.0, 0.0});
         int idx_boundary = 2 + nx * (2 + ny * (nz - 1));
         EXPECT_NEAR(p[idx_boundary], 35.6, 1e-12);
     }
@@ -98,7 +99,7 @@ TEST(PressurePoissonTest, ApplyNeumannPressureDirections) {
         p[2 + nx * (2 + ny * 1)] = 15.0; // z_min face ref
         p[2 + nx * (2 + ny * (nz - 2))] = 16.0; // z_max face ref
 
-        apply_neumann_pressure(p, "wall", nx, ny, nz, 1.0, 1.0, 1.0, 1.0, {0.0, 0.0, 0.0});
+        apply_neumann_pressure(p, "wall", dirichlet, nx, ny, nz, 1.0, 1.0, 1.0, 1.0, {0.0, 0.0, 0.0});
 
         EXPECT_NEAR(p[0 + nx * (2 + ny * 2)], 11.0, 1e-12);
         EXPECT_NEAR(p[(nx - 1) + nx * (2 + ny * 2)], 12.0, 1e-12);
@@ -119,16 +120,17 @@ TEST(PressurePoissonTest, ApplyNeumannPressureDirections) {
 TEST(PressurePoissonTest, ApplyNeumannPressureValidationErrors) {
     int nx = 5, ny = 5, nz = 5;
     std::vector<double> p(nx * ny * nz, 0.0);
+    DirichletFaces dirichlet{};
 
     // Invalid spacing (dx <= 0.0)
     EXPECT_THROW(
-        apply_neumann_pressure(p, "x_min", nx, ny, nz, 0.0, 1.0, 1.0, 1.0, {0.0, 0.0, 0.0}),
+        apply_neumann_pressure(p, "x_min", dirichlet, nx, ny, nz, 0.0, 1.0, 1.0, 1.0, {0.0, 0.0, 0.0}),
         std::invalid_argument
     );
 
     // Invalid gravity vector size (!= 3)
     EXPECT_THROW(
-        apply_neumann_pressure(p, "x_min", nx, ny, nz, 1.0, 1.0, 1.0, 1.0, {0.0, 0.0}),
+        apply_neumann_pressure(p, "x_min", dirichlet, nx, ny, nz, 1.0, 1.0, 1.0, 1.0, {0.0, 0.0}),
         std::invalid_argument
     );
 }

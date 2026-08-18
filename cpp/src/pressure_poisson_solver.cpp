@@ -17,9 +17,19 @@
 
 namespace navier_stokes_solver {
 
+struct DirichletFaces {
+    bool x_min = false;
+    bool x_max = false;
+    bool y_min = false;
+    bool y_max = false;
+    bool z_min = false;
+    bool z_max = false;
+};
+
 void apply_neumann_pressure(
     std::vector<double>& p,
     const std::string& location,
+    const DirichletFaces& dirichlet,
     int nx, int ny, int nz,
     double dx, double dy, double dz,
     double density,
@@ -51,28 +61,28 @@ void apply_neumann_pressure(
                 int count = 0;
                 double val = 0.0;
 
-                // Accumulate normal pressure gradient conditions across all active boundary faces
-                if ((location == "x_min" || location == "wall") && i == 0) {
+                // Accumulate normal pressure gradient conditions across active boundary faces, skipping Dirichlet anchors
+                if ((location == "x_min" || location == "wall") && i == 0 && !dirichlet.x_min) {
                     val += p[static_cast<size_t>(get_flat_index(1, j, k, nx, ny))] - dp_dx * dx;
                     count++;
                 }
-                if ((location == "x_max" || location == "wall") && i == nx - 1) {
+                if ((location == "x_max" || location == "wall") && i == nx - 1 && !dirichlet.x_max) {
                     val += p[static_cast<size_t>(get_flat_index(nx - 2, j, k, nx, ny))] + dp_dx * dx;
                     count++;
                 }
-                if ((location == "y_min" || location == "wall") && j == 0) {
+                if ((location == "y_min" || location == "wall") && j == 0 && !dirichlet.y_min) {
                     val += p[static_cast<size_t>(get_flat_index(i, 1, k, nx, ny))] - dp_dy * dy;
                     count++;
                 }
-                if ((location == "y_max" || location == "wall") && j == ny - 1) {
+                if ((location == "y_max" || location == "wall") && j == ny - 1 && !dirichlet.y_max) {
                     val += p[static_cast<size_t>(get_flat_index(i, ny - 2, k, nx, ny))] + dp_dy * dy;
                     count++;
                 }
-                if ((location == "z_min" || location == "wall") && k == 0) {
+                if ((location == "z_min" || location == "wall") && k == 0 && !dirichlet.z_min) {
                     val += p[static_cast<size_t>(get_flat_index(i, j, 1, nx, ny))] - dp_dz * dz;
                     count++;
                 }
-                if ((location == "z_max" || location == "wall") && k == nz - 1) {
+                if ((location == "z_max" || location == "wall") && k == nz - 1 && !dirichlet.z_max) {
                     val += p[static_cast<size_t>(get_flat_index(i, j, nz - 2, nx, ny))] + dp_dz * dz;
                     count++;
                 }
@@ -159,6 +169,19 @@ void solve_poisson_red_black_parallel(
     std::cout << "[THREAD_TRACE] File: pressure_poisson_solver.cpp | Operations (Cells): " << total_cells 
               << " | Grid: " << nx << "x" << ny << "x" << nz 
               << " | Active Threads: " << active_threads << "\n";
+
+    // Map out domain faces anchored by fixed boundary conditions based on input schema types
+    DirichletFaces dirichlet;
+    for (const auto& bc : bc_list) {
+        if (bc.type == "no-slip" || bc.type == "free-slip" || bc.type == "inflow" || bc.type == "outflow" || bc.type == "pressure") {
+            if (bc.location == "x_min") dirichlet.x_min = true;
+            if (bc.location == "x_max") dirichlet.x_max = true;
+            if (bc.location == "y_min") dirichlet.y_min = true;
+            if (bc.location == "y_max") dirichlet.y_max = true;
+            if (bc.location == "z_min") dirichlet.z_min = true;
+            if (bc.location == "z_max") dirichlet.z_max = true;
+        }
+    }
 
     const double idx2 = 1.0 / (dx * dx);
     const double idy2 = 1.0 / (dy * dy);
@@ -276,8 +299,8 @@ void solve_poisson_red_black_parallel(
         // --- PASS 3: Synchronize Boundaries & Solids Inside Iteration ---
         for (size_t b = 0; b < bc_list.size(); ++b) {
             const auto& bc = bc_list[b];
-            if (bc.type != "pressure") {
-                apply_neumann_pressure(p, bc.location, nx, ny, nz, dx, dy, dz, density, gravity);
+            if (bc.type != "no-slip" && bc.type != "free-slip" && bc.type != "inflow" && bc.type != "outflow" && bc.type != "pressure") {
+                apply_neumann_pressure(p, bc.location, dirichlet, nx, ny, nz, dx, dy, dz, density, gravity);
             }
         }
 
