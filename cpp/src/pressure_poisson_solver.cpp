@@ -17,14 +17,6 @@
 
 namespace navier_stokes_solver {
 
-struct DirichletFaces {
-    bool x_min = false;
-    bool x_max = false;
-    bool y_min = false;
-    bool y_max = false;
-    bool z_min = false;
-    bool z_max = false;
-};
 
 void apply_neumann_pressure(
     std::vector<double>& p,
