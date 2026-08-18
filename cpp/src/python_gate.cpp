@@ -97,7 +97,6 @@ public:
         py::array_t<int> mask = state.attr("mask").cast<py::array_t<int>>();
 
         auto r_fields = fields.mutable_unchecked<4>();
-        auto r_mask = mask.unchecked<3>();
 
         // 5. Extract Simulation Parameters & Fluid Viscosity
         double dt = state.attr("dt").cast<double>();
@@ -123,6 +122,27 @@ public:
         std::vector<double> fy_vec(total_cells, force_vec[1]);
         std::vector<double> fz_vec(total_cells, force_vec[2]);
 
+        // Support both 1D (flattened canonical layout) and 3D NumPy array masks
+        if (mask.ndim() == 3) {
+            auto r_mask = mask.unchecked<3>();
+            for (int k = 0; k < nz; ++k) {
+                for (int j = 0; j < ny; ++j) {
+                    for (int i = 0; i < nx; ++i) {
+                        size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
+                        mask_vec[idx] = r_mask(i, j, k);
+                    }
+                }
+            }
+        } else if (mask.ndim() == 1) {
+            auto r_mask = mask.unchecked<1>();
+            for (size_t idx = 0; idx < total_cells; ++idx) {
+                mask_vec[idx] = r_mask(idx);
+            }
+        } else {
+            throw std::invalid_argument("GEOMETRY ERROR: mask must be a 1D or 3D NumPy array.");
+        }
+
+        // Extract primary velocity and pressure fields
         for (int k = 0; k < nz; ++k) {
             for (int j = 0; j < ny; ++j) {
                 for (int i = 0; i < nx; ++i) {
@@ -131,21 +151,40 @@ public:
                     v_[idx] = r_fields(1, i, j, k);
                     w_[idx] = r_fields(2, i, j, k);
                     p_[idx] = r_fields(3, i, j, k);
-
-                    mask_vec[idx] = r_mask(i, j, k);
                 }
             }
         }
 
-        // 8. Extract Boundary Conditions List
+        // 8. Extract Boundary Conditions List (handling both C++ objects and raw Python dicts)
         py::list py_bc_list = state.attr("boundary_conditions");
         std::vector<navier_stokes_solver::BoundaryCondition> bc_list;
+
         for (auto item : py_bc_list) {
-            bc_list.push_back(item.cast<navier_stokes_solver::BoundaryCondition>());
+            if (py::isinstance<py::dict>(item)) {
+                py::dict bc_dict = item.cast<py::dict>();
+                navier_stokes_solver::BoundaryCondition bc;
+                
+                if (bc_dict.contains("location")) bc.location = bc_dict["location"].cast<std::string>();
+                if (bc_dict.contains("type")) bc.type = bc_dict["type"].cast<std::string>();
+
+                if (bc_dict.contains("values")) {
+                    py::dict val_dict = bc_dict["values"].cast<py::dict>();
+                    if (val_dict.contains("u")) bc.u_val = val_dict["u"].cast<double>();
+                    if (val_dict.contains("v")) bc.v_val = val_dict["v"].cast<double>();
+                    if (val_dict.contains("w")) bc.w_val = val_dict["w"].cast<double>();
+                    if (val_dict.contains("p")) bc.scalar_p = val_dict["p"].cast<double>();
+                }
+                bc_list.push_back(bc);
+            } else {
+                bc_list.push_back(item.cast<navier_stokes_solver::BoundaryCondition>());
+            }
         }
 
-        // 9. Execute full time-step inside the C++ Orchestrator Core
-        orchestrator_->step(dt, mu, gravity, fx_vec, fy_vec, fz_vec, mask_vec, bc_list, u_, v_, w_, p_);
+        // 9. Execute full time-step inside C++ Orchestrator Core (releasing GIL for OpenMP compute)
+        {
+            py::gil_scoped_release release;
+            orchestrator_->step(dt, mu, gravity, fx_vec, fy_vec, fz_vec, mask_vec, bc_list, u_, v_, w_, p_);
+        }
 
         // 10. Copy modified fields directly back into Python NumPy memory in-place
         for (int k = 0; k < nz; ++k) {
