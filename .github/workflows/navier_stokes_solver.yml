@@ -51,8 +51,11 @@ jobs:
 
       - name: 🌐 Install Headless Rendering Dependencies
         run: |
+          # Fix APT mirrors to prevent runner hangs on Azure regional mirrors
+          sudo sed -i 's|azure.archive.ubuntu.com|archive.ubuntu.com|g' /etc/apt/sources.list || true
+
           # Establish virtual display device infrastructure and OpenGL bindings
-          sudo apt-get update
+          sudo apt-get update -y
           # libgl1 replaces the deprecated libgl1-mesa-glx on Ubuntu 24.04+
           sudo apt-get install -y libgl1 xvfb libglu1-mesa
 
@@ -254,8 +257,11 @@ jobs:
 
       - name: 🌐 Install Headless Rendering Dependencies
         run: |
+          # Fix APT mirrors to prevent runner hangs on Azure regional mirrors
+          sudo sed -i 's|azure.archive.ubuntu.com|archive.ubuntu.com|g' /etc/apt/sources.list || true
+
           # Establish virtual display device infrastructure and OpenGL bindings
-          sudo apt-get update
+          sudo apt-get update -y
           # libgl1 replaces the deprecated libgl1-mesa-glx on Ubuntu 24.04+
           sudo apt-get install -y libgl1 xvfb libglu1-mesa
 
