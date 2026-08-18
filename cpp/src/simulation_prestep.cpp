@@ -61,7 +61,7 @@ void execute_pre_step(
               << " | Active Threads: " << active_threads << "\n";
 
     // Track which boundary cells have been claimed by explicit face-specific boundary conditions
-    std::vector<bool> claimed_boundary(total_cells, false);
+    std::vector<int> claimed_boundary(total_cells, 0);
 
     // Separate boundary conditions into explicit face rules and generic wall rules
     // to enforce strict non-overwriting precedence.
@@ -163,7 +163,7 @@ void execute_pre_step(
                     apply_bc(bc, i, j, k, idx);
 
                     #pragma omp atomic write
-                    claimed_boundary[idx] = true;
+                    claimed_boundary[idx] = 1;
                 }
             }
         }
@@ -182,14 +182,14 @@ void execute_pre_step(
                     }
                     const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
 
-                    bool already_claimed = false;
+                    int already_claimed = 0;
                     #pragma omp atomic read
                     already_claimed = claimed_boundary[idx];
 
                     if (!already_claimed) {
                         apply_bc(bc, i, j, k, idx);
                         #pragma omp atomic write
-                        claimed_boundary[idx] = true;
+                        claimed_boundary[idx] = 1;
                     }
                 }
             }
