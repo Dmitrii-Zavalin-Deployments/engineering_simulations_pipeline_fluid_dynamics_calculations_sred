@@ -26,7 +26,8 @@ def test_main_full_pipeline_cubic_4x4x4(workspace_folder, monkeypatch):
     input_path = Path(folder) / input_file
     output_manifest_name = "navier_stokes_cubic_output.json"
 
-    # 1. Update input JSON to apply non-zero external forces, initial velocity, and 4x4x4 grid
+    # 1. Update input JSON to apply non-zero external forces, initial velocity, 4x4x4 grid,
+    #    and schema-compliant boundary conditions using the nested 'values' dictionary.
     with open(input_path, "r", encoding="utf-8") as f:
         input_json_data = json.load(f)
 
@@ -34,6 +35,7 @@ def test_main_full_pipeline_cubic_4x4x4(workspace_folder, monkeypatch):
     input_json_data["mask"] = [0] * 64  # 4 x 4 x 4 = 64 cells
     input_json_data["external_forces"]["force_vector"] = [1.0, 1.0, 1.0]
     input_json_data["initial_conditions"]["velocity"] = [0.1, 0.1, 0.1]
+    input_json_data["boundary_conditions"] = [{"location": "x_min", "type": "pressure", "values": {"p": 10.0}}]
 
     with open(input_path, "w", encoding="utf-8") as f:
         json.dump(input_json_data, f)
@@ -123,6 +125,7 @@ def test_python_cpp_field_state_parity_cubic(workspace_folder):
     input_data["mask"] = [0] * 64
     input_data["external_forces"]["force_vector"] = [1.0, 1.0, 1.0]
     input_data["initial_conditions"]["velocity"] = [0.1, 0.1, 0.1]
+    input_data["boundary_conditions"] = [{"location": "x_min", "type": "pressure", "values": {"p": 10.0}}]
 
     state = SolverState(input_data, config_data)
     step_simulation(state)
@@ -170,6 +173,7 @@ def test_pybind11_memory_bridge_cubic(workspace_folder):
     input_data["mask"] = [0] * 64
     input_data["external_forces"]["force_vector"] = [1.0, 2.0, 1.5]
     input_data["initial_conditions"]["velocity"] = [0.2, -0.1, 0.3]
+    input_data["boundary_conditions"] = [{"location": "x_min", "type": "pressure", "values": {"p": 5.0}}]
 
     state = SolverState(input_data, config_data)
     initial_pointers = [field.ctypes.data for field in state.fields]
