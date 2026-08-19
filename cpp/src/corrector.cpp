@@ -1,7 +1,7 @@
 /**
  * @file corrector.cpp
- * @brief Implementation of Step 4 Corrector Velocity Projection with robust safety validation,
- *        execution tracing, and boundary-conforming pressure gradients.
+ * @brief Implementation of Step 4 Corrector Velocity Projection maintaining MAC face-centered
+ *        gradients (dx) using boundary-conforming pressures from the Poisson/Neumann solver.
  */
 
 #include "corrector.hpp"
@@ -57,6 +57,7 @@ void solve_corrector_parallel(
               << " | Active Threads: " << active_threads << "\n";
 
     const double coeff = dt / rho;
+    // Keep 1-cell MAC face inverse grid spacing (dx, dy, dz) to prevent checkerboarding
     const double idx_inv = 1.0 / dx;
     const double idy_inv = 1.0 / dy;
     const double idz_inv = 1.0 / dz;
@@ -83,14 +84,13 @@ void solve_corrector_parallel(
 
                 const double p_center = p[idx_cell];
                 
-                // --- STENCIL FIX: Verify masks before computing gradients ---
-                // If a neighbor is a solid boundary or wall (mask != 1), mirror the pressure 
-                // value to enforce dp/dn = 0 safely at the fluid-solid interface.
-                const double p_east  = (mask[idx_east] == 1)  ? p[idx_east]  : p_center;
-                const double p_north = (mask[idx_north] == 1) ? p[idx_north] : p_center;
-                const double p_up    = (mask[idx_up] == 1)    ? p[idx_up]    : p_center;
+                // Use the actual neighbor pressures computed by apply_neumann_pressure.
+                // Do NOT override with p_center, as wall pressures already contain the correct Neumann gradient.
+                const double p_east  = p[idx_east];
+                const double p_north = p[idx_north];
+                const double p_up    = p[idx_up];
 
-                // Compute 1-cell MAC face pressure gradients: dp/dx, dp/dy, dp/dz
+                // Compute 1-cell MAC face pressure gradients: dp/dx, dp/dy, dp/dz using dx
                 const double dp_dx = (p_east - p_center) * idx_inv;
                 const double dp_dy = (p_north - p_center) * idy_inv;
                 const double dp_dz = (p_up - p_center) * idz_inv;

@@ -61,7 +61,7 @@ void NavierStokesOrchestrator::step(
     execute_pre_step(u, v, w, p, mask, bc_list, dims_.nx, dims_.ny, dims_.nz);
     auto dur_pre = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - t_pre).count();
 
-    // 1.5. GHOST & BOUNDARY SYNCHRONIZATION: Sync buffers BEFORE predictor step to prevent uninitialized i=0 stencils (X:inf)
+    // 1.5. GHOST & BOUNDARY SYNCHRONIZATION: Sync buffers BEFORE predictor step to prevent uninitialized i=0 stencils
     auto t_sync1 = std::chrono::high_resolution_clock::now();
     sync_ghost_trial_buffers(
         u.data(), v.data(), w.data(), p.data(),
@@ -85,7 +85,7 @@ void NavierStokesOrchestrator::step(
     );
     auto dur_pred = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - t_pred).count();
 
-    // 3. PRESSURE POISSON STEP: Compute RHS divergence and solve pressure field iteratively
+    // 3. PRESSURE POISSON STEP: Compute RHS divergence and solve pressure field iteratively with Neumann boundary conditions
     auto t_poisson = std::chrono::high_resolution_clock::now();
     const double scale = config_.density / dt;
 
@@ -124,7 +124,7 @@ void NavierStokesOrchestrator::step(
     );
     auto dur_poisson = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - t_poisson).count();
 
-    // 4. CORRECTOR STEP: Project trial velocity to divergence-free velocity field u^{n+1}
+    // 4. CORRECTOR STEP: Project trial velocity to divergence-free velocity field u^{n+1} using 1-cell face gradients
     auto t_corr = std::chrono::high_resolution_clock::now();
     solve_corrector_parallel(
         u, v, w,
