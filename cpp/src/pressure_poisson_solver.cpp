@@ -162,10 +162,10 @@ void solve_poisson_red_black_parallel(
               << " | Grid: " << nx << "x" << ny << "x" << nz 
               << " | Active Threads: " << active_threads << "\n";
 
-    // Map out domain faces anchored by fixed boundary conditions based on input schema types
+    // Map out domain faces anchored by fixed pressure or outflow back-pressure conditions
     DirichletFaces dirichlet;
     for (const auto& bc : bc_list) {
-        if (bc.type == "no-slip" || bc.type == "free-slip" || bc.type == "inflow" || bc.type == "outflow" || bc.type == "pressure") {
+        if (bc.type == "pressure" || bc.type == "outflow") {
             if (bc.location == "x_min") dirichlet.x_min = true;
             if (bc.location == "x_max") dirichlet.x_max = true;
             if (bc.location == "y_min") dirichlet.y_min = true;
@@ -291,7 +291,7 @@ void solve_poisson_red_black_parallel(
         // --- PASS 3: Synchronize Boundaries & Solids Inside Iteration ---
         for (size_t b = 0; b < bc_list.size(); ++b) {
             const auto& bc = bc_list[b];
-            if (bc.type != "no-slip" && bc.type != "free-slip" && bc.type != "inflow" && bc.type != "outflow" && bc.type != "pressure") {
+            if (bc.type != "pressure" && bc.type != "outflow") {
                 apply_neumann_pressure(p, bc.location, dirichlet, nx, ny, nz, dx, dy, dz, density, gravity);
             }
         }

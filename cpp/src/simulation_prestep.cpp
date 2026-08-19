@@ -96,10 +96,18 @@ void execute_pre_step(
             w[idx] = (k == 0 || k == nz - 1) ? 0.0 : ((bc.w_val != 0.0) ? bc.w_val : w[int_idx]);
             if (bc.scalar_p != 0.0) p[idx] = bc.scalar_p;
         } 
-        else if (bc.type == "inflow" || bc.type == "outflow" || bc.type == "pressure") {
-            u[idx] = (bc.u_val != 0.0 || bc.type == "inflow") ? bc.u_val : u[int_idx];
-            v[idx] = (bc.v_val != 0.0 || bc.type == "inflow") ? bc.v_val : v[int_idx];
-            w[idx] = (bc.w_val != 0.0 || bc.type == "inflow") ? bc.w_val : w[int_idx];
+        else if (bc.type == "inflow") {
+            u[idx] = bc.u_val;
+            v[idx] = bc.v_val;
+            w[idx] = bc.w_val;
+        }
+        else if (bc.type == "outflow") {
+            u[idx] = (bc.u_val != 0.0) ? bc.u_val : u[int_idx];
+            v[idx] = (bc.v_val != 0.0) ? bc.v_val : v[int_idx];
+            w[idx] = (bc.w_val != 0.0) ? bc.w_val : w[int_idx];
+            p[idx] = bc.scalar_p; // Outflow pressure back-reference
+        }
+        else if (bc.type == "pressure") {
             p[idx] = bc.scalar_p;
         }
     };
