@@ -50,10 +50,9 @@
         },
         {
             "location": "wall",
-            "type": "free-slip",
+            "type": "pressure",
             "values": {
-                "w": 0.0,
-                "p": 0.0
+                "p": 100.0
             }
         }
     ],
