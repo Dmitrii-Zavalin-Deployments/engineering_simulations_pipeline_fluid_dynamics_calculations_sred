@@ -144,8 +144,8 @@
         ],
         "gravity_vector": [
             0.0,
-            0.0,
-            -9.81
+            -9.81,
+            0.0
         ]
     },
     "domain_configuration": {
