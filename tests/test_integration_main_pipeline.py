@@ -25,13 +25,13 @@ def test_main_full_pipeline_end_to_end(workspace_folder, monkeypatch):
     input_path = Path(folder) / input_file
     output_manifest_name = "navier_stokes_output.json"
 
-    # 1. Update input JSON to apply non-zero external forces and initial velocity
-    #    to ensure dynamic non-zero evolution across all velocity fields (u, v, w) and pressure (p).
+    # 1. Update input JSON to apply non-zero external forces, initial velocity,
+    #    and schema-compliant boundary conditions using the nested 'values' dictionary.
     with open(input_path, "r", encoding="utf-8") as f:
         input_json_data = json.load(f)
 
     input_json_data["external_forces"]["force_vector"] = [1.0, 0.0, 0.0]
-    input_json_data["boundary_conditions"] = [{"location": "x_min", "type": "pressure", "value": 10.0}]
+    input_json_data["boundary_conditions"] = [{"location": "x_min", "type": "pressure", "values": {"p": 10.0}}]
     input_json_data["initial_conditions"]["velocity"] = [0.1, 0.1, 0.1]
 
     with open(input_path, "w", encoding="utf-8") as f:
@@ -86,7 +86,7 @@ def test_main_full_pipeline_end_to_end(workspace_folder, monkeypatch):
     assert input_data["simulation_parameters"]["output_interval"] == 1
     assert len(input_data["boundary_conditions"]) == 1
     assert input_data["boundary_conditions"][0]["type"] == "pressure"
-    assert input_data["boundary_conditions"][0]["value"] == 10.0
+    assert input_data["boundary_conditions"][0]["values"]["p"] == 10.0
     assert len(input_data["mask"]) == 27  # 3 x 3 x 3 = 27 cells
     assert input_data["external_forces"]["force_vector"] == [1.0, 0.0, 0.0]
     assert input_data["external_forces"]["gravity_vector"] == [0.0, -9.81, 0.0]
@@ -202,7 +202,7 @@ def test_pybind11_memory_bridge_forensic_audit(workspace_folder):
     input_data, config_data = load_and_validate_inputs(input_path, Path(folder) / "config.json")
     input_data["external_forces"]["force_vector"] = [1.0, 2.0, 1.5]
     input_data["initial_conditions"]["velocity"] = [0.2, -0.1, 0.3]
-    input_data["boundary_conditions"] = [{"location": "x_min", "type": "pressure", "value": 5.0}]
+    input_data["boundary_conditions"] = [{"location": "x_min", "type": "pressure", "values": {"p": 5.0}}]
 
     state = SolverState(input_data, config_data)
 
