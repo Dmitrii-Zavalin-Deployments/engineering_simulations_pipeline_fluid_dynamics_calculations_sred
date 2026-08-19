@@ -92,7 +92,7 @@ public:
                   << " | Grid: " << nx << "x" << ny << "x" << nz 
                   << " | Active Threads: " << active_threads << "\n";
 
-        // 4. Extract Tensors directly without enforcing layout copies
+        // 4. Extract Tensors with correct Z-Y-X buffer stride mapping
         py::array_t<double> fields = state.attr("fields").cast<py::array_t<double>>();
         py::array_t<int> mask = state.attr("mask").cast<py::array_t<int>>();
 
@@ -122,14 +122,15 @@ public:
         std::vector<double> fy_vec(total_cells, force_vec[1]);
         std::vector<double> fz_vec(total_cells, force_vec[2]);
 
-        // Support both 1D (flattened canonical layout) and 3D NumPy array masks
+        // Support both 3D (Z, Y, X layout) and 1D NumPy array masks
         if (mask.ndim() == 3) {
             auto r_mask = mask.unchecked<3>();
             for (int k = 0; k < nz; ++k) {
                 for (int j = 0; j < ny; ++j) {
                     for (int i = 0; i < nx; ++i) {
                         size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
-                        mask_vec[idx] = r_mask(i, j, k);
+                        // Aligned to Python (z, y, x) indexing order
+                        mask_vec[idx] = r_mask(k, j, i);
                     }
                 }
             }
@@ -142,20 +143,20 @@ public:
             throw std::invalid_argument("GEOMETRY ERROR: mask must be a 1D or 3D NumPy array.");
         }
 
-        // Extract primary velocity and pressure fields
+        // Extract primary velocity and pressure fields with corrected (z, y, x) buffer mapping
         for (int k = 0; k < nz; ++k) {
             for (int j = 0; j < ny; ++j) {
                 for (int i = 0; i < nx; ++i) {
                     size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
-                    u_[idx] = r_fields(0, i, j, k);
-                    v_[idx] = r_fields(1, i, j, k);
-                    w_[idx] = r_fields(2, i, j, k);
-                    p_[idx] = r_fields(3, i, j, k);
+                    u_[idx] = r_fields(0, k, j, i);
+                    v_[idx] = r_fields(1, k, j, i);
+                    w_[idx] = r_fields(2, k, j, i);
+                    p_[idx] = r_fields(3, k, j, i);
                 }
             }
         }
 
-        // 8. Extract Boundary Conditions List (handling both C++ objects and raw Python dicts)
+        // 8. Extract Boundary Conditions List
         py::list py_bc_list = state.attr("boundary_conditions");
         std::vector<navier_stokes_solver::BoundaryCondition> bc_list;
 
@@ -186,16 +187,16 @@ public:
             orchestrator_->step(dt, mu, gravity, fx_vec, fy_vec, fz_vec, mask_vec, bc_list, u_, v_, w_, p_);
         }
 
-        // 10. Copy modified fields directly back into Python NumPy memory in-place
+        // 10. Copy modified fields back into Python NumPy memory in-place using matching strides
         for (int k = 0; k < nz; ++k) {
             for (int j = 0; j < ny; ++j) {
                 for (int i = 0; i < nx; ++i) {
                     size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
 
-                    r_fields(0, i, j, k) = u_[idx];
-                    r_fields(1, i, j, k) = v_[idx];
-                    r_fields(2, i, j, k) = w_[idx];
-                    r_fields(3, i, j, k) = p_[idx];
+                    r_fields(0, k, j, i) = u_[idx];
+                    r_fields(1, k, j, i) = v_[idx];
+                    r_fields(2, k, j, i) = w_[idx];
+                    r_fields(3, k, j, i) = p_[idx];
                 }
             }
         }
@@ -217,10 +218,10 @@ public:
             for (int j = 0; j < ny; ++j) {
                 for (int i = 0; i < nx; ++i) {
                     size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
-                    r_fields(0, i, j, k) = u_[idx];
-                    r_fields(1, i, j, k) = v_[idx];
-                    r_fields(2, i, j, k) = w_[idx];
-                    r_fields(3, i, j, k) = p_[idx];
+                    r_fields(0, k, j, i) = u_[idx];
+                    r_fields(1, k, j, i) = v_[idx];
+                    r_fields(2, k, j, i) = w_[idx];
+                    r_fields(3, k, j, i) = p_[idx];
                 }
             }
         }
@@ -251,5 +252,5 @@ PYBIND11_MODULE(navier_stokes_cpp, m) {
     py::class_<PythonSolverBridge>(m, "NavierStokesSolver")
         .def(py::init<py::object>(), py::arg("state"), "Initialize solver instance directly from sovereign SolverState container.")
         .def("step", &PythonSolverBridge::step, py::arg("state"), "Advance the Navier-Stokes system by one time-step using state container references.")
-        .def("sync_fields", &PythonSolverBridge::sync_fields, py::arg("state"), "Synchronize persistent C++ solution fields directly back into Python state memory.");
+        .def("sync_files", &PythonSolverBridge::sync_fields, py::arg("state"), "Synchronize persistent C++ solution fields directly back into Python state memory.");
 }

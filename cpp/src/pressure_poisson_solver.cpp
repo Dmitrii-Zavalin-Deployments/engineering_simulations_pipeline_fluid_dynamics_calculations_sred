@@ -107,7 +107,7 @@ void apply_solid_neumann_pressure_parallel(
         for (int j = 1; j < ny - 1; ++j) {
             for (int i = 1; i < nx - 1; ++i) {
                 const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
-                if (mask[idx] != 0) continue; // Target internal solid cells only
+                if (mask[idx] == 1) continue; // Target all non-fluid cells (internal solids and wall boundaries)
 
                 const size_t idx_west  = static_cast<size_t>(get_flat_index(i - 1, j, k, nx, ny));
                 const size_t idx_east  = static_cast<size_t>(get_flat_index(i + 1, j, k, nx, ny));

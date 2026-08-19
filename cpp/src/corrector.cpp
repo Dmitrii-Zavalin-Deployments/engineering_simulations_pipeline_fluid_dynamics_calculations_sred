@@ -1,6 +1,7 @@
 /**
  * @file corrector.cpp
- * @brief Implementation of Step 4 Corrector Velocity Projection with robust safety validation and execution tracing.
+ * @brief Implementation of Step 4 Corrector Velocity Projection with robust safety validation,
+ *        execution tracing, and boundary-conforming pressure gradients.
  */
 
 #include "corrector.hpp"
@@ -81,9 +82,13 @@ void solve_corrector_parallel(
                 const size_t idx_up    = static_cast<size_t>(get_flat_index(i, j, k + 1, nx, ny));
 
                 const double p_center = p[idx_cell];
-                const double p_east   = p[idx_east];
-                const double p_north  = p[idx_north];
-                const double p_up     = p[idx_up];
+                
+                // --- STENCIL FIX: Verify masks before computing gradients ---
+                // If a neighbor is a solid boundary or wall (mask != 1), mirror the pressure 
+                // value to enforce dp/dn = 0 safely at the fluid-solid interface.
+                const double p_east  = (mask[idx_east] == 1)  ? p[idx_east]  : p_center;
+                const double p_north = (mask[idx_north] == 1) ? p[idx_north] : p_center;
+                const double p_up    = (mask[idx_up] == 1)    ? p[idx_up]    : p_center;
 
                 // Compute 1-cell MAC face pressure gradients: dp/dx, dp/dy, dp/dz
                 const double dp_dx = (p_east - p_center) * idx_inv;
