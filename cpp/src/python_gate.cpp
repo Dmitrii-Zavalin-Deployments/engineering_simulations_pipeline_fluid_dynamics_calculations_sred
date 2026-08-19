@@ -252,5 +252,5 @@ PYBIND11_MODULE(navier_stokes_cpp, m) {
     py::class_<PythonSolverBridge>(m, "NavierStokesSolver")
         .def(py::init<py::object>(), py::arg("state"), "Initialize solver instance directly from sovereign SolverState container.")
         .def("step", &PythonSolverBridge::step, py::arg("state"), "Advance the Navier-Stokes system by one time-step using state container references.")
-        .def("sync_files", &PythonSolverBridge::sync_fields, py::arg("state"), "Synchronize persistent C++ solution fields directly back into Python state memory.");
+        .def("sync_fields", &PythonSolverBridge::sync_fields, py::arg("state"), "Synchronize persistent C++ solution fields directly back into Python state memory.");
 }
