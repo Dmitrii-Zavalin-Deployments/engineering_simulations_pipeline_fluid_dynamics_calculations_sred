@@ -30,7 +30,8 @@ def test_main_full_pipeline_end_to_end(workspace_folder, monkeypatch):
     with open(input_path, "r", encoding="utf-8") as f:
         input_json_data = json.load(f)
 
-    input_json_data["external_forces"]["force_vector"] = [1.0, 1.0, 1.0]
+    input_json_data["external_forces"]["force_vector"] = [1.0, 0.0, 0.0]
+    input_json_data["boundary_conditions"] = [{"location": "x_min", "type": "pressure", "value": 10.0}]
     input_json_data["initial_conditions"]["velocity"] = [0.1, 0.1, 0.1]
 
     with open(input_path, "w", encoding="utf-8") as f:
@@ -200,6 +201,7 @@ def test_pybind11_memory_bridge_forensic_audit(workspace_folder):
     input_data, config_data = load_and_validate_inputs(input_path, Path(folder) / "config.json")
     input_data["external_forces"]["force_vector"] = [1.0, 2.0, 1.5]
     input_data["initial_conditions"]["velocity"] = [0.2, -0.1, 0.3]
+    input_data["boundary_conditions"] = [{"location": "x_min", "type": "pressure", "value": 5.0}]
 
     state = SolverState(input_data, config_data)
 
