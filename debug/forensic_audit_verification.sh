@@ -5,24 +5,26 @@ echo "======================================================================"
 echo "          NAVIER-STOKES CFD - POST-TEST FORENSIC AUDIT SCRIPT         "
 echo "======================================================================"
 
-echo "--- [DIAGNOSTIC 1] External Forces Assertion Mismatch ---"
-echo "Inspecting test_main_full_pipeline_end_to_end force_vector check..."
-cat -n tests/test_integration_main_pipeline.py | sed -n '83,93p'
+echo "--- [DIAGNOSTIC 1] Inspecting src/cpp_gate.py _dict_to_boundary_condition ---"
+cat -n src/cpp_gate.py | sed -n '25,45p'
 
 echo ""
-echo "--- [DIAGNOSTIC 2] Pressure Field Zero Mutation in Forensic Audit ---"
-echo "Inspecting test_pybind11_memory_bridge_forensic_audit boundary conditions..."
-cat -n tests/test_integration_main_pipeline.py | sed -n '198,210p'
+echo "--- [DIAGNOSTIC 2] Inspecting C++ BoundaryCondition attributes via Python ---"
+python3 -c "
+try:
+    import navier_stokes_cpp
+    bc = navier_stokes_cpp.BoundaryCondition()
+    print('BoundaryCondition attributes:', [attr for attr in dir(bc) if not attr.startswith('_')])
+except Exception as e:
+    print('Error inspecting BoundaryCondition:', e)
+"
 
 echo ""
 echo "======================================================================"
-echo "               APPLYING AUTOMATED REPAIR SED INJECTIONS               "
+echo "          AUTOMATED REPAIR SCRIPTS (COMMENTED SED INJECTIONS)         "
 echo "======================================================================"
 
-# Fix 1: Align the external forces assertion in test_main_full_pipeline_end_to_end with the test modification [1.0, 0.0, 0.0]
-sed -i 's/assert input_data\["external_forces"\]\["force_vector"\] == \[1.0, 1.0, 1.0\]/assert input_data["external_forces"]["force_vector"] == [1.0, 0.0, 0.0]/g' tests/test_integration_main_pipeline.py
+# Fix: Update _dict_to_boundary_condition in src/cpp_gate.py to properly map dictionary keys ('location', 'type', 'value') to C++ BoundaryCondition properties
+# sed -i '/def _dict_to_boundary_condition/a \    # Automated mapping fix here' src/cpp_gate.py
 
-# Fix 2: Add opposing pressure boundary condition to test_pybind11_memory_bridge_forensic_audit so field_p receives non-zero mutations
-sed -i 's/input_data\["boundary_conditions"\] = \[\{"location": "x_min", "type": "pressure", "value": 5.0\}\]/input_data["boundary_conditions"] = [{"location": "x_min", "type": "pressure", "value": 5.0}, {"location": "x_max", "type": "pressure", "value": 0.0}]/g' tests/test_integration_main_pipeline.py
-
-echo "Forensic audit and automated repairs complete successfully."
+echo "Forensic audit and diagnostic scan complete."
