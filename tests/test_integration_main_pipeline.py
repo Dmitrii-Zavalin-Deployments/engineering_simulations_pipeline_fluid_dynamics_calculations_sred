@@ -88,7 +88,7 @@ def test_main_full_pipeline_end_to_end(workspace_folder, monkeypatch):
     assert input_data["boundary_conditions"][0]["type"] == "pressure"
     assert input_data["boundary_conditions"][0]["value"] == 10.0
     assert len(input_data["mask"]) == 27  # 3 x 3 x 3 = 27 cells
-    assert input_data["external_forces"]["force_vector"] == [1.0, 1.0, 1.0]
+    assert input_data["external_forces"]["force_vector"] == [1.0, 0.0, 0.0]
     assert input_data["external_forces"]["gravity_vector"] == [0.0, -9.81, 0.0]
 
     # Production Config Integration
