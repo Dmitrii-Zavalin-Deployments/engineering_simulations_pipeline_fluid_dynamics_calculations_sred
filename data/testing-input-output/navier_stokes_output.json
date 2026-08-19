@@ -164,7 +164,7 @@
     "poisson_tolerance": 1e-08
   },
   "results": {
-    "status": "FAILURE",
-    "zip_filename": "NOT_APPLICABLE"
+    "status": "SUCCESS",
+    "zip_filename": "20260819_124046.zip"
   }
 }
