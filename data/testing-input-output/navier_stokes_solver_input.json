@@ -138,14 +138,14 @@
     ],
     "external_forces": {
         "force_vector": [
-            10.0,
-            10.0,
-            10.0
+            0.0,
+            0.0,
+            0.0
         ],
         "gravity_vector": [
-            -9.81,
-            -9.81,
-            -9.81
+            0.0,
+            0.0,
+            0.0
         ]
     },
     "domain_configuration": {
