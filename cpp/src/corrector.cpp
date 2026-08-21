@@ -2,7 +2,7 @@
  * @file corrector.cpp
  * @brief Implementation of Step 4 Corrector Velocity Projection maintaining MAC face-centered
  *        gradients (dx) using boundary-conforming pressures from the Poisson/Neumann solver,
- *        with explicit no-penetration boundary condition enforcement at fluid-solid interfaces.
+ *        allowing interior fluid momentum to propagate freely without artificial zero-out traps.
  */
 
 #include "corrector.hpp"
@@ -103,11 +103,6 @@ void solve_corrector_parallel(
                 double new_u = u_star[idx_cell] - coeff * dp_dx;
                 double new_v = v_star[idx_cell] - coeff * dp_dy;
                 double new_w = w_star[idx_cell] - coeff * dp_dz;
-
-                // Enforce explicit no-penetration boundary conditions at fluid-solid interfaces
-                if (mask[idx_east] != 1 || mask[idx_west] != 1) new_u = 0.0;
-                if (mask[idx_north] != 1 || mask[idx_south] != 1) new_v = 0.0;
-                if (mask[idx_up] != 1 || mask[idx_down] != 1) new_w = 0.0;
 
                 // --- FORENSIC NUMERICAL AUDIT ---
                 if (!std::isfinite(new_u) || !std::isfinite(new_v) || !std::isfinite(new_w)) {

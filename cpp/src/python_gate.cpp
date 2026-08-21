@@ -3,7 +3,7 @@
  * @brief Pybind11 Python bindings for the 3D Navier-Stokes C++ Orchestrator.
  * Bridges the Python sovereign SolverState container directly with the C++ engine,
  * extracting all physical constraints, domain configurations, boundary conditions, and parameters
- * with aligned C-contiguous NumPy buffer strides.
+ * using the SSoT grid indexing standard.
  */
 
 #include <pybind11/pybind11.h>
@@ -123,13 +123,13 @@ public:
         std::vector<double> fy_vec(total_cells, force_vec[1]);
         std::vector<double> fz_vec(total_cells, force_vec[2]);
 
-        // Support both 3D and 1D NumPy array masks with (i, j, k) C-stride alignment
+        // Support both 3D and 1D NumPy array masks using SSoT get_flat_index
         if (mask.ndim() == 3) {
             auto r_mask = mask.unchecked<3>();
             for (int k = 0; k < nz; ++k) {
                 for (int j = 0; j < ny; ++j) {
                     for (int i = 0; i < nx; ++i) {
-                        size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
+                        size_t idx = static_cast<size_t>(get_flat_index(i, j, k, ny, nz));
                         mask_vec[idx] = r_mask(i, j, k);
                     }
                 }
@@ -143,11 +143,11 @@ public:
             throw std::invalid_argument("GEOMETRY ERROR: mask must be a 1D or 3D NumPy array.");
         }
 
-        // Extract primary velocity and pressure fields with aligned (i, j, k) buffer mapping
+        // Extract primary velocity and pressure fields using SSoT get_flat_index
         for (int k = 0; k < nz; ++k) {
             for (int j = 0; j < ny; ++j) {
                 for (int i = 0; i < nx; ++i) {
-                    size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
+                    size_t idx = static_cast<size_t>(get_flat_index(i, j, k, ny, nz));
                     u_[idx] = r_fields(0, i, j, k);
                     v_[idx] = r_fields(1, i, j, k);
                     w_[idx] = r_fields(2, i, j, k);
@@ -187,11 +187,11 @@ public:
             orchestrator_->step(dt, mu, gravity, fx_vec, fy_vec, fz_vec, mask_vec, bc_list, u_, v_, w_, p_);
         }
 
-        // 10. Copy modified fields back into Python NumPy memory in-place using aligned (i, j, k) mapping
+        // 10. Copy modified fields back into Python NumPy memory in-place using SSoT get_flat_index
         for (int k = 0; k < nz; ++k) {
             for (int j = 0; j < ny; ++j) {
                 for (int i = 0; i < nx; ++i) {
-                    size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
+                    size_t idx = static_cast<size_t>(get_flat_index(i, j, k, ny, nz));
 
                     r_fields(0, i, j, k) = u_[idx];
                     r_fields(1, i, j, k) = v_[idx];
@@ -217,7 +217,7 @@ public:
         for (int k = 0; k < nz; ++k) {
             for (int j = 0; j < ny; ++j) {
                 for (int i = 0; i < nx; ++i) {
-                    size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
+                    size_t idx = static_cast<size_t>(get_flat_index(i, j, k, ny, nz));
                     r_fields(0, i, j, k) = u_[idx];
                     r_fields(1, i, j, k) = v_[idx];
                     r_fields(2, i, j, k) = w_[idx];
