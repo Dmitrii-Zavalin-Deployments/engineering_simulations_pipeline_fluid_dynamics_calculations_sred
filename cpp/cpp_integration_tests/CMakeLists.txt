@@ -23,3 +23,19 @@ target_link_libraries(test_no_penetration_clamping
 )
 
 add_test(NAME NoPenetrationClampingTest COMMAND test_no_penetration_clamping)
+
+# --- Mass Continuity & Divergence Integration Test ---
+
+add_executable(test_mass_continuity
+    test_mass_continuity.cpp
+)
+
+target_link_libraries(test_mass_continuity
+    PRIVATE
+        GTest::gtest_main
+        navier_stokes_core
+        nlohmann_json::nlohmann_json
+        OpenMP::OpenMP_CXX
+)
+
+add_test(NAME MassContinuityTest COMMAND test_mass_continuity)
