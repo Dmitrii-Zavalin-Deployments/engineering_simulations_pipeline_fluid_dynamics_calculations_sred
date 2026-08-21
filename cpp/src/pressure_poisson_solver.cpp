@@ -111,20 +111,37 @@ void apply_solid_neumann_pressure_parallel(
                 const size_t idx_down  = static_cast<size_t>(get_flat_index(i, j, k - 1, nx, ny));
                 const size_t idx_up    = static_cast<size_t>(get_flat_index(i, j, k + 1, nx, ny));
 
-                // Enforce zero-normal pressure gradient (dp/dn = 0) by copying pressure 
-                // from the adjacent active fluid cell rather than solving Laplace's equation.
+                int count = 0;
+                double val = 0.0;
+
+                // Accumulate pressures from all adjacent active fluid cells to support averaging and zero-normal gradients
                 if (mask[idx_west] == 1) {
-                    p[idx] = p[idx_west];
-                } else if (mask[idx_east] == 1) {
-                    p[idx] = p[idx_east];
-                } else if (mask[idx_south] == 1) {
-                    p[idx] = p[idx_south];
-                } else if (mask[idx_north] == 1) {
-                    p[idx] = p[idx_north];
-                } else if (mask[idx_down] == 1) {
-                    p[idx] = p[idx_down];
-                } else if (mask[idx_up] == 1) {
-                    p[idx] = p[idx_up];
+                    val += p[idx_west];
+                    count++;
+                }
+                if (mask[idx_east] == 1) {
+                    val += p[idx_east];
+                    count++;
+                }
+                if (mask[idx_south] == 1) {
+                    val += p[idx_south];
+                    count++;
+                }
+                if (mask[idx_north] == 1) {
+                    val += p[idx_north];
+                    count++;
+                }
+                if (mask[idx_down] == 1) {
+                    val += p[idx_down];
+                    count++;
+                }
+                if (mask[idx_up] == 1) {
+                    val += p[idx_up];
+                    count++;
+                }
+
+                if (count > 0) {
+                    p[idx] = val / static_cast<double>(count);
                 }
             }
         }
