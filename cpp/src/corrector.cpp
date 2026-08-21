@@ -1,7 +1,8 @@
 /**
  * @file corrector.cpp
  * @brief Implementation of Step 4 Corrector Velocity Projection for collocated grids with
- *        stabilized 2nd-order central pressure gradients and anti-checkerboard cell-center damping.
+ *        boundary-conforming one-sided pressure gradients at fluid-solid interfaces and
+ *        stabilized 2nd-order central differences with anti-checkerboard damping in the interior.
  */
 
 #include "corrector.hpp"
@@ -57,7 +58,6 @@ void solve_corrector_parallel(
               << " | Active Threads: " << active_threads << "\n";
 
     const double coeff = dt / rho;
-    // Central difference factors for collocated cell-centered pressure gradients: 1 / (2 * dx)
     const double idx_2inv = 0.5 / dx;
     const double idy_2inv = 0.5 / dy;
     const double idz_2inv = 0.5 / dz;
@@ -77,7 +77,7 @@ void solve_corrector_parallel(
                 // Skip solid cells (mask == 0) and wall boundaries (mask == -1)
                 if (mask[idx_cell] != 1) continue;
 
-                // Neighbor indices for central-difference cell-centered pressure gradients
+                // Neighbor indices
                 const size_t idx_west  = static_cast<size_t>(get_flat_index(i - 1, j, k, nx, ny));
                 const size_t idx_east  = static_cast<size_t>(get_flat_index(i + 1, j, k, nx, ny));
                 const size_t idx_south = static_cast<size_t>(get_flat_index(i, j - 1, k, nx, ny));
@@ -85,33 +85,56 @@ void solve_corrector_parallel(
                 const size_t idx_down  = static_cast<size_t>(get_flat_index(i, j, k - 1, nx, ny));
                 const size_t idx_up    = static_cast<size_t>(get_flat_index(i, j, k + 1, nx, ny));
 
+                const double p_center = p[idx_cell];
                 const double p_west  = p[idx_west];
                 const double p_east  = p[idx_east];
                 const double p_south = p[idx_south];
                 const double p_north = p[idx_north];
                 const double p_down  = p[idx_down];
                 const double p_up    = p[idx_up];
-                const double p_center = p[idx_cell];
 
-                // Compute standard symmetric central-difference pressure gradients at cell center
-                const double dp_dx = (p_east - p_west) * idx_2inv;
-                const double dp_dy = (p_north - p_south) * idy_2inv;
-                const double dp_dz = (p_up - p_down) * idz_2inv;
+                // --- BOUNDARY-CONFORMING & STABILIZED PRESSURE GRADIENT EVALUATION ---
+                
+                // X-Direction Gradient
+                double dp_dx;
+                if (mask[idx_east] <= 0) {
+                    dp_dx = (p_east - p_center) / dx; // One-sided backward toward east solid wall
+                } else if (mask[idx_west] <= 0) {
+                    dp_dx = (p_center - p_west) / dx; // One-sided forward toward west solid wall
+                } else {
+                    dp_dx = (p_east - p_west) * idx_2inv; // Interior 2nd-order central
+                    const double lap_p_x = p_east - 2.0 * p_center + p_west;
+                    dp_dx -= 0.5 * lap_p_x * idx_2inv;     // Anti-checkerboard stabilization
+                }
 
-                // Anti-checkerboard cell-center pressure stabilization (discrete pressure Laplacian damping)
-                // Prevents odd-even decoupling by explicitly coupling local cell pressure p_center into the velocity update
-                const double lap_p_x = p_east - 2.0 * p_center + p_west;
-                const double lap_p_y = p_north - 2.0 * p_center + p_south;
-                const double lap_p_z = p_up - 2.0 * p_center + p_down;
+                // Y-Direction Gradient
+                double dp_dy;
+                if (mask[idx_north] <= 0) {
+                    dp_dy = (p_north - p_center) / dy; // One-sided backward toward north solid wall
+                } else if (mask[idx_south] <= 0) {
+                    dp_dy = (p_center - p_south) / dy; // One-sided forward toward south solid wall
+                } else {
+                    dp_dy = (p_north - p_south) * idy_2inv; // Interior 2nd-order central
+                    const double lap_p_y = p_north - 2.0 * p_center + p_south;
+                    dp_dy -= 0.5 * lap_p_y * idy_2inv;     // Anti-checkerboard stabilization
+                }
 
-                const double dp_dx_stab = dp_dx - 0.5 * lap_p_x * idx_2inv;
-                const double dp_dy_stab = dp_dy - 0.5 * lap_p_y * idy_2inv;
-                const double dp_dz_stab = dp_dz - 0.5 * lap_p_z * idz_2inv;
+                // Z-Direction Gradient
+                double dp_dz;
+                if (mask[idx_up] <= 0) {
+                    dp_dz = (p_up - p_center) / dz; // One-sided backward toward upper solid wall
+                } else if (mask[idx_down] <= 0) {
+                    dp_dz = (p_center - p_down) / dz; // One-sided forward toward lower solid wall
+                } else {
+                    dp_dz = (p_up - p_down) * idz_2inv; // Interior 2nd-order central
+                    const double lap_p_z = p_up - 2.0 * p_center + p_down;
+                    dp_dz -= 0.5 * lap_p_z * idz_2inv;     // Anti-checkerboard stabilization
+                }
 
-                // Project trial velocity onto divergence-free subspace with stabilized gradients
-                double new_u = u_star[idx_cell] - coeff * dp_dx_stab;
-                double new_v = v_star[idx_cell] - coeff * dp_dy_stab;
-                double new_w = w_star[idx_cell] - coeff * dp_dz_stab;
+                // Project trial velocity onto divergence-free subspace
+                double new_u = u_star[idx_cell] - coeff * dp_dx;
+                double new_v = v_star[idx_cell] - coeff * dp_dy;
+                double new_w = w_star[idx_cell] - coeff * dp_dz;
 
                 // --- FORENSIC NUMERICAL AUDIT ---
                 if (!std::isfinite(new_u) || !std::isfinite(new_v) || !std::isfinite(new_w)) {
