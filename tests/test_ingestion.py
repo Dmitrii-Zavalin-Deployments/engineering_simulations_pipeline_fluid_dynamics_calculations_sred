@@ -4,8 +4,8 @@
 
 This test module serves as a narrative document and exhaustive verification suite for src/ingestion.py.
 Explanatory text and physical discretization formulas are written as commented prose, while
-executable Python assertions verify strict non-default schema parsing, domain spatial boundary checks,
-mask length alignment, and exception handling across all failure modes.
+executable Python assertions verify strict non-default schema parsing via jsonschema,
+domain spatial boundary checks, mask length alignment, and exception handling across all failure modes.
 """
 
 import json
@@ -13,10 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from src.ingestion import (
-    _validate_keys,
-    load_and_validate_inputs,
-)
+from src.ingestion import load_and_validate_inputs
 
 
 def _write_json(path: Path, data: dict) -> Path:
@@ -53,7 +50,7 @@ def _create_valid_schemas():
             "force_vector": [0.0, 0.0, 0.0],
             "gravity_vector": [0.0, -9.81, 0.0],
         },
-        "domain_configuration": {"type": "3d_cube"},
+        "domain_configuration": {"type": "INTERNAL"},
         "physical_constraints": {
             "min_velocity": -10.0,
             "max_velocity": 10.0,
@@ -144,27 +141,28 @@ def test_load_and_validate_inputs_missing_files(tmp_path):
 
 
 # ============================================================================
-# NARRATIVE SECTION 3: Key Presence and Non-Null Schema Enforcement
+# NARRATIVE SECTION 3: Formal JSON Schema Compliance Enforcement
 # ============================================================================
-# Every required schema key must be explicitly populated. Any missing or
-# null key triggers a non-default policy violation KeyError:
-#     key in section_data  and  section_data[key] != None
+# Every required schema key and type constraint is validated via jsonschema.
+# Missing fields or schema violations trigger a ValueError.
 # ============================================================================
 
 
-def test_validate_keys_missing_or_none_value():
-    """Verifies KeyError is raised when required keys are missing or set to None."""
-    # Test missing key:
-    with pytest.raises(KeyError, match="missing required key 'density'"):
-        _validate_keys({"viscosity": 0.001}, ["density", "viscosity"], "fluid_properties")
+def test_schema_missing_required_keys(tmp_path):
+    """Verifies ValueError is raised when required schema sections are missing."""
+    valid_input, valid_config = _create_valid_schemas()
+    config_file = _write_json(tmp_path / "config.json", valid_config)
 
-    # Test explicit None value:
-    with pytest.raises(KeyError, match="missing required key 'viscosity'"):
-        _validate_keys({"density": 1000.0, "viscosity": None}, ["density", "viscosity"], "fluid_properties")
+    # Remove required section 'fluid_properties'
+    del valid_input["fluid_properties"]
+    input_file = _write_json(tmp_path / "input_invalid.json", valid_input)
+
+    with pytest.raises(ValueError, match="Input schema validation failed"):
+        load_and_validate_inputs(input_file, config_file)
 
 
-def test_domain_configuration_type_missing_or_none(tmp_path):
-    """Verifies KeyError when domain_configuration section lacks 'type' key or has None value."""
+def test_domain_configuration_type_missing_or_invalid(tmp_path):
+    """Verifies ValueError when domain_configuration section lacks 'type' or has invalid enum value."""
     valid_input, valid_config = _create_valid_schemas()
     config_file = _write_json(tmp_path / "config.json", valid_config)
 
@@ -172,14 +170,14 @@ def test_domain_configuration_type_missing_or_none(tmp_path):
     valid_input["domain_configuration"] = {}
     input_file_a = _write_json(tmp_path / "input_a.json", valid_input)
 
-    with pytest.raises(KeyError, match="missing key 'type'"):
+    with pytest.raises(ValueError, match="Input schema validation failed"):
         load_and_validate_inputs(input_file_a, config_file)
 
-    # Case B: 'type' key is None
-    valid_input["domain_configuration"] = {"type": None}
+    # Case B: Invalid enum value ('3d_cube' is not in ['INTERNAL', 'EXTERNAL'])
+    valid_input["domain_configuration"] = {"type": "3d_cube"}
     input_file_b = _write_json(tmp_path / "input_b.json", valid_input)
 
-    with pytest.raises(KeyError, match="missing key 'type'"):
+    with pytest.raises(ValueError, match="Input schema validation failed"):
         load_and_validate_inputs(input_file_b, config_file)
 
 
@@ -197,7 +195,7 @@ def test_domain_configuration_type_missing_or_none(tmp_path):
 
 
 def test_grid_cell_dimensions_non_positive(tmp_path):
-    """Verifies ValueError when grid cell dimensions (nx, ny, nz) are <= 0."""
+    """Verifies ValueError when grid cell dimensions (nx, ny, nz) violate schema bounds (<= 0)."""
     valid_input, valid_config = _create_valid_schemas()
     config_file = _write_json(tmp_path / "config.json", valid_config)
 
@@ -205,7 +203,7 @@ def test_grid_cell_dimensions_non_positive(tmp_path):
     valid_input["grid"]["nx"] = 0
     input_file = _write_json(tmp_path / "input.json", valid_input)
 
-    with pytest.raises(ValueError, match="Grid cell dimensions .* must be strictly positive integers"):
+    with pytest.raises(ValueError, match="Input schema validation failed"):
         load_and_validate_inputs(input_file, config_file)
 
 
@@ -254,7 +252,7 @@ def test_config_poisson_solver_parameters_invalid(tmp_path):
     valid_config["max_poisson_iterations"] = 0
     config_file_a = _write_json(tmp_path / "config_a.json", valid_config)
 
-    with pytest.raises(ValueError, match="Configuration parameter 'max_poisson_iterations' must be > 0"):
+    with pytest.raises(ValueError, match="Config schema validation failed"):
         load_and_validate_inputs(input_file, config_file_a)
 
     # Case B: Non-positive poisson_tolerance (<= 0.0)
@@ -262,5 +260,5 @@ def test_config_poisson_solver_parameters_invalid(tmp_path):
     valid_config["poisson_tolerance"] = 0.0
     config_file_b = _write_json(tmp_path / "config_b.json", valid_config)
 
-    with pytest.raises(ValueError, match="Configuration parameter 'poisson_tolerance' must be > 0.0"):
+    with pytest.raises(ValueError, match="Config schema validation failed"):
         load_and_validate_inputs(input_file, config_file_b)
