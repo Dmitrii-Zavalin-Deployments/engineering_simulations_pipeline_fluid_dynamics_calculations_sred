@@ -1,7 +1,7 @@
 /**
  * @file corrector.cpp
- * @brief Implementation of Step 4 Corrector Velocity Projection maintaining MAC face-centered
- *        gradients (dx) using boundary-conforming pressures from the Poisson/Neumann solver,
+ * @brief Implementation of Step 4 Corrector Velocity Projection for colocated grids using
+ *        2nd-order central pressure gradients from boundary-conforming pressures,
  *        allowing interior fluid momentum to propagate freely without artificial zero-out traps.
  */
 
@@ -58,10 +58,10 @@ void solve_corrector_parallel(
               << " | Active Threads: " << active_threads << "\n";
 
     const double coeff = dt / rho;
-    // Keep 1-cell MAC face inverse grid spacing (dx, dy, dz) to prevent checkerboarding
-    const double idx_inv = 1.0 / dx;
-    const double idy_inv = 1.0 / dy;
-    const double idz_inv = 1.0 / dz;
+    // Central difference factors for colocated cell-centered pressure gradients: 1 / (2 * dx)
+    const double idx_2inv = 0.5 / dx;
+    const double idy_2inv = 0.5 / dy;
+    const double idz_2inv = 0.5 / dz;
 
     bool has_error = false;
     int err_i = 0, err_j = 0, err_k = 0;
@@ -78,7 +78,7 @@ void solve_corrector_parallel(
                 // Skip solid cells (mask == 0) and wall boundaries (mask == -1)
                 if (mask[idx_cell] != 1) continue;
 
-                // Compute adjacent neighbor indices for 1-cell MAC face pressure gradients and boundary checks
+                // Neighbor indices for central-difference cell-centered pressure gradients
                 const size_t idx_west  = static_cast<size_t>(get_flat_index(i - 1, j, k, nx, ny));
                 const size_t idx_east  = static_cast<size_t>(get_flat_index(i + 1, j, k, nx, ny));
                 const size_t idx_south = static_cast<size_t>(get_flat_index(i, j - 1, k, nx, ny));
@@ -86,18 +86,17 @@ void solve_corrector_parallel(
                 const size_t idx_down  = static_cast<size_t>(get_flat_index(i, j, k - 1, nx, ny));
                 const size_t idx_up    = static_cast<size_t>(get_flat_index(i, j, k + 1, nx, ny));
 
-                const double p_center = p[idx_cell];
-                
-                // Use the actual neighbor pressures computed by apply_neumann_pressure.
-                // Do NOT override with p_center, as wall pressures already contain the correct Neumann gradient.
+                const double p_west  = p[idx_west];
                 const double p_east  = p[idx_east];
+                const double p_south = p[idx_south];
                 const double p_north = p[idx_north];
+                const double p_down  = p[idx_down];
                 const double p_up    = p[idx_up];
 
-                // Compute 1-cell MAC face pressure gradients: dp/dx, dp/dy, dp/dz using dx
-                const double dp_dx = (p_east - p_center) * idx_inv;
-                const double dp_dy = (p_north - p_center) * idy_inv;
-                const double dp_dz = (p_up - p_center) * idz_inv;
+                // Compute symmetric central-difference pressure gradients at cell center
+                const double dp_dx = (p_east - p_west) * idx_2inv;
+                const double dp_dy = (p_north - p_south) * idy_2inv;
+                const double dp_dz = (p_up - p_down) * idz_2inv;
 
                 // Project trial velocity onto divergence-free subspace (u^(n+1) = u* - (dt/rho) * grad(p))
                 double new_u = u_star[idx_cell] - coeff * dp_dx;
