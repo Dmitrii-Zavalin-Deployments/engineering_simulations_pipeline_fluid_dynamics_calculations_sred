@@ -94,50 +94,61 @@ void apply_solid_neumann_pressure_parallel(
     int nx, int ny, int nz,
     double dx, double dy, double dz
 ) {
-    if (nx <= 2 || ny <= 2 || nz <= 2) return;
+    if (nx <= 0 || ny <= 0 || nz <= 0) return;
     if (dx <= 0.0 || dy <= 0.0 || dz <= 0.0) return;
 
     #pragma omp parallel for collapse(3) schedule(static)
-    for (int k = 1; k < nz - 1; ++k) {
-        for (int j = 1; j < ny - 1; ++j) {
-            for (int i = 1; i < nx - 1; ++i) {
+    for (int k = 0; k < nz; ++k) {
+        for (int j = 0; j < ny; ++j) {
+            for (int i = 0; i < nx; ++i) {
                 const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
                 if (mask[idx] == 1) continue; // Target all non-fluid cells (internal solids and wall boundaries)
-
-                const size_t idx_west  = static_cast<size_t>(get_flat_index(i - 1, j, k, nx, ny));
-                const size_t idx_east  = static_cast<size_t>(get_flat_index(i + 1, j, k, nx, ny));
-                const size_t idx_south = static_cast<size_t>(get_flat_index(i, j - 1, k, nx, ny));
-                const size_t idx_north = static_cast<size_t>(get_flat_index(i, j + 1, k, nx, ny));
-                const size_t idx_down  = static_cast<size_t>(get_flat_index(i, j, k - 1, nx, ny));
-                const size_t idx_up    = static_cast<size_t>(get_flat_index(i, j, k + 1, nx, ny));
 
                 int count = 0;
                 double val = 0.0;
 
-                // Accumulate pressures from all adjacent active fluid cells to support averaging and zero-normal gradients
-                if (mask[idx_west] == 1) {
-                    val += p[idx_west];
-                    count++;
+                // Accumulate pressures from valid adjacent active fluid cells with boundary guards
+                if (i > 0) {
+                    const size_t idx_west = static_cast<size_t>(get_flat_index(i - 1, j, k, nx, ny));
+                    if (mask[idx_west] == 1) {
+                        val += p[idx_west];
+                        count++;
+                    }
                 }
-                if (mask[idx_east] == 1) {
-                    val += p[idx_east];
-                    count++;
+                if (i < nx - 1) {
+                    const size_t idx_east = static_cast<size_t>(get_flat_index(i + 1, j, k, nx, ny));
+                    if (mask[idx_east] == 1) {
+                        val += p[idx_east];
+                        count++;
+                    }
                 }
-                if (mask[idx_south] == 1) {
-                    val += p[idx_south];
-                    count++;
+                if (j > 0) {
+                    const size_t idx_south = static_cast<size_t>(get_flat_index(i, j - 1, k, nx, ny));
+                    if (mask[idx_south] == 1) {
+                        val += p[idx_south];
+                        count++;
+                    }
                 }
-                if (mask[idx_north] == 1) {
-                    val += p[idx_north];
-                    count++;
+                if (j < ny - 1) {
+                    const size_t idx_north = static_cast<size_t>(get_flat_index(i, j + 1, k, nx, ny));
+                    if (mask[idx_north] == 1) {
+                        val += p[idx_north];
+                        count++;
+                    }
                 }
-                if (mask[idx_down] == 1) {
-                    val += p[idx_down];
-                    count++;
+                if (k > 0) {
+                    const size_t idx_down = static_cast<size_t>(get_flat_index(i, j, k - 1, nx, ny));
+                    if (mask[idx_down] == 1) {
+                        val += p[idx_down];
+                        count++;
+                    }
                 }
-                if (mask[idx_up] == 1) {
-                    val += p[idx_up];
-                    count++;
+                if (k < nz - 1) {
+                    const size_t idx_up = static_cast<size_t>(get_flat_index(i, j, k + 1, nx, ny));
+                    if (mask[idx_up] == 1) {
+                        val += p[idx_up];
+                        count++;
+                    }
                 }
 
                 if (count > 0) {
