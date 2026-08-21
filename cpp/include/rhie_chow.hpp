@@ -1,8 +1,14 @@
+/**
+ * @file rhie_chow.hpp
+ * @brief Declaration of the Rhie-Chow Interpolator class and GridConfig structure
+ *        for collocated 3D Navier-Stokes grid stabilization.
+ */
+
 #pragma once
 
 #include <vector>
 
-namespace NavierStokes {
+namespace navier_stokes_solver {
 
 class RhieChowInterpolator {
 public:
@@ -37,4 +43,4 @@ public:
     );
 };
 
-} // namespace NavierStokes
+} // namespace navier_stokes_solver
