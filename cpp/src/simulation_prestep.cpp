@@ -1,6 +1,6 @@
 /**
  * @file simulation_prestep.cpp
- * @brief Implementation of Pre-Step Boundary & Initial Condition Setup using layered overwrite precedence and explicit mask-based wall detection.
+ * @brief Implementation of Pre-Step Boundary & Initial Condition Setup using layered overwrite precedence, explicit mask-based wall detection, and collocated cell-center field handling.
  */
 
 #include "orchestrator.hpp"
@@ -80,7 +80,7 @@ void execute_pre_step(
         return static_cast<size_t>(get_flat_index(ii, jj, kk, nx, ny));
     };
 
-    // Flexible boundary condition application closure
+    // Flexible boundary condition application closure for collocated variables
     auto apply_bc = [&](const BoundaryCondition& bc, int i, int j, int k, size_t idx) {
         size_t int_idx = get_interior_index(i, j, k);
 

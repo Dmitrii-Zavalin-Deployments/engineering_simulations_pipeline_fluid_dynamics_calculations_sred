@@ -17,7 +17,6 @@
 
 namespace navier_stokes_solver {
 
-
 void apply_neumann_pressure(
     std::vector<double>& p,
     const std::string& location,
