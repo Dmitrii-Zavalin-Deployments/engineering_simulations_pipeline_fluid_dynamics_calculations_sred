@@ -1,8 +1,7 @@
 /**
  * @file corrector.cpp
- * @brief Implementation of Step 4 Corrector Velocity Projection for colocated grids using
- *        2nd-order central pressure gradients from boundary-conforming pressures,
- *        allowing interior fluid momentum to propagate freely without artificial zero-out traps.
+ * @brief Implementation of Step 4 Corrector Velocity Projection for collocated grids with
+ *        stabilized 2nd-order central pressure gradients and anti-checkerboard cell-center damping.
  */
 
 #include "corrector.hpp"
@@ -58,7 +57,7 @@ void solve_corrector_parallel(
               << " | Active Threads: " << active_threads << "\n";
 
     const double coeff = dt / rho;
-    // Central difference factors for colocated cell-centered pressure gradients: 1 / (2 * dx)
+    // Central difference factors for collocated cell-centered pressure gradients: 1 / (2 * dx)
     const double idx_2inv = 0.5 / dx;
     const double idy_2inv = 0.5 / dy;
     const double idz_2inv = 0.5 / dz;
@@ -92,16 +91,27 @@ void solve_corrector_parallel(
                 const double p_north = p[idx_north];
                 const double p_down  = p[idx_down];
                 const double p_up    = p[idx_up];
+                const double p_center = p[idx_cell];
 
-                // Compute symmetric central-difference pressure gradients at cell center
+                // Compute standard symmetric central-difference pressure gradients at cell center
                 const double dp_dx = (p_east - p_west) * idx_2inv;
                 const double dp_dy = (p_north - p_south) * idy_2inv;
                 const double dp_dz = (p_up - p_down) * idz_2inv;
 
-                // Project trial velocity onto divergence-free subspace (u^(n+1) = u* - (dt/rho) * grad(p))
-                double new_u = u_star[idx_cell] - coeff * dp_dx;
-                double new_v = v_star[idx_cell] - coeff * dp_dy;
-                double new_w = w_star[idx_cell] - coeff * dp_dz;
+                // Anti-checkerboard cell-center pressure stabilization (discrete pressure Laplacian damping)
+                // Prevents odd-even decoupling by explicitly coupling local cell pressure p_center into the velocity update
+                const double lap_p_x = p_east - 2.0 * p_center + p_west;
+                const double lap_p_y = p_north - 2.0 * p_center + p_south;
+                const double lap_p_z = p_up - 2.0 * p_center + p_down;
+
+                const double dp_dx_stab = dp_dx - 0.5 * lap_p_x * idx_2inv;
+                const double dp_dy_stab = dp_dy - 0.5 * lap_p_y * idy_2inv;
+                const double dp_dz_stab = dp_dz - 0.5 * lap_p_z * idz_2inv;
+
+                // Project trial velocity onto divergence-free subspace with stabilized gradients
+                double new_u = u_star[idx_cell] - coeff * dp_dx_stab;
+                double new_v = v_star[idx_cell] - coeff * dp_dy_stab;
+                double new_w = w_star[idx_cell] - coeff * dp_dz_stab;
 
                 // --- FORENSIC NUMERICAL AUDIT ---
                 if (!std::isfinite(new_u) || !std::isfinite(new_v) || !std::isfinite(new_w)) {

@@ -1,6 +1,7 @@
 /**
  * @file orchestrator.cpp
- * @brief Implementation of the Navier-Stokes Time-Stepping Orchestrator with 3D Hydrostatic Pressure Splitting, execution tracing, CPU performance telemetry, and Rhie-Chow collocated grid interpolation.
+ * @brief Implementation of the Navier-Stokes Time-Stepping Orchestrator with 3D Hydrostatic Pressure Splitting,
+ *        execution tracing, CPU performance telemetry, and temporally consistent Rhie-Chow collocated grid interpolation.
  */
 
 #include "orchestrator.hpp"
@@ -85,7 +86,7 @@ void NavierStokesOrchestrator::step(
     auto dur_pred = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - t_pred).count();
 
     // 3. RHIE-CHOW INTERPOLATION & PRESSURE POISSON STEP:
-    // Compute stabilized face velocities and evaluate mass conservation divergence for Poisson RHS.
+    // Compute stabilized face velocities using p^n and evaluate mass conservation divergence for Poisson RHS.
     auto t_poisson = std::chrono::high_resolution_clock::now();
     
     // Configure Rhie-Chow interpolator and approximate cell diagonal inertial coefficients (a_p ≈ rho / dt)
@@ -96,6 +97,7 @@ void NavierStokesOrchestrator::step(
     std::vector<double> v_face(dims_.nx * (dims_.ny - 1) * dims_.nz, 0.0);
     std::vector<double> w_face(dims_.nx * dims_.ny * (dims_.nz - 1), 0.0);
 
+    // Initial Rhie-Chow face interpolation with un-updated pressure field p^n
     RhieChowInterpolator::interpolateFaceVelocities(
         u_star_, v_star_, w_star_, p, a_p, rc_config, u_face, v_face, w_face
     );
@@ -131,6 +133,7 @@ void NavierStokesOrchestrator::step(
         }
     }
 
+    // Solve Pressure Poisson Equation to obtain updated pressure field p^{n+1}
     solve_poisson_red_black_parallel(
         p, rhs_, mask, bc_list,
         dims_.nx, dims_.ny, dims_.nz,
@@ -140,6 +143,12 @@ void NavierStokesOrchestrator::step(
         config_.density,
         gravity
     );
+
+    // Re-evaluate face velocities with converged pressure field p^{n+1} to ensure temporal consistency
+    RhieChowInterpolator::interpolateFaceVelocities(
+        u_star_, v_star_, w_star_, p, a_p, rc_config, u_face, v_face, w_face
+    );
+
     auto dur_poisson = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - t_poisson).count();
 
     // 4. CORRECTOR STEP: Project trial velocity to divergence-free velocity field u^{n+1}

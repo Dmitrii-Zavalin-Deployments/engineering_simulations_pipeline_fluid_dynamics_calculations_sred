@@ -1,9 +1,15 @@
+/**
+ * @file rhie_chow.cpp
+ * @brief Implementation of Rhie-Chow collocated grid velocity interpolation with 
+ *        2nd-order central cell-centered pressure gradients to suppress checkerboard decoupling.
+ */
+
 #include "rhie_chow.hpp"
 #include <algorithm>
 #include <cmath>
 #include <stdexcept>
 
-namespace NavierStokes {
+namespace navier_stokes_solver {
 
 void RhieChowInterpolator::interpolateFaceVelocities(
     const std::vector<double>& u,
@@ -44,12 +50,12 @@ void RhieChowInterpolator::interpolateFaceVelocities(
                 double ap_face = 0.5 * (a_p[idx_P] + a_p[idx_E]);
                 double d_face = (ap_face > 0.0) ? (1.0 / ap_face) : 0.0;
 
-                // Sharp pressure gradient at face vs interpolated pressure gradient
+                // Sharp pressure gradient at face
                 double dp_dx_sharp = (p[idx_E] - p[idx_P]) / dx;
                 
-                // Average of neighboring cell-centered pressure gradients
-                double dp_dx_P = (i > 0) ? (p[idx_P] - p[get_idx(i - 1, j, k)]) / dx : dp_dx_sharp;
-                double dp_dx_E = (i < nx - 2) ? (p[get_idx(i + 2, j, k)] - p[idx_E]) / dx : dp_dx_sharp;
+                // Correct 2nd-order central cell-centered pressure gradients at P and E
+                double dp_dx_P = (i > 0 && i < nx - 1) ? (p[idx_E] - p[get_idx(i - 1, j, k)]) / (2.0 * dx) : dp_dx_sharp;
+                double dp_dx_E = (i + 1 > 0 && i + 1 < nx - 1) ? (p[get_idx(i + 2, j, k)] - p[idx_P]) / (2.0 * dx) : dp_dx_sharp;
                 double dp_dx_avg = 0.5 * (dp_dx_P + dp_dx_E);
 
                 // Rhie-Chow correction formulation
@@ -71,8 +77,8 @@ void RhieChowInterpolator::interpolateFaceVelocities(
                 double d_face = (ap_face > 0.0) ? (1.0 / ap_face) : 0.0;
 
                 double dp_dy_sharp = (p[idx_N] - p[idx_P]) / dy;
-                double dp_dy_P = (j > 0) ? (p[idx_P] - p[get_idx(i, j - 1, k)]) / dy : dp_dy_sharp;
-                double dp_dy_N = (j < ny - 2) ? (p[get_idx(i, j + 2, k)] - p[idx_N]) / dy : dp_dy_sharp;
+                double dp_dy_P = (j > 0 && j < ny - 1) ? (p[idx_N] - p[get_idx(i, j - 1, k)]) / (2.0 * dy) : dp_dy_sharp;
+                double dp_dy_N = (j + 1 > 0 && j + 1 < ny - 1) ? (p[get_idx(i, j + 2, k)] - p[idx_P]) / (2.0 * dy) : dp_dy_sharp;
                 double dp_dy_avg = 0.5 * (dp_dy_P + dp_dy_N);
 
                 v_face[face_idx] = v_lin - d_face * (dp_dy_sharp - dp_dy_avg);
@@ -93,8 +99,8 @@ void RhieChowInterpolator::interpolateFaceVelocities(
                 double d_face = (ap_face > 0.0) ? (1.0 / ap_face) : 0.0;
 
                 double dp_dz_sharp = (p[idx_T] - p[idx_P]) / dz;
-                double dp_dz_P = (k > 0) ? (p[idx_P] - p[get_idx(i, j, k - 1)]) / dz : dp_dz_sharp;
-                double dp_dz_T = (k < nz - 2) ? (p[get_idx(i, j, k + 2)] - p[idx_T]) / dz : dp_dz_sharp;
+                double dp_dz_P = (k > 0 && k < nz - 1) ? (p[idx_T] - p[get_idx(i, j, k - 1)]) / (2.0 * dz) : dp_dz_sharp;
+                double dp_dz_T = (k + 1 > 0 && k + 1 < nz - 1) ? (p[get_idx(i, j, k + 2)] - p[idx_P]) / (2.0 * dz) : dp_dz_sharp;
                 double dp_dz_avg = 0.5 * (dp_dz_P + dp_dz_T);
 
                 w_face[face_idx] = w_lin - d_face * (dp_dz_sharp - dp_dz_avg);
@@ -103,4 +109,4 @@ void RhieChowInterpolator::interpolateFaceVelocities(
     }
 }
 
-} // namespace NavierStokes
+} // namespace navier_stokes_solver
