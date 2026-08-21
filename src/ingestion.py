@@ -2,52 +2,31 @@
 src/ingestion.py
 Strict Schema & Configuration Ingestion Module.
 Parses input and configuration JSON files, performing deterministic validation 
-against required non-default schemas before passing data into the execution pipeline.
+via the official jsonschema package against formal JSON schema definitions.
 """
 
 import json
 import logging
 from pathlib import Path
 from typing import Any
+import jsonschema
 
 logger = logging.getLogger("Solver.Ingestion")
 
-REQUIRED_INPUT_SECTIONS = [
-    "grid",
-    "fluid_properties",
-    "initial_conditions",
-    "simulation_parameters",
-    "boundary_conditions",
-    "mask",
-    "external_forces",
-    "domain_configuration",
-    "physical_constraints",
-]
-
-REQUIRED_GRID_KEYS = ["x_min", "x_max", "y_min", "y_max", "z_min", "z_max", "nx", "ny", "nz"]
-REQUIRED_FLUID_KEYS = ["density", "viscosity"]
-REQUIRED_IC_KEYS = ["velocity", "pressure"]
-REQUIRED_SIM_KEYS = ["time_step", "total_time", "output_interval"]
-REQUIRED_FORCES_KEYS = ["force_vector", "gravity_vector"]
-REQUIRED_CONSTRAINTS_KEYS = ["min_velocity", "max_velocity", "min_pressure", "max_pressure"]
-REQUIRED_CONFIG_KEYS = ["max_poisson_iterations", "poisson_tolerance"]
+BASE_DIR = Path(__file__).resolve().parent.parent
+SCHEMA_DIR = BASE_DIR / "schema"
 
 
-def _validate_keys(data: dict[str, Any], required_keys: list, section_name: str) -> None:
-    for key in required_keys:
-        if key not in data or data[key] is None:
-            raise KeyError(
-                f"Non-default policy violation in '{section_name}': missing required key '{key}'."
-            )
-
-
-def load_and_validate_inputs(input_path: str | Path, config_path: str | Path) -> tuple[dict[str, Any], dict[str, Any]]:
+def load_and_validate_inputs(
+    input_path: str | Path, config_path: str | Path
+) -> tuple[dict[str, Any], dict[str, Any]]:
     """
-    Reads, parses, and strictly validates the simulation input JSON and configuration JSON files.
+    Reads, parses, and strictly validates simulation input and configuration 
+    against formal JSON schemas using the jsonschema library.
     
     Args:
         input_path: Path to navier_stokes_input.json (mandatory, no defaults)
-        config_path: Path to config.json (mandatory, no defaults)
+        config_path: Path to config.json (mandatory, no defaults)[cite: 2]
         
     Returns:
         Tuple containing (input_data_dict, config_data_dict)
@@ -63,53 +42,53 @@ def load_and_validate_inputs(input_path: str | Path, config_path: str | Path) ->
     if not input_file.is_file():
         raise FileNotFoundError(f"Simulation input file not found at: {input_path}")
     if not config_file.is_file():
-        raise FileNotFoundError(f"Solver configuration file not found at: {config_path}")
+        raise FileNotFoundError(f"Solver configuration file not found at: {config_file}")
 
+    # Load JSON files
     with open(input_file, "r", encoding="utf-8") as f:
         input_data = json.load(f)
 
     with open(config_file, "r", encoding="utf-8") as f:
         config_data = json.load(f)
 
-    logger.info("Performing strict schema validation on input JSON...")
-    
-    # Validate main input sections
-    _validate_keys(input_data, REQUIRED_INPUT_SECTIONS, "root_input")
+    # Load corresponding JSON schemas
+    input_schema_path = SCHEMA_DIR / "solver_input_schema.json"
+    config_schema_path = SCHEMA_DIR / "solver_config_schema.json"
 
-    # Validate individual subsections
-    _validate_keys(input_data["grid"], REQUIRED_GRID_KEYS, "grid")
-    _validate_keys(input_data["fluid_properties"], REQUIRED_FLUID_KEYS, "fluid_properties")
-    _validate_keys(input_data["initial_conditions"], REQUIRED_IC_KEYS, "initial_conditions")
-    _validate_keys(input_data["simulation_parameters"], REQUIRED_SIM_KEYS, "simulation_parameters")
-    _validate_keys(input_data["external_forces"], REQUIRED_FORCES_KEYS, "external_forces")
-    _validate_keys(input_data["physical_constraints"], REQUIRED_CONSTRAINTS_KEYS, "physical_constraints")
+    if not input_schema_path.is_file():
+        raise FileNotFoundError(f"Input schema not found at: {input_schema_path}")
+    if not config_schema_path.is_file():
+        raise FileNotFoundError(f"Config schema not found at: {config_schema_path}")
 
-    if "type" not in input_data["domain_configuration"] or input_data["domain_configuration"]["type"] is None:
-        raise KeyError("Non-default policy violation in 'domain_configuration': missing key 'type'.")
+    with open(input_schema_path, "r", encoding="utf-8") as f:
+        input_schema = json.load(f)
 
-    # Validate grid bounds and cell counts
+    with open(config_schema_path, "r", encoding="utf-8") as f:
+        config_schema = json.load(f)
+
+    logger.info("Performing formal schema validation on input JSON via jsonschema...")
+    try:
+        jsonschema.validate(instance=input_data, schema=input_schema)
+    except jsonschema.ValidationError as e:
+        raise ValueError(f"Input schema validation failed: {e.message} at path {'/'.join(str(p) for p in e.path)}")
+
+    logger.info("Performing formal schema validation on configuration JSON via jsonschema...")
+    try:
+        jsonschema.validate(instance=config_data, schema=config_schema)
+    except jsonschema.ValidationError as e:
+        raise ValueError(f"Config schema validation failed: {e.message} at path {'/'.join(str(p) for p in e.path)}")
+
+    # --- Cross-Field & Semantic Validations (Not easily expressible purely in standard JSON Schema) ---
     grid = input_data["grid"]
-    if grid["nx"] <= 0 or grid["ny"] <= 0 or grid["nz"] <= 0:
-        raise ValueError("Grid cell dimensions (nx, ny, nz) must be strictly positive integers.")
     if grid["x_max"] <= grid["x_min"] or grid["y_max"] <= grid["y_min"] or grid["z_max"] <= grid["z_min"]:
         raise ValueError("Grid physical maximum boundaries must be strictly greater than minimum boundaries.")
 
-    # Validate mask length matches grid discretization
     expected_mask_len = grid["nx"] * grid["ny"] * grid["nz"]
     if len(input_data["mask"]) != expected_mask_len:
         raise ValueError(
             f"Mask length mismatch: expected {expected_mask_len} elements, "
             f"got {len(input_data['mask'])}."
         )
-
-    # Validate configuration parameters
-    logger.info("Performing strict schema validation on configuration JSON...")
-    _validate_keys(config_data, REQUIRED_CONFIG_KEYS, "config")
-
-    if config_data["max_poisson_iterations"] <= 0:
-        raise ValueError("Configuration parameter 'max_poisson_iterations' must be > 0.")
-    if config_data["poisson_tolerance"] <= 0.0:
-        raise ValueError("Configuration parameter 'poisson_tolerance' must be > 0.0.")
 
     logger.info("Input and configuration schemas successfully verified.")
     return input_data, config_data
