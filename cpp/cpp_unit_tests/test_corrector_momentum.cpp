@@ -16,6 +16,8 @@
 #include "grid_math.hpp"
 #include <vector>
 
+namespace navier_stokes_solver {
+
 TEST(CorrectorMomentumTest, PreservesInternalMomentumNearBoundaries) {
     // Define the dimensions of a coarse 3x3x3 grid to force all internal 
     // fluid nodes to sit directly adjacent to boundary planes.
@@ -62,7 +64,7 @@ TEST(CorrectorMomentumTest, PreservesInternalMomentumNearBoundaries) {
 
     // Execute the parallel corrector velocity projection step.
     EXPECT_NO_THROW({
-        navier_stokes_solver::solve_corrector_parallel(
+        solve_corrector_parallel(
             u, v, w, u_star, v_star, w_star, p, mask,
             nx, ny, nz, dx, dy, dz, dt, rho
         );
@@ -77,3 +79,5 @@ TEST(CorrectorMomentumTest, PreservesInternalMomentumNearBoundaries) {
     //     w_final = w_star = 1.0
     EXPECT_NEAR(w[internal_idx], 1.0, 1e-5);
 }
+
+} // namespace navier_stokes_solver
