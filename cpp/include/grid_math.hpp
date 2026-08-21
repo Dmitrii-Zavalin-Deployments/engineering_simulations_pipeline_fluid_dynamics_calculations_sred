@@ -1,8 +1,7 @@
 /**
  * @file grid_math.hpp
  * @brief Header for grid dimensions and coordinate indexing utilities (Single Source of Truth).
- *        Updated to align C++ flat indexing with NumPy C-contiguous memory strides where 
- *        the z-axis (k) varies fastest.
+ *        Standard row-major order: index = i + nx * j + (nx * ny) * k
  */
 
 #ifndef GRID_MATH_HPP
@@ -25,22 +24,21 @@ struct GridDimensions {
 };
 
 /**
- * @brief Computes a flat index from 3D coordinates matching NumPy C-contiguous layout.
- * Assumes C-contiguous order: index = i * (ny * nz) + j * nz + k (k varies fastest).
+ * @brief Computes a flat index from 3D coordinates using standard row-major order.
  */
-inline constexpr int get_flat_index(int i, int j, int k, int ny, int nz) {
-    return (i * ny * nz) + (j * nz) + k;
+inline constexpr int get_flat_index(int i, int j, int k, int nx, int ny) {
+    return i + (nx * j) + (nx * ny * k);
 }
 
 /**
- * @brief SSoT Mapping: Converts flat index back to (i, j, k) for C-contiguous layout.
+ * @brief SSoT Mapping: Converts flat index back to (i, j, k).
  */
-inline constexpr std::tuple<int, int, int> get_coords_from_index(int index, int ny, int nz) {
-    int yz_plane = ny * nz;
-    int i = index / yz_plane;
-    int rem = index % yz_plane;
-    int j = rem / nz;
-    int k = rem % nz;
+inline constexpr std::tuple<int, int, int> get_coords_from_index(int index, int nx, int ny) {
+    int xy_plane = nx * ny;
+    int k = index / xy_plane;
+    int rem = index % xy_plane;
+    int j = rem / nx;
+    int i = rem % nx;
     return {i, j, k};
 }
 

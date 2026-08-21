@@ -3,7 +3,7 @@
  * @brief Pybind11 Python bindings for the 3D Navier-Stokes C++ Orchestrator.
  * Bridges the Python sovereign SolverState container directly with the C++ engine,
  * extracting all physical constraints, domain configurations, boundary conditions, and parameters
- * using the SSoT grid indexing standard.
+ * using the standard SSoT grid indexing standard.
  */
 
 #include <pybind11/pybind11.h>
@@ -93,7 +93,7 @@ public:
                   << " | Grid: " << nx << "x" << ny << "x" << nz 
                   << " | Active Threads: " << active_threads << "\n";
 
-        // 4. Extract Tensors with correct C-contiguous buffer stride mapping
+        // 4. Extract Tensors with correct buffer stride mapping
         py::array_t<double> fields = state.attr("fields").cast<py::array_t<double>>();
         py::array_t<int> mask = state.attr("mask").cast<py::array_t<int>>();
 
@@ -129,7 +129,7 @@ public:
             for (int k = 0; k < nz; ++k) {
                 for (int j = 0; j < ny; ++j) {
                     for (int i = 0; i < nx; ++i) {
-                        size_t idx = static_cast<size_t>(get_flat_index(i, j, k, ny, nz));
+                        size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
                         mask_vec[idx] = r_mask(i, j, k);
                     }
                 }
@@ -147,7 +147,7 @@ public:
         for (int k = 0; k < nz; ++k) {
             for (int j = 0; j < ny; ++j) {
                 for (int i = 0; i < nx; ++i) {
-                    size_t idx = static_cast<size_t>(get_flat_index(i, j, k, ny, nz));
+                    size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
                     u_[idx] = r_fields(0, i, j, k);
                     v_[idx] = r_fields(1, i, j, k);
                     w_[idx] = r_fields(2, i, j, k);
@@ -191,7 +191,7 @@ public:
         for (int k = 0; k < nz; ++k) {
             for (int j = 0; j < ny; ++j) {
                 for (int i = 0; i < nx; ++i) {
-                    size_t idx = static_cast<size_t>(get_flat_index(i, j, k, ny, nz));
+                    size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
 
                     r_fields(0, i, j, k) = u_[idx];
                     r_fields(1, i, j, k) = v_[idx];
@@ -217,7 +217,7 @@ public:
         for (int k = 0; k < nz; ++k) {
             for (int j = 0; j < ny; ++j) {
                 for (int i = 0; i < nx; ++i) {
-                    size_t idx = static_cast<size_t>(get_flat_index(i, j, k, ny, nz));
+                    size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
                     r_fields(0, i, j, k) = u_[idx];
                     r_fields(1, i, j, k) = v_[idx];
                     r_fields(2, i, j, k) = w_[idx];
