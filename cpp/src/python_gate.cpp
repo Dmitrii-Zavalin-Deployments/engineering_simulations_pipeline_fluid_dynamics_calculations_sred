@@ -62,7 +62,7 @@ public:
 
         config_ = {max_poisson_iters, poisson_tolerance, density};
 
-        // Allocate persistent state buffers
+        // Allocate persistent cell-centered state buffers
         size_t total_cells = static_cast<size_t>(nx) * ny * nz;
         u_.resize(total_cells, 0.0);
         v_.resize(total_cells, 0.0);
@@ -143,7 +143,7 @@ public:
             throw std::invalid_argument("GEOMETRY ERROR: mask must be a 1D or 3D NumPy array.");
         }
 
-        // Extract primary velocity and pressure fields using SSoT get_flat_index
+        // Extract primary collocated velocity and pressure fields using SSoT get_flat_index
         for (int k = 0; k < nz; ++k) {
             for (int j = 0; j < ny; ++j) {
                 for (int i = 0; i < nx; ++i) {
@@ -187,7 +187,7 @@ public:
             orchestrator_->step(dt, mu, gravity, fx_vec, fy_vec, fz_vec, mask_vec, bc_list, u_, v_, w_, p_);
         }
 
-        // 10. Copy modified fields back into Python NumPy memory in-place using SSoT get_flat_index
+        // 10. Copy modified collocated fields back into Python NumPy memory in-place using SSoT get_flat_index
         for (int k = 0; k < nz; ++k) {
             for (int j = 0; j < ny; ++j) {
                 for (int i = 0; i < nx; ++i) {
@@ -238,7 +238,7 @@ private:
 };
 
 PYBIND11_MODULE(navier_stokes_cpp, m) {
-    m.doc() = "High-performance C++ Navier-Stokes Fractional-Step Solver Module";
+    m.doc() = "High-performance C++ Navier-Stokes Fractional-Step Solver Module with Rhie-Chow Collocated Grid Stabilization";
 
     py::class_<navier_stokes_solver::BoundaryCondition>(m, "BoundaryCondition")
         .def(py::init<>())
