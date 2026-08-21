@@ -97,11 +97,6 @@ void apply_solid_neumann_pressure_parallel(
     if (nx <= 2 || ny <= 2 || nz <= 2) return;
     if (dx <= 0.0 || dy <= 0.0 || dz <= 0.0) return;
 
-    const double idx2 = 1.0 / (dx * dx);
-    const double idy2 = 1.0 / (dy * dy);
-    const double idz2 = 1.0 / (dz * dz);
-    const double factor = 0.5 / (idx2 + idy2 + idz2);
-
     #pragma omp parallel for collapse(3) schedule(static)
     for (int k = 1; k < nz - 1; ++k) {
         for (int j = 1; j < ny - 1; ++j) {
@@ -116,11 +111,21 @@ void apply_solid_neumann_pressure_parallel(
                 const size_t idx_down  = static_cast<size_t>(get_flat_index(i, j, k - 1, nx, ny));
                 const size_t idx_up    = static_cast<size_t>(get_flat_index(i, j, k + 1, nx, ny));
 
-                p[idx] = factor * (
-                    (p[idx_east] + p[idx_west]) * idx2 +
-                    (p[idx_north] + p[idx_south]) * idy2 +
-                    (p[idx_up] + p[idx_down]) * idz2
-                );
+                // Enforce zero-normal pressure gradient (dp/dn = 0) by copying pressure 
+                // from the adjacent active fluid cell rather than solving Laplace's equation.
+                if (mask[idx_west] == 1) {
+                    p[idx] = p[idx_west];
+                } else if (mask[idx_east] == 1) {
+                    p[idx] = p[idx_east];
+                } else if (mask[idx_south] == 1) {
+                    p[idx] = p[idx_south];
+                } else if (mask[idx_north] == 1) {
+                    p[idx] = p[idx_north];
+                } else if (mask[idx_down] == 1) {
+                    p[idx] = p[idx_down];
+                } else if (mask[idx_up] == 1) {
+                    p[idx] = p[idx_up];
+                }
             }
         }
     }

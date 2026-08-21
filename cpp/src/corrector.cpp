@@ -1,7 +1,8 @@
 /**
  * @file corrector.cpp
  * @brief Implementation of Step 4 Corrector Velocity Projection maintaining MAC face-centered
- *        gradients (dx) using boundary-conforming pressures from the Poisson/Neumann solver.
+ *        gradients (dx) using boundary-conforming pressures from the Poisson/Neumann solver,
+ *        with explicit no-penetration boundary condition enforcement at fluid-solid interfaces.
  */
 
 #include "corrector.hpp"
@@ -77,9 +78,12 @@ void solve_corrector_parallel(
                 // Skip solid cells (mask == 0) and wall boundaries (mask == -1)
                 if (mask[idx_cell] != 1) continue;
 
-                // Compute adjacent neighbor indices for 1-cell MAC face pressure gradients
+                // Compute adjacent neighbor indices for 1-cell MAC face pressure gradients and boundary checks
+                const size_t idx_west  = static_cast<size_t>(get_flat_index(i - 1, j, k, nx, ny));
                 const size_t idx_east  = static_cast<size_t>(get_flat_index(i + 1, j, k, nx, ny));
+                const size_t idx_south = static_cast<size_t>(get_flat_index(i, j - 1, k, nx, ny));
                 const size_t idx_north = static_cast<size_t>(get_flat_index(i, j + 1, k, nx, ny));
+                const size_t idx_down  = static_cast<size_t>(get_flat_index(i, j, k - 1, nx, ny));
                 const size_t idx_up    = static_cast<size_t>(get_flat_index(i, j, k + 1, nx, ny));
 
                 const double p_center = p[idx_cell];
@@ -99,6 +103,11 @@ void solve_corrector_parallel(
                 double new_u = u_star[idx_cell] - coeff * dp_dx;
                 double new_v = v_star[idx_cell] - coeff * dp_dy;
                 double new_w = w_star[idx_cell] - coeff * dp_dz;
+
+                // Enforce explicit no-penetration boundary conditions at fluid-solid interfaces
+                if (mask[idx_east] != 1 || mask[idx_west] != 1) new_u = 0.0;
+                if (mask[idx_north] != 1 || mask[idx_south] != 1) new_v = 0.0;
+                if (mask[idx_up] != 1 || mask[idx_down] != 1) new_w = 0.0;
 
                 // --- FORENSIC NUMERICAL AUDIT ---
                 if (!std::isfinite(new_u) || !std::isfinite(new_v) || !std::isfinite(new_w)) {

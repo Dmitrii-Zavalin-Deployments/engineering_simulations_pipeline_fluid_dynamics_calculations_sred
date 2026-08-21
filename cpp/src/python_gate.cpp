@@ -2,7 +2,8 @@
  * @file python_gate.cpp
  * @brief Pybind11 Python bindings for the 3D Navier-Stokes C++ Orchestrator.
  * Bridges the Python sovereign SolverState container directly with the C++ engine,
- * extracting all physical constraints, domain configurations, boundary conditions, and parameters.
+ * extracting all physical constraints, domain configurations, boundary conditions, and parameters
+ * with aligned C-contiguous NumPy buffer strides.
  */
 
 #include <pybind11/pybind11.h>
@@ -92,7 +93,7 @@ public:
                   << " | Grid: " << nx << "x" << ny << "x" << nz 
                   << " | Active Threads: " << active_threads << "\n";
 
-        // 4. Extract Tensors with correct buffer stride mapping
+        // 4. Extract Tensors with correct C-contiguous buffer stride mapping
         py::array_t<double> fields = state.attr("fields").cast<py::array_t<double>>();
         py::array_t<int> mask = state.attr("mask").cast<py::array_t<int>>();
 
@@ -122,14 +123,13 @@ public:
         std::vector<double> fy_vec(total_cells, force_vec[1]);
         std::vector<double> fz_vec(total_cells, force_vec[2]);
 
-        // Support both 3D and 1D NumPy array masks
+        // Support both 3D and 1D NumPy array masks with (i, j, k) C-stride alignment
         if (mask.ndim() == 3) {
             auto r_mask = mask.unchecked<3>();
             for (int k = 0; k < nz; ++k) {
                 for (int j = 0; j < ny; ++j) {
                     for (int i = 0; i < nx; ++i) {
                         size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
-                        // Corrected from (k, j, i) to (i, j, k)
                         mask_vec[idx] = r_mask(i, j, k);
                     }
                 }
@@ -143,7 +143,7 @@ public:
             throw std::invalid_argument("GEOMETRY ERROR: mask must be a 1D or 3D NumPy array.");
         }
 
-        // Extract primary velocity and pressure fields with corrected (i, j, k) buffer mapping
+        // Extract primary velocity and pressure fields with aligned (i, j, k) buffer mapping
         for (int k = 0; k < nz; ++k) {
             for (int j = 0; j < ny; ++j) {
                 for (int i = 0; i < nx; ++i) {
@@ -187,7 +187,7 @@ public:
             orchestrator_->step(dt, mu, gravity, fx_vec, fy_vec, fz_vec, mask_vec, bc_list, u_, v_, w_, p_);
         }
 
-        // 10. Copy modified fields back into Python NumPy memory in-place using corrected (i, j, k) mapping
+        // 10. Copy modified fields back into Python NumPy memory in-place using aligned (i, j, k) mapping
         for (int k = 0; k < nz; ++k) {
             for (int j = 0; j < ny; ++j) {
                 for (int i = 0; i < nx; ++i) {
