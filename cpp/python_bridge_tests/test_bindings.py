@@ -229,13 +229,19 @@ def test_invalid_force_vector_size():
 
 
 def test_non_finite_field_simulation_failure():
-    """Triggers runtime error when fields contain non-finite (NaN/inf) values after a time step."""
+    """Triggers runtime error when fields contain non-finite (NaN/inf) values via boundary conditions."""
     if navier_stokes_cpp is None:
         pytest.skip("navier_stokes_cpp module not available.")
 
     nx, ny, nz = 8, 8, 8
     state = DummySolverState(nx=nx, ny=ny, nz=nz)
-    state.fields[0, :, :, :] = np.nan  # Seed with NaN to trigger simulation failure guard
+    state.mask[1:-1, 1:-1, 1:-1] = 1
+
+    # Inject NaN via boundary condition so it bypasses initial baseline reset 
+    # and propagates into the solver stencils.
+    for bc in state.boundary_conditions:
+        bc.w_val = float('nan')
+
     solver = navier_stokes_cpp.NavierStokesSolver(state)
 
     with pytest.raises((TypeError, ValueError, RuntimeError)):

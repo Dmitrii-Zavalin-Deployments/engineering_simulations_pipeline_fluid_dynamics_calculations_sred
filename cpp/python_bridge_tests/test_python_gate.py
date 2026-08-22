@@ -249,8 +249,10 @@ def test_non_finite_field_simulation_failure():
     # 1. Mark interior cells as active fluid (mask == 1)
     state.mask[1:-1, 1:-1, 1:-1] = 1
     
-    # 2. Seed active fluid cell with NaN
-    state.fields[0, 3, 3, 3] = np.nan
+    # 2. Inject NaN via boundary conditions to bypass the pre-step interior 
+    #    zero-initialization pass while ensuring it propagates into stencils.
+    for bc in state.boundary_conditions:
+        bc.w_val = float('nan')
     
     solver = navier_stokes_cpp.NavierStokesSolver(state)
 
