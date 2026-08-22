@@ -123,7 +123,7 @@ public:
         std::vector<double> fy_vec(total_cells, force_vec[1]);
         std::vector<double> fz_vec(total_cells, force_vec[2]);
 
-        // Support both 3D and 1D NumPy array masks using SSoT get_flat_index and stride mapping
+        // Support both 3D and 1D NumPy array masks using SSoT get_flat_index
         if (mask.ndim() == 3) {
             auto r_mask = mask.unchecked<3>();
             for (int k = 0; k < nz; ++k) {
@@ -136,15 +136,8 @@ public:
             }
         } else if (mask.ndim() == 1) {
             auto r_mask = mask.unchecked<1>();
-            for (int k = 0; k < nz; ++k) {
-                for (int j = 0; j < ny; ++j) {
-                    for (int i = 0; i < nx; ++i) {
-                        size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
-                        // Explicitly map Python C-order flat index for shape (nx, ny, nz)
-                        size_t py_flat_idx = static_cast<size_t>(i) * (ny * nz) + static_cast<size_t>(j) * nz + k;
-                        mask_vec[idx] = r_mask(py_flat_idx);
-                    }
-                }
+            for (size_t idx = 0; idx < total_cells; ++idx) {
+                mask_vec[idx] = r_mask(idx);
             }
         } else {
             throw std::invalid_argument("GEOMETRY ERROR: mask must be a 1D or 3D NumPy array.");
