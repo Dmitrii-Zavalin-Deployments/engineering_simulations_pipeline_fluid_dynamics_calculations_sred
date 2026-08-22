@@ -20,6 +20,25 @@
 #include <omp.h>
 #endif
 
+// Optional debug dump for unit tests only.
+// Define NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS in test build to enable.
+#ifdef NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS
+namespace {
+    void dump_field(const char* name, const std::vector<double>& f, std::size_t max_print = 32) {
+        std::cout << "[DEBUG_DUMP] " << name << " (size=" << f.size() << "): ";
+        std::size_t n = std::min<std::size_t>(f.size(), max_print);
+        for (std::size_t i = 0; i < n; ++i) {
+            std::cout << f[i];
+            if (i + 1 < n) std::cout << ", ";
+        }
+        if (f.size() > n) {
+            std::cout << " ...";
+        }
+        std::cout << "\n";
+    }
+}
+#endif
+
 namespace navier_stokes_solver {
 
 NavierStokesOrchestrator::NavierStokesOrchestrator(const GridDimensions& dims, const SolverConfig& config)
@@ -61,7 +80,16 @@ void NavierStokesOrchestrator::step(
     // 1. PRE-STEP / BOUNDARY CONDITIONS
     auto t_pre = std::chrono::high_resolution_clock::now();
     execute_pre_step(u, v, w, p, mask, bc_list, dims_.nx, dims_.ny, dims_.nz);
-    auto dur_pre = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - t_pre).count();
+    auto dur_pre = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::high_resolution_clock::now() - t_pre
+    ).count();
+
+    #ifdef NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS
+    dump_field("u_after_pre_step", u);
+    dump_field("v_after_pre_step", v);
+    dump_field("w_after_pre_step", w);
+    dump_field("p_after_pre_step", p);
+    #endif
 
     // 1.5. GHOST & BOUNDARY SYNCHRONIZATION
     auto t_sync1 = std::chrono::high_resolution_clock::now();
@@ -70,7 +98,16 @@ void NavierStokesOrchestrator::step(
         u_star_.data(), v_star_.data(), w_star_.data(), rhs_.data(),
         total_cells_
     );
-    auto dur_sync1 = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - t_sync1).count();
+    auto dur_sync1 = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::high_resolution_clock::now() - t_sync1
+    ).count();
+
+    #ifdef NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS
+    dump_field("u_star_after_sync1", u_star_);
+    dump_field("v_star_after_sync1", v_star_);
+    dump_field("w_star_after_sync1", w_star_);
+    dump_field("rhs_after_sync1", rhs_);
+    #endif
 
     // 2. PREDICTOR STEP
     auto t_pred = std::chrono::high_resolution_clock::now();
@@ -83,12 +120,24 @@ void NavierStokesOrchestrator::step(
         mask,
         u_star_.data(), v_star_.data(), w_star_.data()
     );
-    auto dur_pred = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - t_pred).count();
+    auto dur_pred = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::high_resolution_clock::now() - t_pred
+    ).count();
+
+    #ifdef NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS
+    dump_field("u_star_after_predictor", u_star_);
+    dump_field("v_star_after_predictor", v_star_);
+    dump_field("w_star_after_predictor", w_star_);
+    #endif
 
     // 3. RHIE-CHOW INTERPOLATION & PRESSURE POISSON STEP
     auto t_poisson = std::chrono::high_resolution_clock::now();
     
-    RhieChowInterpolator::GridConfig rc_config{dims_.nx, dims_.ny, dims_.nz, dims_.dx, dims_.dy, dims_.dz, dt};
+    RhieChowInterpolator::GridConfig rc_config{
+        dims_.nx, dims_.ny, dims_.nz,
+        dims_.dx, dims_.dy, dims_.dz,
+        dt
+    };
     std::vector<double> a_p(total_cells_, config_.density / dt);
 
     std::vector<double> u_face((dims_.nx - 1) * dims_.ny * dims_.nz, 0.0);
@@ -105,7 +154,9 @@ void NavierStokesOrchestrator::step(
     for (int k = 0; k < dims_.nz; ++k) {
         for (int j = 0; j < dims_.ny; ++j) {
             for (int i = 0; i < dims_.nx; ++i) {
-                const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, dims_.nx, dims_.ny));
+                const size_t idx = static_cast<size_t>(
+                    get_flat_index(i, j, k, dims_.nx, dims_.ny)
+                );
 
                 if (mask[idx] != 1) {
                     rhs_[idx] = 0.0;
@@ -168,6 +219,10 @@ void NavierStokesOrchestrator::step(
         }
     }
 
+    #ifdef NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS
+    dump_field("rhs_after_assembly", rhs_);
+    #endif
+
     solve_poisson_red_black_parallel(
         p, rhs_, mask, bc_list,
         dims_.nx, dims_.ny, dims_.nz,
@@ -178,11 +233,17 @@ void NavierStokesOrchestrator::step(
         gravity
     );
 
+    #ifdef NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS
+    dump_field("p_after_poisson", p);
+    #endif
+
     RhieChowInterpolator::interpolateFaceVelocities(
         u_star_, v_star_, w_star_, p, a_p, mask, rc_config, u_face, v_face, w_face
     );
 
-    auto dur_poisson = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - t_poisson).count();
+    auto dur_poisson = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::high_resolution_clock::now() - t_poisson
+    ).count();
 
     // 4. CORRECTOR STEP
     auto t_corr = std::chrono::high_resolution_clock::now();
@@ -194,7 +255,15 @@ void NavierStokesOrchestrator::step(
         dims_.dx, dims_.dy, dims_.dz,
         dt, config_.density
     );
-    auto dur_corr = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - t_corr).count();
+    auto dur_corr = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::high_resolution_clock::now() - t_corr
+    ).count();
+
+    #ifdef NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS
+    dump_field("u_after_corrector", u);
+    dump_field("v_after_corrector", v);
+    dump_field("w_after_corrector", w);
+    #endif
 
     // 5. FINAL BUFFER SYNCHRONIZATION
     auto t_sync2 = std::chrono::high_resolution_clock::now();
@@ -203,14 +272,28 @@ void NavierStokesOrchestrator::step(
         u_star_.data(), v_star_.data(), w_star_.data(), rhs_.data(),
         total_cells_
     );
-    auto dur_sync2 = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - t_sync2).count();
+    auto dur_sync2 = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::high_resolution_clock::now() - t_sync2
+    ).count();
+
+    #ifdef NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS
+    dump_field("u_star_after_sync2", u_star_);
+    dump_field("v_star_after_sync2", v_star_);
+    dump_field("w_star_after_sync2", w_star_);
+    dump_field("rhs_after_sync2", rhs_);
+    #endif
 
     auto wall_end = std::chrono::high_resolution_clock::now();
     std::clock_t cpu_end = std::clock();
 
-    double wall_ms = std::chrono::duration_cast<std::chrono::milliseconds>(wall_end - wall_start).count();
+    double wall_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+        wall_end - wall_start
+    ).count();
     double cpu_ms = 1000.0 * static_cast<double>(cpu_end - cpu_start) / CLOCKS_PER_SEC;
-    double cpu_efficiency = (wall_ms > 0 && active_threads > 0) ? (cpu_ms / (wall_ms * active_threads)) * 100.0 : 0.0;
+    double cpu_efficiency =
+        (wall_ms > 0 && active_threads > 0)
+            ? (cpu_ms / (wall_ms * active_threads)) * 100.0
+            : 0.0;
 
     std::cout << "[PERF_TIMELINE] Step Durations (ms) -> Pre-step: " << dur_pre 
               << " | Sync1: " << dur_sync1 
@@ -226,4 +309,3 @@ void NavierStokesOrchestrator::step(
 }
 
 } // namespace navier_stokes_solver
-

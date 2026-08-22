@@ -1,15 +1,6 @@
 /**
  * @file orchestrator.hpp
  * @brief Header for the NavierStokesOrchestrator, managing fractional-step solver execution.
- *
- *        The orchestrator coordinates:
- *          1. Pre-Step boundary condition application
- *          2. Predictor (trial velocity) computation
- *          3. Divergence RHS assembly and PPE solve
- *          4. Corrector projection to divergence-free velocities
- *          5. Ghost/buffer synchronization
- *
- *        It owns persistent working buffers and enforces mask-aware safety.
  */
 
 #ifndef ORCHESTRATOR_HPP
@@ -31,10 +22,6 @@ namespace navier_stokes_solver {
 
 /**
  * @brief Solver configuration parameters.
- *
- * max_poisson_iterations — maximum GS iterations for PPE
- * poisson_tolerance      — convergence tolerance
- * density                — fluid density (ρ)
  */
 struct SolverConfig {
     size_t max_poisson_iterations;
@@ -42,43 +29,33 @@ struct SolverConfig {
     double density;
 };
 
+#ifdef NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS
+/**
+ * @brief Snapshot of orchestrator internal buffers for unit testing.
+ */
+struct OrchestratorDebugSnapshot {
+    std::string stage_name;
+
+    std::vector<double> u;
+    std::vector<double> v;
+    std::vector<double> w;
+    std::vector<double> p;
+
+    std::vector<double> u_star;
+    std::vector<double> v_star;
+    std::vector<double> w_star;
+
+    std::vector<double> rhs;
+};
+#endif
+
 /**
  * @brief Orchestrates one full fractional-step Navier–Stokes time step.
- *
- * Responsibilities:
- *   - Maintain persistent buffers (u*, v*, w*, rhs)
- *   - Enforce mask-aware safety at each stage
- *   - Guarantee correct ordering of solver phases
  */
 class NavierStokesOrchestrator {
 public:
     NavierStokesOrchestrator(const GridDimensions& dims, const SolverConfig& config);
 
-    /**
-     * @brief Executes one full time step of the fractional-step Navier-Stokes solver:
-     *
-     *   1. Pre-Step:
-     *        Apply Dirichlet velocity & pressure BCs
-     *        Apply wall/solid mask-based boundary states
-     *
-     *   2. Predictor Step:
-     *        Compute trial velocities u* using:
-     *          - advection
-     *          - diffusion
-     *          - body forces
-     *          - gravity
-     *        Applied only to fluid cells (mask == 1)
-     *
-     *   3. Poisson Solver:
-     *        Compute divergence RHS
-     *        Solve PPE iteratively using Red–Black GS
-     *
-     *   4. Corrector Step:
-     *        Project u* → u^{n+1} using pressure gradient
-     *
-     *   5. Ghost/Buffer Sync:
-     *        Synchronize trial buffers with persistent state
-     */
     void step(
         double dt,
         double mu,
@@ -94,6 +71,26 @@ public:
         std::vector<double>& p
     );
 
+#ifdef NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS
+    /**
+     * @brief Retrieve all debug snapshots collected during step().
+     */
+    const std::vector<OrchestratorDebugSnapshot>& get_debug_snapshots() const {
+        return debug_snapshots_;
+    }
+
+    /**
+     * @brief Capture a snapshot of internal buffers at a given stage.
+     */
+    void capture_debug_snapshot(
+        const std::string& stage_name,
+        const std::vector<double>& u,
+        const std::vector<double>& v,
+        const std::vector<double>& w,
+        const std::vector<double>& p
+    );
+#endif
+
 private:
     GridDimensions dims_;
     SolverConfig config_;
@@ -104,6 +101,10 @@ private:
     std::vector<double> v_star_;
     std::vector<double> w_star_;
     std::vector<double> rhs_;
+
+#ifdef NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS
+    std::vector<OrchestratorDebugSnapshot> debug_snapshots_;
+#endif
 };
 
 } // namespace navier_stokes_solver
