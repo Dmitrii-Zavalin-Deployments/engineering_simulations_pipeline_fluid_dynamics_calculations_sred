@@ -12,7 +12,6 @@
       "required": [
         "grid",
         "fluid_properties",
-        "initial_conditions",
         "simulation_parameters",
         "boundary_conditions",
         "mask",
@@ -113,18 +112,18 @@
             },
             "nx": {
               "type": "integer",
-              "minimum": 1,
-              "description": "Number of discrete computational cells along the X-axis."
+              "minimum": 4,
+              "description": "Number of discrete computational cells along the X-axis. Minimum 4 to prevent stencil cancellation."
             },
             "ny": {
               "type": "integer",
-              "minimum": 1,
-              "description": "Number of discrete computational cells along the Y-axis."
+              "minimum": 4,
+              "description": "Number of discrete computational cells along the Y-axis. Minimum 4 to prevent stencil cancellation."
             },
             "nz": {
               "type": "integer",
-              "minimum": 1,
-              "description": "Number of discrete computational cells along the Z-axis."
+              "minimum": 4,
+              "description": "Number of discrete computational cells along the Z-axis. Minimum 4 to prevent stencil cancellation."
             }
           }
         },
@@ -142,26 +141,6 @@
             "viscosity": {
               "type": "number",
               "minimum": 0
-            }
-          }
-        },
-        "initial_conditions": {
-          "type": "object",
-          "required": [
-            "velocity",
-            "pressure"
-          ],
-          "properties": {
-            "velocity": {
-              "type": "array",
-              "minItems": 3,
-              "maxItems": 3,
-              "items": {
-                "type": "number"
-              }
-            },
-            "pressure": {
-              "type": "number"
             }
           }
         },
@@ -254,11 +233,22 @@
         "external_forces": {
           "type": "object",
           "required": [
-            "force_vector"
+            "force_vector",
+            "gravity_vector"
           ],
           "properties": {
             "force_vector": {
               "type": "array",
+              "description": "Generic external force density vector (e.g., electromagnetic, momentum sources).",
+              "minItems": 3,
+              "maxItems": 3,
+              "items": {
+                "type": "number"
+              }
+            },
+            "gravity_vector": {
+              "type": "array",
+              "description": "Gravitational acceleration vector in 3D space used for analytical hydrostatic pressure splitting.",
               "minItems": 3,
               "maxItems": 3,
               "items": {
