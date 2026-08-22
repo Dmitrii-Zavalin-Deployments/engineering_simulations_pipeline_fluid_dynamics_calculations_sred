@@ -1,5 +1,4 @@
 """
-src/state.py
 Core State Container Module.
 Maintains the complete operational state of the simulation, holding input metadata,
 dynamic 4D field buffers (u, v, w, p), and physical boundary enforcement.
@@ -52,10 +51,9 @@ class SolverState:
         self.dy: float = (self.y_max - self.y_min) / self.ny
         self.dz: float = (self.z_max - self.z_min) / self.nz
 
-        # Sub-schemas with strict presence checks
+        # Sub-schemas with strict presence checks matching the schema
         for sec in [
             "fluid_properties",
-            "initial_conditions",
             "simulation_parameters",
             "boundary_conditions",
             "external_forces",
@@ -68,12 +66,6 @@ class SolverState:
 
         self.grid: dict[str, Any] = grid
         self.fluid_properties: dict[str, Any] = input_data["fluid_properties"]
-        self.initial_conditions: dict[str, Any] = input_data["initial_conditions"]
-        
-        ic = self.initial_conditions
-        for k in ["velocity", "pressure"]:
-            if k not in ic or ic[k] is None:
-                raise KeyError(f"Non-default policy violation in 'initial_conditions': missing required key '{k}'.")
 
         self.simulation_parameters: dict[str, Any] = input_data["simulation_parameters"]
         sim_params = self.simulation_parameters
@@ -91,17 +83,8 @@ class SolverState:
             if k not in pc or pc[k] is None:
                 raise KeyError(f"Non-default policy violation in 'physical_constraints': missing required key '{k}'.")
 
-        # 4D fields buffer: shape (4, nx, ny, nz) -> [0]: u, [1]: v, [2]: w, [3]: p (C-contiguous for zero-copy C++ binding)
+        # 4D fields buffer: shape (4, nx, ny, nz) -> [0]: u, [1]: v, [2]: w, [3]: p
         self.fields: np.ndarray = np.zeros((4, self.nx, self.ny, self.nz), dtype=np.float64, order='C')
-        
-        ic_v = ic["velocity"]
-        if not isinstance(ic_v, (list, tuple)) or len(ic_v) < 3:
-            raise ValueError("Non-default policy violation: 'initial_conditions.velocity' must be a sequence of 3 components [u, v, w].")
-
-        self.fields[0, ...] = ic_v[0]
-        self.fields[1, ...] = ic_v[1]
-        self.fields[2, ...] = ic_v[2]
-        self.fields[3, ...] = ic["pressure"]
 
         # Convenience slices sharing memory views with self.fields
         self.u = self.fields[0]
@@ -132,7 +115,6 @@ class SolverState:
         Validates fields for numerical stability (NaN/Inf detection),
         allowing unconstrained physical evolution.
         """
-        # Check for potential explosive NaNs/Infs
         if not np.isfinite(self.fields).all():
             logger.critical(f"Non-finite values (NaN/Inf) detected at iteration {self.current_iteration}.")
             raise ArithmeticError("Numerical instability detected: fields contain NaN or Inf values.")
