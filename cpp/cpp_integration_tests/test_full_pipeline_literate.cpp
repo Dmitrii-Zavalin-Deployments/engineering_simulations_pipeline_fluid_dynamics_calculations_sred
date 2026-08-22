@@ -64,30 +64,47 @@ TEST(FullPipelineLiterateTest, StepByStepMicroManaged) {
     // ============================================================================
 
     /**
-     * The JSON domain is:
-     *   x ∈ [0, 4], nx = 8
-     *   y ∈ [0, 4], ny = 8
-     *   z ∈ [0, 2], nz = 4
-     *
-     * Our GridDimensions struct does NOT store physical extents.
-     * It stores only:
-     *     nx, ny, nz, dx, dy, dz
-     *
-     * So we compute dx, dy, dz from the JSON extents.
-     */
-
-    const double x_min = 0.0, x_max = 4.0;
-    const double y_min = 0.0, y_max = 4.0;
-    const double z_min = 0.0, z_max = 2.0;
+    * The JSON domain is:
+    *   x ∈ [0, 4], nx = 8
+    *   y ∈ [0, 4], ny = 8
+    *   z ∈ [0, 2], nz = 4
+    *
+    * Python ingestion stores BOTH:
+    *   - physical extents (x_min, x_max, ...)
+    *   - grid resolution (nx, ny, nz)
+    *   - spacing (dx, dy, dz) computed as:
+    *
+    *       dx = (x_max - x_min) / nx
+    *       dy = (y_max - y_min) / ny
+    *       dz = (z_max - z_min) / nz
+    *
+    * The C++ GridDimensions struct stores ONLY:
+    *   nx, ny, nz,
+    *   dx, dy, dz.
+    *
+    * Therefore, this test must compute dx, dy, dz using the JSON extents,
+    * but must NOT assign x_min/x_max/etc. to dims (they do not exist in C++).
+    */
 
     GridDimensions dims;
+
+    // Physical extents from JSON (local variables only)
+    double x_min = 0.0;
+    double x_max = 4.0;
+    double y_min = 0.0;
+    double y_max = 4.0;
+    double z_min = 0.0;
+    double z_max = 2.0;
+
+    // Resolution from JSON
     dims.nx = 8;
     dims.ny = 8;
     dims.nz = 4;
 
-    dims.dx = (x_max - x_min) / (dims.nx - 1);
-    dims.dy = (y_max - y_min) / (dims.ny - 1);
-    dims.dz = (z_max - z_min) / (dims.nz - 1);
+    // Python-style spacing (division by N, not N−1)
+    dims.dx = (x_max - x_min) / dims.nx;
+    dims.dy = (y_max - y_min) / dims.ny;
+    dims.dz = (z_max - z_min) / dims.nz;
 
     dims.validate();
 
