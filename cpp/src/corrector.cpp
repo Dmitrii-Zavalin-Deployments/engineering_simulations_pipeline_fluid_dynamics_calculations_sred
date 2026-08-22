@@ -60,6 +60,9 @@ void solve_corrector_parallel(
     const double idx_2inv = 0.5 / dx;
     const double idy_2inv = 0.5 / dy;
     const double idz_2inv = 0.5 / dz;
+    const double id_inv  = 1.0 / dx;
+    const double idy_inv = 1.0 / dy;
+    const double idz_inv = 1.0 / dz;
 
     bool has_error = false;
     int err_i = 0, err_j = 0, err_k = 0;
@@ -93,22 +96,29 @@ void solve_corrector_parallel(
                 const double p_up    = p[idx_up];
 
                 // --- ROBUST MASK-AWARE PRESSURE GRADIENT EVALUATION ---
-                // Prevent boundary stencil pollution by ensuring gradients near solid/wall 
-                // cells do not ingest raw/contaminated wall pressures.
+                // Prevent boundary stencil pollution while supporting valid one-sided 
+                // pressure gradients at fluid-solid interfaces.
                 
                 // X-Direction Gradient
                 double dp_dx = 0.0;
                 if (mask[idx_east] == 1 && mask[idx_west] == 1) {
-                    dp_dx = (p_east - p_west) * idx_2inv; // Clean 2nd-order interior central difference
+                    dp_dx = (p_east - p_west) * idx_2inv; // 2nd-order interior central difference
+                } else if (mask[idx_east] == 0 && mask[idx_west] == 1) {
+                    dp_dx = (p_east - p_center) * id_inv; // 1st-order forward difference at east solid boundary
+                } else if (mask[idx_east] == 1 && mask[idx_west] == 0) {
+                    dp_dx = (p_center - p_west) * id_inv; // 1st-order backward difference at west solid boundary
                 } else {
-                    // Near solid boundary, enforce zero normal pressure gradient to avoid pollution
                     dp_dx = 0.0;
                 }
 
                 // Y-Direction Gradient
                 double dp_dy = 0.0;
                 if (mask[idx_north] == 1 && mask[idx_south] == 1) {
-                    dp_dy = (p_north - p_south) * idy_2inv;
+                    dp_dy = (p_north - p_south) * idy_2inv; // 2nd-order interior central difference
+                } else if (mask[idx_north] == 0 && mask[idx_south] == 1) {
+                    dp_dy = (p_north - p_center) * idy_inv; // 1st-order forward difference at north solid boundary
+                } else if (mask[idx_north] == 1 && mask[idx_south] == 0) {
+                    dp_dy = (p_center - p_south) * idy_inv; // 1st-order backward difference at south solid boundary
                 } else {
                     dp_dy = 0.0;
                 }
@@ -116,7 +126,11 @@ void solve_corrector_parallel(
                 // Z-Direction Gradient
                 double dp_dz = 0.0;
                 if (mask[idx_up] == 1 && mask[idx_down] == 1) {
-                    dp_dz = (p_up - p_down) * idz_2inv;
+                    dp_dz = (p_up - p_down) * idz_2inv; // 2nd-order interior central difference
+                } else if (mask[idx_up] == 0 && mask[idx_down] == 1) {
+                    dp_dz = (p_up - p_center) * idz_inv; // 1st-order forward difference at top solid boundary
+                } else if (mask[idx_up] == 1 && mask[idx_down] == 0) {
+                    dp_dz = (p_center - p_down) * idz_inv; // 1st-order backward difference at bottom solid boundary
                 } else {
                     dp_dz = 0.0;
                 }
