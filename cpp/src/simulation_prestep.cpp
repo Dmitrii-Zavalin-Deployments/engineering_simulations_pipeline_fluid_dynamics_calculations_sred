@@ -60,6 +60,22 @@ void execute_pre_step(
               << " | Grid: " << nx << "x" << ny << "x" << nz 
               << " | Active Threads: " << active_threads << "\n";
 
+    // Programmatically initialize active fluid cells (mask == 1) to a deterministic baseline state
+    #pragma omp parallel for collapse(3) schedule(static)
+    for (int k = 0; k < nz; ++k) {
+        for (int j = 0; j < ny; ++j) {
+            for (int i = 0; i < nx; ++i) {
+                size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
+                if (mask[idx] == 1) {
+                    u[idx] = 0.0;
+                    v[idx] = 0.0;
+                    w[idx] = 0.0;
+                    p[idx] = 0.0;
+                }
+            }
+        }
+    }
+
     // Separate generic wall baseline definitions from explicit face boundary conditions
     std::vector<BoundaryCondition> wall_bc_list;
     std::vector<BoundaryCondition> face_bc_list;
@@ -127,7 +143,7 @@ void execute_pre_step(
         }
     }
 
-    // Pass 2: Overwrite domain face boundary cells with explicit conditions (x_min, x_max, etc.)
+    // Pass 2: Overwrite domain face boundary conditions with explicit conditions (x_min, x_max, etc.)
     for (const auto& bc : face_bc_list) {
         #pragma omp parallel for collapse(3) schedule(static)
         for (int k = 0; k < nz; ++k) {
