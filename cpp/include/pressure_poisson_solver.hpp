@@ -1,6 +1,18 @@
 /**
  * @file pressure_poisson_solver.hpp
- * @brief Header for iterative Pressure Poisson Equation (PPE) solvers and boundary condition applications.
+ * @brief Header for the Pressure Poisson Equation (PPE) solver and
+ *        physically-correct boundary pressure handling.
+ *
+ *        This module provides:
+ *          - Red–Black Gauss–Seidel PPE solver
+ *          - Hydrostatic / gravity-balanced Neumann BCs
+ *          - Solid-boundary Neumann extrapolation
+ *          - Dirichlet face tracking (pressure / outflow)
+ *
+ *        All routines are mask-aware:
+ *          mask == 1 → fluid
+ *          mask == 0 → solid
+ *          mask == -1 → wall
  */
 
 #ifndef PRESSURE_POISSON_SOLVER_HPP
@@ -14,8 +26,9 @@
 namespace navier_stokes_solver {
 
 /**
- * @brief Tracks domain faces governed by fixed/Dirichlet boundary conditions 
- *        to prevent unintended Neumann gradient updates.
+ * @brief Tracks domain faces governed by fixed (Dirichlet) pressure conditions.
+ *
+ * These faces must NOT receive Neumann updates.
  */
 struct DirichletFaces {
     bool x_min = false;
@@ -27,8 +40,25 @@ struct DirichletFaces {
 };
 
 /**
- * @brief Solves the Pressure Poisson Equation (PPE) iteratively using Red-Black Gauss-Seidel parallelization.
- *        Operates strictly on interior fluid cells while respecting boundary conditions, body forces, and masks.
+ * @brief Solves the Pressure Poisson Equation (PPE) using
+ *        Red–Black Gauss–Seidel iteration.
+ *
+ * Responsibilities:
+ *   - Operates strictly on interior fluid cells (mask == 1)
+ *   - Applies Dirichlet pressure anchors (pressure / outflow BCs)
+ *   - Applies gravity-balanced Neumann BCs on non-Dirichlet faces
+ *   - Applies solid-boundary Neumann extrapolation (mask == 0)
+ *
+ * @param p        Pressure field (updated in-place)
+ * @param rhs      Divergence-based source term
+ * @param mask     Domain mask (fluid / solid / wall)
+ * @param bc_list  Boundary condition list
+ * @param nx,ny,nz Grid dimensions
+ * @param dx,dy,dz Grid spacing
+ * @param max_iters Maximum GS iterations
+ * @param tol       Convergence tolerance
+ * @param density   Fluid density
+ * @param gravity   Gravity vector [gx, gy, gz]
  */
 void solve_poisson_red_black_parallel(
     std::vector<double>& p,
@@ -43,7 +73,13 @@ void solve_poisson_red_black_parallel(
 );
 
 /**
- * @brief Applies Neumann pressure boundary conditions with hydrostatic and body-force balancing.
+ * @brief Applies hydrostatic Neumann pressure boundary conditions
+ *        on domain faces that are NOT Dirichlet-anchored.
+ *
+ * This enforces:
+ *      ∂p/∂n = ρ g_n
+ *
+ * where g_n is the gravity component normal to the face.
  */
 void apply_neumann_pressure(
     std::vector<double>& p,
@@ -56,11 +92,14 @@ void apply_neumann_pressure(
 );
 
 /**
- * @brief Applies Neumann pressure conditions across solid boundaries in parallel.
+ * @brief Applies Neumann pressure extrapolation inside solid regions (mask == 0).
+ *
+ * Solid cells inherit pressure from adjacent fluid cells.
+ * This prevents stencil pollution in the PPE solver.
  */
 void apply_solid_neumann_pressure_parallel(
-    std::vector<double>& p, 
-    const std::vector<int>& mask, 
+    std::vector<double>& p,
+    const std::vector<int>& mask,
     int nx, int ny, int nz,
     double dx, double dy, double dz
 );
@@ -68,3 +107,4 @@ void apply_solid_neumann_pressure_parallel(
 } // namespace navier_stokes_solver
 
 #endif // PRESSURE_POISSON_SOLVER_HPP
+

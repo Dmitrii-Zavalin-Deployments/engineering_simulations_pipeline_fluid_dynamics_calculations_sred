@@ -1,6 +1,12 @@
 /**
  * @file corrector.hpp
  * @brief Header for the Corrector Step of Chorin's Projection Method.
+ *
+ *        This stage:
+ *          - Applies pressure‑gradient correction
+ *          - Projects trial velocities (u*, v*, w*) onto a divergence‑free field
+ *          - Uses mask‑aware gradients to avoid stencil pollution
+ *          - Supports one‑sided differences at fluid–solid/wall interfaces
  */
 
 #ifndef CORRECTOR_HPP
@@ -12,24 +18,26 @@ namespace navier_stokes_solver {
 
 /**
  * @brief Executes the Corrector Step of Chorin's Projection Method in parallel.
- * Projects tentative trial velocities onto a divergence-free vector field using the updated pressure gradient.
- * 
- * @param u Output updated x-velocity field
- * @param v Output updated y-velocity field
- * @param w Output updated z-velocity field
- * @param u_star Tentative x-velocity from predictor step
- * @param v_star Tentative y-velocity from predictor step
- * @param w_star Tentative z-velocity from predictor step
- * @param p Updated pressure field from Poisson solver
- * @param mask Domain cell classification mask (1 = Fluid, 0 = Solid, -1 = Wall)
- * @param nx Grid points in X direction
- * @param ny Grid points in Y direction
- * @param nz Grid points in Z direction
- * @param dx Spatial step size in X
- * @param dy Spatial step size in Y
- * @param dz Spatial step size in Z
- * @param dt Time step size
- * @param rho Fluid density
+ *
+ * Responsibilities:
+ *   - Operate strictly on fluid cells (mask == 1)
+ *   - Apply central pressure gradients in interior
+ *   - Apply one‑sided gradients near solid/wall boundaries
+ *   - Prevent invalid stencil access
+ *   - Produce divergence‑free velocity field
+ *
+ * @param u       Output corrected x‑velocity
+ * @param v       Output corrected y‑velocity
+ * @param w       Output corrected z‑velocity
+ * @param u_star  Predictor x‑velocity
+ * @param v_star  Predictor y‑velocity
+ * @param w_star  Predictor z‑velocity
+ * @param p       Updated pressure field
+ * @param mask    Domain mask: 1=fluid, 0=solid, -1=wall
+ * @param nx,ny,nz Grid resolution
+ * @param dx,dy,dz Grid spacing
+ * @param dt      Time step
+ * @param rho     Fluid density
  */
 void solve_corrector_parallel(
     std::vector<double>& u,
@@ -48,3 +56,4 @@ void solve_corrector_parallel(
 } // namespace navier_stokes_solver
 
 #endif // CORRECTOR_HPP
+
