@@ -225,9 +225,9 @@ TEST(FullPipelineLiterateTest, StepByStepMicroManaged) {
     const double mu = 0.01;
 
     std::vector<double> gravity = {0.0, 0.0, 0.0};
-    std::vector<double> fx = {0.0, 0.0, 0.0};
-    std::vector<double> fy = {0.0, 0.0, 0.0};
-    std::vector<double> fz = {0.0, 0.0, 0.0};
+    std::vector<double> fx(total_cells, 0.0);
+    std::vector<double> fy(total_cells, 0.0);
+    std::vector<double> fz(total_cells, 0.0);
 
     // ============================================================================
     // SECTION 5 — Instantiate Orchestrator & Execute Full Pipeline
