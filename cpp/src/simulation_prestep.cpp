@@ -140,7 +140,7 @@ void execute_pre_step(
             for (int j = 0; j < ny; ++j) {
                 for (int i = 0; i < nx; ++i) {
                     size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
-                    if (mask[idx] == -1) {
+                    if (mask[idx] == -1 || mask[idx] == 0) {
                         apply_bc(bc, i, j, k, idx);
                     }
                 }
@@ -158,7 +158,7 @@ void execute_pre_step(
                         continue;
                     }
                     size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
-                    if (mask[idx] == -1) {
+                    if (mask[idx] == -1 || mask[idx] == 0) {
                         // keep wall BC from first pass
                         continue;
                     }
