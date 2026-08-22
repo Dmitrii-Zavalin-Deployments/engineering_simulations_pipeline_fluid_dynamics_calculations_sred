@@ -1,4 +1,3 @@
-
 /**
  * @file test_full_pipeline_literate.cpp
  * @brief Literate-style integration test for the full Navier–Stokes solver pipeline.
@@ -64,12 +63,33 @@ TEST(FullPipelineLiterateTest, StepByStepMicroManaged) {
     // SECTION 1 — Grid Setup
     // ============================================================================
 
-    // We define the grid dimensions exactly as in the JSON input.
+    /**
+     * The JSON domain is:
+     *   x ∈ [0, 4], nx = 8
+     *   y ∈ [0, 4], ny = 8
+     *   z ∈ [0, 2], nz = 4
+     *
+     * Our GridDimensions struct does NOT store physical extents.
+     * It stores only:
+     *     nx, ny, nz, dx, dy, dz
+     *
+     * So we compute dx, dy, dz from the JSON extents.
+     */
+
+    const double x_min = 0.0, x_max = 4.0;
+    const double y_min = 0.0, y_max = 4.0;
+    const double z_min = 0.0, z_max = 2.0;
+
     GridDimensions dims;
-    dims.x_min = 0.0; dims.x_max = 4.0;
-    dims.y_min = 0.0; dims.y_max = 4.0;
-    dims.z_min = 0.0; dims.z_max = 2.0;
-    dims.nx = 8; dims.ny = 8; dims.nz = 4;
+    dims.nx = 8;
+    dims.ny = 8;
+    dims.nz = 4;
+
+    dims.dx = (x_max - x_min) / (dims.nx - 1);
+    dims.dy = (y_max - y_min) / (dims.ny - 1);
+    dims.dz = (z_max - z_min) / (dims.nz - 1);
+
+    dims.validate();
 
     const size_t total_cells = static_cast<size_t>(dims.nx) * dims.ny * dims.nz;
 
@@ -88,7 +108,7 @@ TEST(FullPipelineLiterateTest, StepByStepMicroManaged) {
     std::vector<double> v_star(total_cells, 0.0);
     std::vector<double> w_star(total_cells, 0.0);
 
-    // Mask from JSON (placeholder — fill actual mask here)
+    // Mask placeholder — will be filled with the JSON mask later
     std::vector<int> mask = {
         /* PLACEHOLDER: insert the full mask array from JSON here */
     };
@@ -105,8 +125,7 @@ TEST(FullPipelineLiterateTest, StepByStepMicroManaged) {
         BoundaryCondition bc;
         bc.location = "z_min";
         bc.type = "inflow";
-        bc.values.has_w = true;
-        bc.values.w = 1.0;
+        bc.values.has_w = true; bc.values.w = 1.0;
         bc.values.has_u = true; bc.values.u = 0.0;
         bc.values.has_v = true; bc.values.v = 0.0;
         bc.values.has_p = true; bc.values.p = 0.0;
@@ -118,8 +137,7 @@ TEST(FullPipelineLiterateTest, StepByStepMicroManaged) {
         BoundaryCondition bc;
         bc.location = "z_max";
         bc.type = "outflow";
-        bc.values.has_w = true;
-        bc.values.w = 1.0;
+        bc.values.has_w = true; bc.values.w = 1.0;
         bc.values.has_u = true; bc.values.u = 0.0;
         bc.values.has_v = true; bc.values.v = 0.0;
         bc.values.has_p = true; bc.values.p = 0.0;
@@ -302,4 +320,3 @@ TEST(FullPipelineLiterateTest, StepByStepMicroManaged) {
 }
 
 } // namespace navier_stokes_solver
-
