@@ -240,10 +240,15 @@ TEST(FullPipelineLiterateTest, StepByStepMicroManaged) {
     *   - internal working buffers (u_star, v_star, w_star, rhs)
     *
     * This constructor does NOT perform any physics.
-    * It only allocates internal buffers sized to total_cells.
+    * It only allocates persistent buffers sized to total_cells.
     *
-    * No assertions are needed here — correctness is validated
-    * in subsequent solver stages (pre-step, predictor, PPE, corrector).
+    * In test builds (when NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS is enabled),
+    * the orchestrator will also record internal snapshots during step() so that
+    * the literate test can compare manual stage-by-stage results with the actual
+    * orchestrator pipeline. This has no effect in production builds.
+    *
+    * No assertions are needed here — correctness is validated in subsequent
+    * solver stages (pre-step, predictor, PPE, corrector, ghost sync).
     */
 
     NavierStokesOrchestrator orchestrator(dims, config);
