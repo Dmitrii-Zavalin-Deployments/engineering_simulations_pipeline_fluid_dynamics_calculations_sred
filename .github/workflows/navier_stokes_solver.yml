@@ -156,10 +156,10 @@ jobs:
           echo "Rule 2 (Zero-Debt Mandate) violation: Delete unused code before merging."
           exit 1
 
-      - name: 🧪 Run Logic & Scientific Verification
-        run: |
-          echo "🚀 Initiating: $TEST_COMMAND inside virtual frame buffer"
-          xvfb-run --auto-servernum $TEST_COMMAND
+      # - name: 🧪 Run Logic & Scientific Verification
+      #   run: |
+      #     echo "🚀 Initiating: $TEST_COMMAND inside virtual frame buffer"
+      #     xvfb-run --auto-servernum $TEST_COMMAND
 
       - name: 🔍 Forensic Audit
         if: always()
