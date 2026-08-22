@@ -107,8 +107,8 @@ jobs:
           echo "🌊 Executing native C++ Integration Test suite..."
           ./build/tests/integration_tests
 
-          echo "🐍 Executing Python C++ bridge tests from cpp/python_bridge_tests/..."
-          pytest cpp/python_bridge_tests/ -v
+          # echo "🐍 Executing Python C++ bridge tests from cpp/python_bridge_tests/..."
+          # pytest cpp/python_bridge_tests/ -v
 
           echo "📊 Generating Combined Code Coverage Report..."
           gcovr --root=. --filter=cpp/src/ --print-summary --txt

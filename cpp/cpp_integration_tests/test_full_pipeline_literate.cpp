@@ -233,6 +233,19 @@ TEST(FullPipelineLiterateTest, StepByStepMicroManaged) {
     // SECTION 5 — Instantiate Orchestrator
     // ============================================================================
 
+    /**
+    * The orchestrator binds together:
+    *   - grid dimensions (nx, ny, nz, dx, dy, dz)
+    *   - solver configuration (Poisson iterations, tolerance, density)
+    *   - internal working buffers (u_star, v_star, w_star, rhs)
+    *
+    * This constructor does NOT perform any physics.
+    * It only allocates internal buffers sized to total_cells.
+    *
+    * No assertions are needed here — correctness is validated
+    * in subsequent solver stages (pre-step, predictor, PPE, corrector).
+    */
+
     NavierStokesOrchestrator orchestrator(dims, config);
 
     // ============================================================================
@@ -240,28 +253,60 @@ TEST(FullPipelineLiterateTest, StepByStepMicroManaged) {
     // ============================================================================
 
     /**
-     * In the pre-step, boundary conditions are applied:
-     *   - inflow/outflow on z-min/z-max
-     *   - no-slip on walls
-     *   - mask-based solid/wall cells are clamped
-     *
-     * EXPECTATIONS:
-     *   - All mask == -1 cells have u=v=w=0
-     *   - All mask == 0 cells have u=v=w=0 (solid interior)
-     *   - Inflow/outflow planes have w = +1
-     */
+    * In the pre-step, boundary conditions are applied:
+    *   - inflow/outflow on z-min/z-max
+    *   - no-slip on walls (mask == -1)
+    *   - solid interior cells (mask == 0) are clamped
+    *
+    * EXPECTATIONS (guaranteed by execute_pre_step):
+    *   - All mask == -1 cells have u = v = w = 0  (explicit wall BC)
+    *   - All mask == 0 cells have u = v = w = 0  (solid interior)
+    *   - z_min inflow plane has w = +1
+    *   - z_max outflow plane has w = +1
+    *   - No NaNs or Infs introduced
+    */
 
-    // PLACEHOLDER: call execute_pre_step(...) manually or via orchestrator.step(...)
-    // execute_pre_step(u, v, w, p, mask, bc_list, dims.nx, dims.ny, dims.nz);
+    execute_pre_step(u, v, w, p, mask, bc_list, dims.nx, dims.ny, dims.nz);
 
-    // PLACEHOLDER: assert pre-step invariants
-    // for (size_t idx = 0; idx < total_cells; ++idx) {
-    //     if (mask[idx] == -1 || mask[idx] == 0) {
-    //         ASSERT_NEAR(u[idx], 0.0, 1e-12);
-    //         ASSERT_NEAR(v[idx], 0.0, 1e-12);
-    //         ASSERT_NEAR(w[idx], 0.0, 1e-12);
-    //     }
-    // }
+    // --- Assert pre-step invariants ---
+    for (int k = 0; k < dims.nz; ++k) {
+        for (int j = 0; j < dims.ny; ++j) {
+            for (int i = 0; i < dims.nx; ++i) {
+
+                const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, dims.nx, dims.ny));
+
+                // 1. Wall cells (mask == -1) must be clamped to no-slip
+                if (mask[idx] == -1) {
+                    ASSERT_NEAR(u[idx], 0.0, 1e-12);
+                    ASSERT_NEAR(v[idx], 0.0, 1e-12);
+                    ASSERT_NEAR(w[idx], 0.0, 1e-12);
+                }
+
+                // 2. Solid interior cells (mask == 0) must also be clamped
+                if (mask[idx] == 0) {
+                    ASSERT_NEAR(u[idx], 0.0, 1e-12);
+                    ASSERT_NEAR(v[idx], 0.0, 1e-12);
+                    ASSERT_NEAR(w[idx], 0.0, 1e-12);
+                }
+
+                // 3. Inflow plane (z_min)
+                if (k == 0 && mask[idx] == 1) {
+                    ASSERT_NEAR(w[idx], 1.0, 1e-12);
+                }
+
+                // 4. Outflow plane (z_max)
+                if (k == dims.nz - 1 && mask[idx] == 1) {
+                    ASSERT_NEAR(w[idx], 1.0, 1e-12);
+                }
+
+                // 5. No NaNs or Infs anywhere
+                ASSERT_TRUE(std::isfinite(u[idx]));
+                ASSERT_TRUE(std::isfinite(v[idx]));
+                ASSERT_TRUE(std::isfinite(w[idx]));
+                ASSERT_TRUE(std::isfinite(p[idx]));
+            }
+        }
+    }
 
     // ============================================================================
     // SECTION 7 — STEP 2: Predictor
