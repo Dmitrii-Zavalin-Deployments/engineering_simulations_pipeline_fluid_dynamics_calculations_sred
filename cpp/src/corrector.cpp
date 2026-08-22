@@ -97,16 +97,16 @@ void solve_corrector_parallel(
 
                 // --- ROBUST MASK-AWARE PRESSURE GRADIENT EVALUATION ---
                 // Prevent boundary stencil pollution while supporting valid one-sided 
-                // pressure gradients at fluid-solid interfaces.
+                // pressure gradients at fluid-solid and fluid-wall interfaces.
                 
                 // X-Direction Gradient
                 double dp_dx = 0.0;
                 if (mask[idx_east] == 1 && mask[idx_west] == 1) {
                     dp_dx = (p_east - p_west) * idx_2inv; // 2nd-order interior central difference
-                } else if (mask[idx_east] == 0 && mask[idx_west] == 1) {
-                    dp_dx = (p_east - p_center) * id_inv; // 1st-order forward difference at east solid boundary
-                } else if (mask[idx_east] == 1 && mask[idx_west] == 0) {
-                    dp_dx = (p_center - p_west) * id_inv; // 1st-order backward difference at west solid boundary
+                } else if ((mask[idx_east] == 0 || mask[idx_east] == -1) && mask[idx_west] == 1) {
+                    dp_dx = (p_east - p_center) * id_inv; // 1st-order forward difference at east solid/wall boundary
+                } else if (mask[idx_east] == 1 && (mask[idx_west] == 0 || mask[idx_west] == -1)) {
+                    dp_dx = (p_center - p_west) * id_inv; // 1st-order backward difference at west solid/wall boundary
                 } else {
                     dp_dx = 0.0;
                 }
@@ -115,10 +115,10 @@ void solve_corrector_parallel(
                 double dp_dy = 0.0;
                 if (mask[idx_north] == 1 && mask[idx_south] == 1) {
                     dp_dy = (p_north - p_south) * idy_2inv; // 2nd-order interior central difference
-                } else if (mask[idx_north] == 0 && mask[idx_south] == 1) {
-                    dp_dy = (p_north - p_center) * idy_inv; // 1st-order forward difference at north solid boundary
-                } else if (mask[idx_north] == 1 && mask[idx_south] == 0) {
-                    dp_dy = (p_center - p_south) * idy_inv; // 1st-order backward difference at south solid boundary
+                } else if ((mask[idx_north] == 0 || mask[idx_north] == -1) && mask[idx_south] == 1) {
+                    dp_dy = (p_north - p_center) * idy_inv; // 1st-order forward difference at north solid/wall boundary
+                } else if (mask[idx_north] == 1 && (mask[idx_south] == 0 || mask[idx_south] == -1)) {
+                    dp_dy = (p_center - p_south) * idy_inv; // 1st-order backward difference at south solid/wall boundary
                 } else {
                     dp_dy = 0.0;
                 }
@@ -127,10 +127,10 @@ void solve_corrector_parallel(
                 double dp_dz = 0.0;
                 if (mask[idx_up] == 1 && mask[idx_down] == 1) {
                     dp_dz = (p_up - p_down) * idz_2inv; // 2nd-order interior central difference
-                } else if (mask[idx_up] == 0 && mask[idx_down] == 1) {
-                    dp_dz = (p_up - p_center) * idz_inv; // 1st-order forward difference at top solid boundary
-                } else if (mask[idx_up] == 1 && mask[idx_down] == 0) {
-                    dp_dz = (p_center - p_down) * idz_inv; // 1st-order backward difference at bottom solid boundary
+                } else if ((mask[idx_up] == 0 || mask[idx_up] == -1) && mask[idx_down] == 1) {
+                    dp_dz = (p_up - p_center) * idz_inv; // 1st-order forward difference at top solid/wall boundary
+                } else if (mask[idx_up] == 1 && (mask[idx_down] == 0 || mask[idx_down] == -1)) {
+                    dp_dz = (p_center - p_down) * idz_inv; // 1st-order backward difference at bottom solid/wall boundary
                 } else {
                     dp_dz = 0.0;
                 }
