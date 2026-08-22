@@ -8,13 +8,15 @@ find_package(OpenMP REQUIRED)
 
 file(COPY data DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
-# --- No-Penetration Boundary Clamping Integration Test ---
+# ---------------------------------------------------------------------------
+# Full Pipeline Literate Integration Test
+# ---------------------------------------------------------------------------
 
-add_executable(test_no_penetration_clamping
-    test_no_penetration_clamping.cpp
+add_executable(test_full_pipeline_literate
+    test_full_pipeline_literate.cpp
 )
 
-target_link_libraries(test_no_penetration_clamping
+target_link_libraries(test_full_pipeline_literate
     PRIVATE
         GTest::gtest_main
         navier_stokes_core
@@ -22,9 +24,11 @@ target_link_libraries(test_no_penetration_clamping
         OpenMP::OpenMP_CXX
 )
 
-add_test(NAME NoPenetrationClampingTest COMMAND test_no_penetration_clamping)
+add_test(NAME FullPipelineLiterateTest COMMAND test_full_pipeline_literate)
 
-# --- Mass Continuity & Divergence Integration Test ---
+# ---------------------------------------------------------------------------
+# Mass Continuity & Divergence Integration Test
+# ---------------------------------------------------------------------------
 
 add_executable(test_mass_continuity
     test_mass_continuity.cpp
@@ -39,3 +43,4 @@ target_link_libraries(test_mass_continuity
 )
 
 add_test(NAME MassContinuityTest COMMAND test_mass_continuity)
+
