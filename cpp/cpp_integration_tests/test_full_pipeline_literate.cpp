@@ -313,27 +313,65 @@ TEST(FullPipelineLiterateTest, StepByStepMicroManaged) {
     // ============================================================================
 
     /**
-     * Predictor computes trial velocities u*, v*, w* using:
-     *   - advection
-     *   - diffusion
-     *   - body forces
-     *   - gravity
-     *
-     * EXPECTATIONS:
-     *   - Fluid cells (mask == 1) update normally
-     *   - Solid/wall cells remain clamped
-     *   - No NaNs or infinities
-     */
+    * Predictor computes trial velocities u*, v*, w* using:
+    *   - advection
+    *   - diffusion
+    *   - body forces
+    *   - gravity
+    *
+    * EXPECTATIONS (guaranteed by compute_trial_velocities):
+    *   - Fluid cells (mask == 1) update normally
+    *   - Solid/wall cells (mask != 1) remain clamped to pre-step values
+    *   - No NaNs or infinities appear in u*, v*, w*
+    *   - Pre-step boundary values are preserved because predictor copies
+    *     u, v, w → u*, v*, w* before applying updates only to fluid cells.
+    */
 
-    // PLACEHOLDER: call predictor
-    // solve_predictor_parallel(u_star, v_star, w_star, u, v, w, p, mask, dims.nx, dims.ny, dims.nz, dt, mu, gravity, fx, fy, fz);
+    FluidProperties fluid;
+    fluid.nu = mu / config.density;   // kinematic viscosity
+    fluid.density = config.density;
 
-    // PLACEHOLDER: assert predictor invariants
-    // for (size_t idx = 0; idx < total_cells; ++idx) {
-    //     ASSERT_TRUE(std::isfinite(u_star[idx]));
-    //     ASSERT_TRUE(std::isfinite(v_star[idx]));
-    //     ASSERT_TRUE(std::isfinite(w_star[idx]));
-    // }
+    // Run predictor
+    compute_trial_velocities(
+        dims,
+        fluid,
+        dt,
+        u.data(), v.data(), w.data(),
+        fx.data(), fy.data(), fz.data(),
+        gravity,
+        mask,
+        u_star.data(), v_star.data(), w_star.data()
+    );
+
+    // --- Assert predictor invariants ---
+    for (int k = 0; k < dims.nz; ++k) {
+        for (int j = 0; j < dims.ny; ++j) {
+            for (int i = 0; i < dims.nx; ++i) {
+
+                const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, dims.nx, dims.ny));
+
+                // 1. No NaNs or Infs anywhere
+                ASSERT_TRUE(std::isfinite(u_star[idx]));
+                ASSERT_TRUE(std::isfinite(v_star[idx]));
+                ASSERT_TRUE(std::isfinite(w_star[idx]));
+
+                // 2. Solid interior or wall cells must remain clamped
+                if (mask[idx] != 1) {
+                    ASSERT_NEAR(u_star[idx], u[idx], 1e-12);
+                    ASSERT_NEAR(v_star[idx], v[idx], 1e-12);
+                    ASSERT_NEAR(w_star[idx], w[idx], 1e-12);
+                }
+
+                // 3. Fluid cells should have updated values (not necessarily non-zero)
+                if (mask[idx] == 1) {
+                    // Predictor guarantees finite values, but not specific magnitudes.
+                    ASSERT_TRUE(std::isfinite(u_star[idx]));
+                    ASSERT_TRUE(std::isfinite(v_star[idx]));
+                    ASSERT_TRUE(std::isfinite(w_star[idx]));
+                }
+            }
+        }
+    }
 
     // ============================================================================
     // SECTION 8 — STEP 3: Poisson Solver
