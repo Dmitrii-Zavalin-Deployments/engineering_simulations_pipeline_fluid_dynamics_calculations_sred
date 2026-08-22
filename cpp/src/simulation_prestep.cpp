@@ -60,7 +60,6 @@ void execute_pre_step(
               << " | Grid: " << nx << "x" << ny << "x" << nz 
               << " | Active Threads: " << active_threads << "\n";
 
-    // Separate generic wall baseline definitions from explicit face boundary conditions
     std::vector<BoundaryCondition> wall_bc_list;
     std::vector<BoundaryCondition> face_bc_list;
 
@@ -72,7 +71,6 @@ void execute_pre_step(
         }
     }
 
-    // Fetch nearest interior neighbor cell index for zero-gradient Neumann extrapolation fallback
     auto get_interior_index = [&](int i, int j, int k) -> size_t {
         int ii = (i == 0) ? 1 : (i == nx - 1) ? nx - 2 : i;
         int jj = (j == 0) ? 1 : (j == ny - 1) ? ny - 2 : j;
@@ -80,7 +78,6 @@ void execute_pre_step(
         return static_cast<size_t>(get_flat_index(ii, jj, kk, nx, ny));
     };
 
-    // Flexible boundary condition application closure for collocated variables
     auto apply_bc = [&](const BoundaryCondition& bc, int i, int j, int k, size_t idx) {
         size_t int_idx = get_interior_index(i, j, k);
 
@@ -91,9 +88,33 @@ void execute_pre_step(
             if (bc.scalar_p != 0.0) p[idx] = bc.scalar_p;
         } 
         else if (bc.type == "free-slip") {
-            u[idx] = (i == 0 || i == nx - 1) ? 0.0 : ((bc.u_val != 0.0) ? bc.u_val : u[int_idx]);
-            v[idx] = (j == 0 || j == ny - 1) ? 0.0 : ((bc.v_val != 0.0) ? bc.v_val : v[int_idx]);
-            w[idx] = (k == 0 || k == nz - 1) ? 0.0 : ((bc.w_val != 0.0) ? bc.w_val : w[int_idx]);
+            double u_new = u[idx];
+            double v_new = v[idx];
+            double w_new = w[idx];
+
+            // Normal components: zero; tangential: zero-gradient or prescribed
+            if (i == 0 || i == nx - 1) {
+                u_new = 0.0;
+            } else {
+                u_new = (bc.u_val != 0.0) ? bc.u_val : u[int_idx];
+            }
+
+            if (j == 0 || j == ny - 1) {
+                v_new = 0.0;
+            } else {
+                v_new = (bc.v_val != 0.0) ? bc.v_val : v[int_idx];
+            }
+
+            if (k == 0 || k == nz - 1) {
+                w_new = 0.0;
+            } else {
+                w_new = (bc.w_val != 0.0) ? bc.w_val : w[int_idx];
+            }
+
+            u[idx] = u_new;
+            v[idx] = v_new;
+            w[idx] = w_new;
+
             if (bc.scalar_p != 0.0) p[idx] = bc.scalar_p;
         } 
         else if (bc.type == "inflow") {
@@ -105,14 +126,14 @@ void execute_pre_step(
             u[idx] = (bc.u_val != 0.0) ? bc.u_val : u[int_idx];
             v[idx] = (bc.v_val != 0.0) ? bc.v_val : v[int_idx];
             w[idx] = (bc.w_val != 0.0) ? bc.w_val : w[int_idx];
-            p[idx] = bc.scalar_p; // Outflow pressure back-reference
+            p[idx] = bc.scalar_p;
         }
         else if (bc.type == "pressure") {
             p[idx] = bc.scalar_p;
         }
     };
 
-    // Pass 1: Apply generic wall boundary conditions strictly to explicit wall cells (mask == -1)
+    // Pass 1: wall BCs only on explicit wall cells (mask == -1)
     for (const auto& bc : wall_bc_list) {
         #pragma omp parallel for collapse(3) schedule(static)
         for (int k = 0; k < nz; ++k) {
@@ -127,16 +148,21 @@ void execute_pre_step(
         }
     }
 
-    // Pass 2: Overwrite domain face boundary conditions with explicit conditions (x_min, x_max, etc.)
+    // Pass 2: face BCs, but do not overwrite explicit wall cells
     for (const auto& bc : face_bc_list) {
         #pragma omp parallel for collapse(3) schedule(static)
         for (int k = 0; k < nz; ++k) {
             for (int j = 0; j < ny; ++j) {
                 for (int i = 0; i < nx; ++i) {
-                    if (matches_location(i, j, k, nx, ny, nz, bc.location)) {
-                        size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
-                        apply_bc(bc, i, j, k, idx);
+                    if (!matches_location(i, j, k, nx, ny, nz, bc.location)) {
+                        continue;
                     }
+                    size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
+                    if (mask[idx] == -1) {
+                        // keep wall BC from first pass
+                        continue;
+                    }
+                    apply_bc(bc, i, j, k, idx);
                 }
             }
         }
@@ -144,3 +170,4 @@ void execute_pre_step(
 }
 
 } // namespace navier_stokes_solver
+

@@ -58,13 +58,12 @@ void NavierStokesOrchestrator::step(
     auto wall_start = std::chrono::high_resolution_clock::now();
     std::clock_t cpu_start = std::clock();
 
-    // 1. PRE-STEP / BOUNDARY CONDITIONS: Apply static Dirichlet velocity/pressure conditions 
-    // on walls (mask == -1) and solids (mask == 0) without resetting active fluid cell states (mask == 1).
+    // 1. PRE-STEP / BOUNDARY CONDITIONS
     auto t_pre = std::chrono::high_resolution_clock::now();
     execute_pre_step(u, v, w, p, mask, bc_list, dims_.nx, dims_.ny, dims_.nz);
     auto dur_pre = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - t_pre).count();
 
-    // 1.5. GHOST & BOUNDARY SYNCHRONIZATION: Sync buffers BEFORE predictor step to prevent uninitialized stencils
+    // 1.5. GHOST & BOUNDARY SYNCHRONIZATION
     auto t_sync1 = std::chrono::high_resolution_clock::now();
     sync_ghost_trial_buffers(
         u.data(), v.data(), w.data(), p.data(),
@@ -73,7 +72,7 @@ void NavierStokesOrchestrator::step(
     );
     auto dur_sync1 = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - t_sync1).count();
 
-    // 2. PREDICTOR STEP: Compute trial velocities (u*, v*, w*) for active fluid cells (mask == 1)
+    // 2. PREDICTOR STEP
     auto t_pred = std::chrono::high_resolution_clock::now();
     FluidProperties fluid{mu / config_.density, config_.density};
     compute_trial_velocities(
@@ -86,11 +85,9 @@ void NavierStokesOrchestrator::step(
     );
     auto dur_pred = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - t_pred).count();
 
-    // 3. RHIE-CHOW INTERPOLATION & PRESSURE POISSON STEP:
-    // Compute stabilized face velocities using p^n and evaluate mass conservation divergence for Poisson RHS.
+    // 3. RHIE-CHOW INTERPOLATION & PRESSURE POISSON STEP
     auto t_poisson = std::chrono::high_resolution_clock::now();
     
-    // Configure Rhie-Chow interpolator and approximate cell diagonal inertial coefficients (a_p ≈ rho / dt)
     RhieChowInterpolator::GridConfig rc_config{dims_.nx, dims_.ny, dims_.nz, dims_.dx, dims_.dy, dims_.dz, dt};
     std::vector<double> a_p(total_cells_, config_.density / dt);
 
@@ -98,7 +95,6 @@ void NavierStokesOrchestrator::step(
     std::vector<double> v_face(dims_.nx * (dims_.ny - 1) * dims_.nz, 0.0);
     std::vector<double> w_face(dims_.nx * dims_.ny * (dims_.nz - 1), 0.0);
 
-    // Initial Rhie-Chow face interpolation with un-updated pressure field p^n
     RhieChowInterpolator::interpolateFaceVelocities(
         u_star_, v_star_, w_star_, p, a_p, mask, rc_config, u_face, v_face, w_face
     );
@@ -111,8 +107,16 @@ void NavierStokesOrchestrator::step(
             for (int i = 0; i < dims_.nx; ++i) {
                 const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, dims_.nx, dims_.ny));
 
-                if (mask[idx] == 1 && i > 0 && i < dims_.nx - 1 && j > 0 && j < dims_.ny - 1 && k > 0 && k < dims_.nz - 1) {
-                    // Compute divergence from stabilized face velocities
+                if (mask[idx] != 1) {
+                    rhs_[idx] = 0.0;
+                    continue;
+                }
+
+                // Interior cells: central differences
+                if (i > 0 && i < dims_.nx - 1 &&
+                    j > 0 && j < dims_.ny - 1 &&
+                    k > 0 && k < dims_.nz - 1) {
+
                     const size_t idx_e_face = i + (dims_.nx - 1) * (j + dims_.ny * k);
                     const size_t idx_w_face = (i - 1) + (dims_.nx - 1) * (j + dims_.ny * k);
                     
@@ -127,14 +131,43 @@ void NavierStokesOrchestrator::step(
                     const double dwdz = (w_face[idx_t_face] - w_face[idx_b_face]) / dims_.dz;
 
                     rhs_[idx] = scale * (dudx + dvdy + dwdz);
-                } else {
-                    rhs_[idx] = 0.0;
+                }
+                // Boundary fluid cells: simple one-sided approximations
+                else {
+                    double dudx = 0.0;
+                    double dvdy = 0.0;
+                    double dwdz = 0.0;
+
+                    if (i == 0) {
+                        const size_t idx_e_face = i + (dims_.nx - 1) * (j + dims_.ny * k);
+                        dudx = u_face[idx_e_face] / dims_.dx;
+                    } else if (i == dims_.nx - 1) {
+                        const size_t idx_w_face = (i - 1) + (dims_.nx - 1) * (j + dims_.ny * k);
+                        dudx = -u_face[idx_w_face] / dims_.dx;
+                    }
+
+                    if (j == 0) {
+                        const size_t idx_n_face = i + dims_.nx * (j + (dims_.ny - 1) * k);
+                        dvdy = v_face[idx_n_face] / dims_.dy;
+                    } else if (j == dims_.ny - 1) {
+                        const size_t idx_s_face = i + dims_.nx * ((j - 1) + (dims_.ny - 1) * k);
+                        dvdy = -v_face[idx_s_face] / dims_.dy;
+                    }
+
+                    if (k == 0) {
+                        const size_t idx_t_face = i + dims_.nx * (j + dims_.ny * k);
+                        dwdz = w_face[idx_t_face] / dims_.dz;
+                    } else if (k == dims_.nz - 1) {
+                        const size_t idx_b_face = i + dims_.nx * (j + dims_.ny * (k - 1));
+                        dwdz = -w_face[idx_b_face] / dims_.dz;
+                    }
+
+                    rhs_[idx] = scale * (dudx + dvdy + dwdz);
                 }
             }
         }
     }
 
-    // Solve Pressure Poisson Equation to obtain updated pressure field p^{n+1}
     solve_poisson_red_black_parallel(
         p, rhs_, mask, bc_list,
         dims_.nx, dims_.ny, dims_.nz,
@@ -145,14 +178,13 @@ void NavierStokesOrchestrator::step(
         gravity
     );
 
-    // Re-evaluate face velocities with converged pressure field p^{n+1} to ensure temporal consistency
     RhieChowInterpolator::interpolateFaceVelocities(
         u_star_, v_star_, w_star_, p, a_p, mask, rc_config, u_face, v_face, w_face
     );
 
     auto dur_poisson = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - t_poisson).count();
 
-    // 4. CORRECTOR STEP: Project trial velocity to divergence-free velocity field u^{n+1}
+    // 4. CORRECTOR STEP
     auto t_corr = std::chrono::high_resolution_clock::now();
     solve_corrector_parallel(
         u, v, w,
@@ -164,7 +196,7 @@ void NavierStokesOrchestrator::step(
     );
     auto dur_corr = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - t_corr).count();
 
-    // 5. FINAL BUFFER SYNCHRONIZATION: Sync ghost/boundary memory regions across buffers for state continuity
+    // 5. FINAL BUFFER SYNCHRONIZATION
     auto t_sync2 = std::chrono::high_resolution_clock::now();
     sync_ghost_trial_buffers(
         u.data(), v.data(), w.data(), p.data(),
@@ -173,7 +205,6 @@ void NavierStokesOrchestrator::step(
     );
     auto dur_sync2 = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - t_sync2).count();
 
-    // Finalize performance and CPU utilization metrics
     auto wall_end = std::chrono::high_resolution_clock::now();
     std::clock_t cpu_end = std::clock();
 
@@ -195,3 +226,4 @@ void NavierStokesOrchestrator::step(
 }
 
 } // namespace navier_stokes_solver
+

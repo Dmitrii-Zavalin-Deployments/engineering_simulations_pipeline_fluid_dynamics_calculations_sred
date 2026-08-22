@@ -39,6 +39,10 @@ public:
         int ny = state.attr("ny").cast<int>();
         int nz = state.attr("nz").cast<int>();
 
+        if (nx < 2 || ny < 2 || nz < 2) {
+            throw std::invalid_argument("GEOMETRY ERROR: nx, ny, nz must be at least 2 for node-based spacing.");
+        }
+
         double x_min = state.attr("x_min").cast<double>();
         double x_max = state.attr("x_max").cast<double>();
         double y_min = state.attr("y_min").cast<double>();
@@ -46,15 +50,23 @@ public:
         double z_min = state.attr("z_min").cast<double>();
         double z_max = state.attr("z_max").cast<double>();
 
-        double dx = (x_max - x_min) / static_cast<double>(nx);
-        double dy = (y_max - y_min) / static_cast<double>(ny);
-        double dz = (z_max - z_min) / static_cast<double>(nz);
+        // Node-based grid: spacing uses (N - 1)
+        double dx = (x_max - x_min) / static_cast<double>(nx - 1);
+        double dy = (y_max - y_min) / static_cast<double>(ny - 1);
+        double dz = (z_max - z_min) / static_cast<double>(nz - 1);
+
+        if (dx <= 0.0 || dy <= 0.0 || dz <= 0.0 || !std::isfinite(dx) || !std::isfinite(dy) || !std::isfinite(dz)) {
+            throw std::invalid_argument("GEOMETRY ERROR: Computed grid spacing (dx, dy, dz) must be positive and finite.");
+        }
 
         dims_ = {nx, ny, nz, dx, dy, dz};
 
         // 2. Extract Fluid Properties & Solver Configuration
         py::dict fluid_props = state.attr("fluid_properties");
         double density = fluid_props["density"].cast<double>();
+        if (density <= 0.0 || !std::isfinite(density)) {
+            throw std::invalid_argument("PHYSICS ERROR: Fluid density must be strictly positive and finite.");
+        }
 
         py::dict config = state.attr("config");
         size_t max_poisson_iters = config["max_poisson_iterations"].cast<size_t>();
@@ -101,9 +113,15 @@ public:
 
         // 5. Extract Simulation Parameters & Fluid Viscosity
         double dt = state.attr("dt").cast<double>();
+        if (dt <= 0.0 || !std::isfinite(dt)) {
+            throw std::invalid_argument("TEMPORAL ERROR: Time step dt must be strictly positive and finite.");
+        }
 
         py::dict fluid_props = state.attr("fluid_properties");
         double mu = fluid_props["viscosity"].cast<double>();
+        if (mu < 0.0 || !std::isfinite(mu)) {
+            throw std::invalid_argument("PHYSICS ERROR: Dynamic viscosity mu cannot be negative and must be finite.");
+        }
 
         // 6. Extract External Forces & 3D Gravity Vector Symmetrically
         py::dict ext_forces = state.attr("external_forces");
@@ -254,3 +272,4 @@ PYBIND11_MODULE(navier_stokes_cpp, m) {
         .def("step", &PythonSolverBridge::step, py::arg("state"), "Advance the Navier-Stokes system by one time-step using state container references.")
         .def("sync_fields", &PythonSolverBridge::sync_fields, py::arg("state"), "Synchronize persistent C++ solution fields directly back into Python state memory.");
 }
+

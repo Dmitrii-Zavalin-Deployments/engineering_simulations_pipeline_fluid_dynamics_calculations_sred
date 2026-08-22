@@ -335,3 +335,4 @@ void solve_poisson_red_black_parallel(
 }
 
 } // namespace navier_stokes_solver
+

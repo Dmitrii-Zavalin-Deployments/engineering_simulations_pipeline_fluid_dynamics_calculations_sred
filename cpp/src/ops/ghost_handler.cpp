@@ -44,3 +44,4 @@ void sync_ghost_trial_buffers(
 }
 
 } // namespace navier_stokes_solver
+

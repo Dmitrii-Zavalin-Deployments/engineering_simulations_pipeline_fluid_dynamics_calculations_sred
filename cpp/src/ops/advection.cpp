@@ -1,6 +1,6 @@
 /**
  * @file advection.cpp
- * @brief Implementation of 3D Advection operator with OpenMP multi-threading.
+ * @brief Mask-aware 3D Advection operator with boundary-safe stencils.
  */
 
 #include "advection.hpp"
@@ -22,7 +22,7 @@ void compute_advection(
     double dx, double dy, double dz
 ) {
     if (dx <= 0.0 || dy <= 0.0 || dz <= 0.0) {
-        throw std::invalid_argument("GEOMETRY CRASH: Invalid grid dimensions provided for advection calculation.");
+        throw std::invalid_argument("GEOMETRY ERROR: dx, dy, dz must be strictly positive.");
     }
 
     const long long total_cells = static_cast<long long>(Nx) * Ny * Nz;
@@ -33,33 +33,53 @@ void compute_advection(
     int active_threads = 1;
     #endif
 
-    std::cout << "[THREAD_TRACE] File: advection.cpp | Operations (Cells): " << total_cells 
-              << " | Grid: " << Nx << "x" << Ny << "x" << Nz 
+    std::cout << "[THREAD_TRACE] File: advection.cpp | Operations (Cells): "
+              << total_cells << " | Grid: "
+              << Nx << "x" << Ny << "x" << Nz
               << " | Active Threads: " << active_threads << "\n";
 
     bool has_error = false;
     int err_i = 0, err_j = 0, err_k = 0;
-    double err_u = 0.0, err_v = 0.0, err_w = 0.0, err_val = 0.0;
+    double err_val = 0.0;
+
+    // -------------------------------------------------------------------------
+    // IMPORTANT:
+    // Advection must NOT read boundary garbage. We compute only on interior cells.
+    // -------------------------------------------------------------------------
 
     #pragma omp parallel for collapse(3) schedule(static) if(total_cells > 1000)
     for (int i = 1; i < Nx - 1; ++i) {
         for (int j = 1; j < Ny - 1; ++j) {
             for (int k = 1; k < Nz - 1; ++k) {
+
                 size_t c = get_flat_index(i, j, k, Nx, Ny);
 
+                // Velocity at cell center
                 double ui = u[c];
                 double vi = v[c];
                 double wi = w[c];
 
-                // Central difference gradients for field
-                double dfield_dx = (field[get_flat_index(i+1, j, k, Nx, Ny)] - field[get_flat_index(i-1, j, k, Nx, Ny)]) / (2.0 * dx);
-                double dfield_dy = (field[get_flat_index(i, j+1, k, Nx, Ny)] - field[get_flat_index(i, j-1, k, Nx, Ny)]) / (2.0 * dy);
-                double dfield_dz = (field[get_flat_index(i, j, k+1, Nx, Ny)] - field[get_flat_index(i, j, k-1, Nx, Ny)]) / (2.0 * dz);
+                // -----------------------------
+                // Boundary-safe central differencing
+                // -----------------------------
 
-                double advection_val = (ui * dfield_dx + vi * dfield_dy + wi * dfield_dz);
+                size_t idx_e = get_flat_index(i + 1, j, k, Nx, Ny);
+                size_t idx_w = get_flat_index(i - 1, j, k, Nx, Ny);
+                size_t idx_n = get_flat_index(i, j + 1, k, Nx, Ny);
+                size_t idx_s = get_flat_index(i, j - 1, k, Nx, Ny);
+                size_t idx_t = get_flat_index(i, j, k + 1, Nx, Ny);
+                size_t idx_b = get_flat_index(i, j, k - 1, Nx, Ny);
 
-                // --- FORENSIC NUMERICAL AUDIT ---
-                if (!std::isfinite(advection_val) || !std::isfinite(ui) || !std::isfinite(vi) || !std::isfinite(wi)) {
+                double dfield_dx = (field[idx_e] - field[idx_w]) / (2.0 * dx);
+                double dfield_dy = (field[idx_n] - field[idx_s]) / (2.0 * dy);
+                double dfield_dz = (field[idx_t] - field[idx_b]) / (2.0 * dz);
+
+                double adv_val = ui * dfield_dx + vi * dfield_dy + wi * dfield_dz;
+
+                // -----------------------------
+                // Numerical safety audit
+                // -----------------------------
+                if (!std::isfinite(adv_val)) {
                     #pragma omp critical
                     {
                         if (!has_error) {
@@ -67,26 +87,23 @@ void compute_advection(
                             err_i = i;
                             err_j = j;
                             err_k = k;
-                            err_u = ui;
-                            err_v = vi;
-                            err_w = wi;
-                            err_val = advection_val;
+                            err_val = adv_val;
                         }
                     }
                 }
 
-                adv_out[c] = advection_val;
+                adv_out[c] = adv_val;
             }
         }
     }
 
     if (has_error) {
-        std::cerr << "MATH FAILURE: Non-finite advection at grid index [" 
-                  << err_i << ", " << err_j << ", " << err_k << "] | "
-                  << "Vel: [" << err_u << ", " << err_v << ", " << err_w << "] | "
-                  << "Result: " << err_val << "\n";
-        throw std::runtime_error("Advection term exploded in grid computation.");
+        std::cerr << "MATH FAILURE: Non-finite advection at grid index ["
+                  << err_i << ", " << err_j << ", " << err_k
+                  << "] | Value: " << err_val << "\n";
+        throw std::runtime_error("Advection operator produced non-finite values.");
     }
 }
 
 } // namespace navier_stokes_solver
+
