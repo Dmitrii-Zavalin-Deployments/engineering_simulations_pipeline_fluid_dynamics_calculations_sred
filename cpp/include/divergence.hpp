@@ -4,12 +4,12 @@
  *        Pressure Poisson Equation (PPE).
  *
  *        Computes:
- *            ∇·v* = ∂u*/∂x + ∂v*/∂y + ∂w*/∂z
+ *            div(v_star) = ∂u* /∂x + ∂v* /∂y + ∂w* /∂z
  *
  *        Implementation (in .cpp) guarantees:
  *          - Interior central differencing
- *          - Boundary‑safe stencil handling
- *          - Finite‑number auditing
+ *          - Boundary-safe stencil handling
+ *          - Finite-number auditing
  */
 
 #ifndef DIVERGENCE_HPP
@@ -21,17 +21,17 @@
 namespace navier_stokes_solver {
 
 /**
- * @brief Computes the scalar divergence field (∇·v*) for the PPE.
+ * @brief Computes the scalar divergence field (div(v_star)) for the PPE.
  *
- * @param u_star   Predictor x‑velocity
- * @param v_star   Predictor y‑velocity
- * @param w_star   Predictor z‑velocity
+ * @param u_star   Predictor x-velocity
+ * @param v_star   Predictor y-velocity
+ * @param w_star   Predictor z-velocity
  * @param div_out  Output divergence field
  * @param Nx,Ny,Nz Grid resolution
  * @param dx,dy,dz Grid spacing
  *
  * Notes:
- *   - Operates on interior cells (1 … Nx‑2, etc.)
+ *   - Operates on interior cells (1 … Nx-2, etc.)
  *   - Boundary safety is handled inside the .cpp implementation
  *   - No mask is required here; upstream modules guarantee valid boundary states
  */
