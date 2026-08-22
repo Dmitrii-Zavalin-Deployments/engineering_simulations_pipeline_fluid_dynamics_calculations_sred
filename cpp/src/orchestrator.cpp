@@ -100,7 +100,7 @@ void NavierStokesOrchestrator::step(
 
     // Initial Rhie-Chow face interpolation with un-updated pressure field p^n
     RhieChowInterpolator::interpolateFaceVelocities(
-        u_star_, v_star_, w_star_, p, a_p, rc_config, u_face, v_face, w_face
+        u_star_, v_star_, w_star_, p, a_p, mask, rc_config, u_face, v_face, w_face
     );
 
     const double scale = config_.density / dt;
@@ -147,7 +147,7 @@ void NavierStokesOrchestrator::step(
 
     // Re-evaluate face velocities with converged pressure field p^{n+1} to ensure temporal consistency
     RhieChowInterpolator::interpolateFaceVelocities(
-        u_star_, v_star_, w_star_, p, a_p, rc_config, u_face, v_face, w_face
+        u_star_, v_star_, w_star_, p, a_p, mask, rc_config, u_face, v_face, w_face
     );
 
     auto dur_poisson = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - t_poisson).count();
