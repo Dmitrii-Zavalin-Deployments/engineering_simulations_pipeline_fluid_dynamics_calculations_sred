@@ -58,7 +58,8 @@ void NavierStokesOrchestrator::step(
     auto wall_start = std::chrono::high_resolution_clock::now();
     std::clock_t cpu_start = std::clock();
 
-    // 1. PRE-STEP: Apply static Dirichlet velocity/pressure conditions on walls (mask == -1) and solids (mask == 0)
+    // 1. PRE-STEP / BOUNDARY CONDITIONS: Apply static Dirichlet velocity/pressure conditions 
+    // on walls (mask == -1) and solids (mask == 0) without resetting active fluid cell states (mask == 1).
     auto t_pre = std::chrono::high_resolution_clock::now();
     execute_pre_step(u, v, w, p, mask, bc_list, dims_.nx, dims_.ny, dims_.nz);
     auto dur_pre = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - t_pre).count();
