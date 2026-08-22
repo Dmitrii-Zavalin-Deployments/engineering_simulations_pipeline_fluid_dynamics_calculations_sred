@@ -1,9 +1,6 @@
 cmake_minimum_required(VERSION 3.14)
 project(NavierStokesIntegrationTests)
 
-# Force the debug snapshot macro definition globally for test compilation units
-add_definitions(-DNAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS)
-
 find_package(GTest REQUIRED)
 find_package(Threads REQUIRED)
 find_package(nlohmann_json REQUIRED)
@@ -12,16 +9,31 @@ find_package(OpenMP REQUIRED)
 file(COPY data DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
 # ---------------------------------------------------------------------------
+# Core Navier-Stokes Library Target (Ensuring ABI & Macro Consistency)
+# ---------------------------------------------------------------------------
+
+file(GLOB_RECURSE CORE_SOURCES "../src/*.cpp")
+
+add_library(navier_stokes_core STATIC ${CORE_SOURCES})
+
+target_include_directories(navier_stokes_core PUBLIC ../include)
+
+# Propagate debug snapshot macros PUBLICLY so library and tests share identical object layout
+target_compile_definitions(navier_stokes_core PUBLIC
+    NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS
+)
+
+target_link_libraries(navier_stokes_core
+    PRIVATE
+        OpenMP::OpenMP_CXX
+)
+
+# ---------------------------------------------------------------------------
 # Full Pipeline Literate Integration Test
 # ---------------------------------------------------------------------------
 
 add_executable(test_full_pipeline_literate
     test_full_pipeline_literate.cpp
-)
-
-target_compile_definitions(test_full_pipeline_literate
-    PRIVATE
-        NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS
 )
 
 target_link_libraries(test_full_pipeline_literate
