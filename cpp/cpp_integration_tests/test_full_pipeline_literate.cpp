@@ -230,7 +230,7 @@ TEST(FullPipelineLiterateTest, StepByStepMicroManaged) {
     std::vector<double> fz = {0.0, 0.0, 0.0};
 
     // ============================================================================
-    // SECTION 5 — Instantiate Orchestrator
+    // SECTION 5 — Instantiate Orchestrator & Execute Full Pipeline
     // ============================================================================
 
     /**
@@ -239,19 +239,32 @@ TEST(FullPipelineLiterateTest, StepByStepMicroManaged) {
     *   - solver configuration (Poisson iterations, tolerance, density)
     *   - internal working buffers (u_star, v_star, w_star, rhs)
     *
-    * This constructor does NOT perform any physics.
-    * It only allocates persistent buffers sized to total_cells.
+    * In test builds (NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS enabled),
+    * orchestrator.step() records a snapshot after each internal stage:
     *
-    * In test builds (when NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS is enabled),
-    * the orchestrator will also record internal snapshots during step() so that
-    * the literate test can compare manual stage-by-stage results with the actual
-    * orchestrator pipeline. This has no effect in production builds.
+    *   1. pre_step
+    *   2. ghost_sync_1
+    *   3. predictor
+    *   4. rhie_chow
+    *   5. rhs_assembly
+    *   6. poisson
+    *   7. corrector
+    *   8. ghost_sync_2
     *
-    * No assertions are needed here — correctness is validated in subsequent
-    * solver stages (pre-step, predictor, PPE, corrector, ghost sync).
+    * We call orchestrator.step() ONCE here, and all subsequent sections
+    * (6–10) will assert correctness using these snapshots.
     */
 
     NavierStokesOrchestrator orchestrator(dims, config);
+
+    // Execute the full solver pipeline once
+    orchestrator.step(dt, mu, gravity, fx, fy, fz, mask, bc_list, u, v, w, p);
+
+    // Retrieve all snapshots for later sections
+    const auto& snapshots = orchestrator.get_debug_snapshots();
+
+    // Ensure snapshots exist
+    ASSERT_FALSE(snapshots.empty());
 
     // ============================================================================
     // SECTION 6 — STEP 1: Pre-Step
