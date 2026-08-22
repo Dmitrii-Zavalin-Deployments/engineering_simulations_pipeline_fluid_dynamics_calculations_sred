@@ -41,11 +41,11 @@
  * after each stage.
  */
 
+#define NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS
 #include <gtest/gtest.h>
 #include <vector>
 #include <cmath>
 #include <iostream>
-
 #include "orchestrator.hpp"
 #include "grid_math.hpp"
 #include "boundary_condition.hpp"
