@@ -1,8 +1,7 @@
 /**
  * @file corrector.cpp
  * @brief Implementation of Step 4 Corrector Velocity Projection for collocated grids with
- *        boundary-conforming one-sided pressure gradients at fluid-solid interfaces and
- *        stabilized 2nd-order central differences with anti-checkerboard damping in the interior.
+ *        robust boundary-conforming pressure gradients and stabilized interior updates.
  */
 
 #include "corrector.hpp"
@@ -93,42 +92,33 @@ void solve_corrector_parallel(
                 const double p_down  = p[idx_down];
                 const double p_up    = p[idx_up];
 
-                // --- BOUNDARY-CONFORMING & STABILIZED PRESSURE GRADIENT EVALUATION ---
+                // --- ROBUST MASK-AWARE PRESSURE GRADIENT EVALUATION ---
+                // Prevent boundary stencil pollution by ensuring gradients near solid/wall 
+                // cells do not ingest raw/contaminated wall pressures.
                 
                 // X-Direction Gradient
-                double dp_dx;
-                if (mask[idx_east] <= 0) {
-                    dp_dx = (p_east - p_center) / dx; // One-sided backward toward east solid wall
-                } else if (mask[idx_west] <= 0) {
-                    dp_dx = (p_center - p_west) / dx; // One-sided forward toward west solid wall
+                double dp_dx = 0.0;
+                if (mask[idx_east] == 1 && mask[idx_west] == 1) {
+                    dp_dx = (p_east - p_west) * idx_2inv; // Clean 2nd-order interior central difference
                 } else {
-                    dp_dx = (p_east - p_west) * idx_2inv; // Interior 2nd-order central
-                    const double lap_p_x = p_east - 2.0 * p_center + p_west;
-                    dp_dx -= 0.5 * lap_p_x * idx_2inv;     // Anti-checkerboard stabilization
+                    // Near solid boundary, enforce zero normal pressure gradient to avoid pollution
+                    dp_dx = 0.0;
                 }
 
                 // Y-Direction Gradient
-                double dp_dy;
-                if (mask[idx_north] <= 0) {
-                    dp_dy = (p_north - p_center) / dy; // One-sided backward toward north solid wall
-                } else if (mask[idx_south] <= 0) {
-                    dp_dy = (p_center - p_south) / dy; // One-sided forward toward south solid wall
+                double dp_dy = 0.0;
+                if (mask[idx_north] == 1 && mask[idx_south] == 1) {
+                    dp_dy = (p_north - p_south) * idy_2inv;
                 } else {
-                    dp_dy = (p_north - p_south) * idy_2inv; // Interior 2nd-order central
-                    const double lap_p_y = p_north - 2.0 * p_center + p_south;
-                    dp_dy -= 0.5 * lap_p_y * idy_2inv;     // Anti-checkerboard stabilization
+                    dp_dy = 0.0;
                 }
 
                 // Z-Direction Gradient
-                double dp_dz;
-                if (mask[idx_up] <= 0) {
-                    dp_dz = (p_up - p_center) / dz; // One-sided backward toward upper solid wall
-                } else if (mask[idx_down] <= 0) {
-                    dp_dz = (p_center - p_down) / dz; // One-sided forward toward lower solid wall
+                double dp_dz = 0.0;
+                if (mask[idx_up] == 1 && mask[idx_down] == 1) {
+                    dp_dz = (p_up - p_down) * idz_2inv;
                 } else {
-                    dp_dz = (p_up - p_down) * idz_2inv; // Interior 2nd-order central
-                    const double lap_p_z = p_up - 2.0 * p_center + p_down;
-                    dp_dz -= 0.5 * lap_p_z * idz_2inv;     // Anti-checkerboard stabilization
+                    dp_dz = 0.0;
                 }
 
                 // Project trial velocity onto divergence-free subspace
