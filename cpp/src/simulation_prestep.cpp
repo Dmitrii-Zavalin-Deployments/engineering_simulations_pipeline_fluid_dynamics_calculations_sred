@@ -82,10 +82,10 @@ void execute_pre_step(
         size_t int_idx = get_interior_index(i, j, k);
 
         if (bc.type == "no-slip") {
-            u[idx] = bc.u_val;
-            v[idx] = bc.v_val;
-            w[idx] = bc.w_val;
-            if (bc.scalar_p != 0.0) p[idx] = bc.scalar_p;
+            u[idx] = bc.values.u;
+            v[idx] = bc.values.v;
+            w[idx] = bc.values.w;
+            if (bc.values.p != 0.0) p[idx] = bc.values.p;
         } 
         else if (bc.type == "free-slip") {
             double u_new = u[idx];
@@ -96,40 +96,40 @@ void execute_pre_step(
             if (i == 0 || i == nx - 1) {
                 u_new = 0.0;
             } else {
-                u_new = (bc.u_val != 0.0) ? bc.u_val : u[int_idx];
+                u_new = (bc.values.u != 0.0) ? bc.values.u : u[int_idx];
             }
 
             if (j == 0 || j == ny - 1) {
                 v_new = 0.0;
             } else {
-                v_new = (bc.v_val != 0.0) ? bc.v_val : v[int_idx];
+                v_new = (bc.values.v != 0.0) ? bc.values.v : v[int_idx];
             }
 
             if (k == 0 || k == nz - 1) {
                 w_new = 0.0;
             } else {
-                w_new = (bc.w_val != 0.0) ? bc.w_val : w[int_idx];
+                w_new = (bc.values.w != 0.0) ? bc.values.w : w[int_idx];
             }
 
             u[idx] = u_new;
             v[idx] = v_new;
             w[idx] = w_new;
 
-            if (bc.scalar_p != 0.0) p[idx] = bc.scalar_p;
+            if (bc.values.p != 0.0) p[idx] = bc.values.p;
         } 
         else if (bc.type == "inflow") {
-            u[idx] = bc.u_val;
-            v[idx] = bc.v_val;
-            w[idx] = bc.w_val;
+            u[idx] = bc.values.u;
+            v[idx] = bc.values.v;
+            w[idx] = bc.values.w;
         }
         else if (bc.type == "outflow") {
-            u[idx] = (bc.u_val != 0.0) ? bc.u_val : u[int_idx];
-            v[idx] = (bc.v_val != 0.0) ? bc.v_val : v[int_idx];
-            w[idx] = (bc.w_val != 0.0) ? bc.w_val : w[int_idx];
-            p[idx] = bc.scalar_p;
+            u[idx] = (bc.values.u != 0.0) ? bc.values.u : u[int_idx];
+            v[idx] = (bc.values.v != 0.0) ? bc.values.v : v[int_idx];
+            w[idx] = (bc.values.w != 0.0) ? bc.values.w : w[int_idx];
+            p[idx] = bc.values.p;
         }
         else if (bc.type == "pressure") {
-            p[idx] = bc.scalar_p;
+            p[idx] = bc.values.p;
         }
     };
 
