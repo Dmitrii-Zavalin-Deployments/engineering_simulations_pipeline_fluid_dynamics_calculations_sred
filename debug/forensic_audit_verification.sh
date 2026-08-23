@@ -1,26 +1,48 @@
 #!/bin/bash
 set -euo pipefail
 
-echo "📌 1. Inspecting member declarations in cpp/include/orchestrator.hpp..."
+echo "📌 0. Dynamically locating repository source files..."
+ORCHESTRATOR_HPP=$(find . -name "orchestrator.hpp" -type f 2>/dev/null | head -n 1)
+ORCHESTRATOR_CPP=$(find . -name "orchestrator.cpp" -type f 2>/dev/null | head -n 1)
+TARGET_TEST=$(find . -name "test_mass_continuity.cpp" -type f 2>/dev/null | head -n 1)
+
+if [ -z "$ORCHESTRATOR_HPP" ]; then
+    echo "❌ Error: Could not locate orchestrator.hpp"
+    exit 1
+fi
+if [ -z "$ORCHESTRATOR_CPP" ]; then
+    echo "❌ Error: Could not locate orchestrator.cpp"
+    exit 1
+fi
+if [ -z "$TARGET_TEST" ]; then
+    echo "❌ Error: Could not locate test_mass_continuity.cpp"
+    exit 1
+fi
+
+echo "  -> Found orchestrator.hpp at: $ORCHESTRATOR_HPP"
+echo "  -> Found orchestrator.cpp at: $ORCHESTRATOR_CPP"
+echo "  -> Found test_mass_continuity.cpp at: $TARGET_TEST"
+
+echo "📌 1. Inspecting member declarations in $ORCHESTRATOR_HPP..."
 python3 -c '
-with open("cpp/include/orchestrator.hpp", "r") as f:
+import sys
+with open(sys.argv[1], "r") as f:
     content = f.read()
 print("--- Header Member Variables ---")
 for line in content.splitlines():
     if ";" in line and ("_" in line or "Config" in line or "Dimensions" in line):
         print("  ", line.strip())
-'
+' "$ORCHESTRATOR_HPP"
 
-echo "📌 2. Inspecting constructor implementation around line 56 in cpp/src/orchestrator.cpp..."
+echo "📌 2. Inspecting constructor implementation around line 56 in $ORCHESTRATOR_CPP..."
 python3 -c '
-with open("cpp/src/orchestrator.cpp", "r") as f:
+import sys
+with open(sys.argv[1], "r") as f:
     lines = f.readlines()
     print("--- orchestrator.cpp (Lines 40 to 70) ---")
     for i in range(39, min(70, len(lines))):
         print(f"{i+1}: {lines[i].strip()}")
-'
-
-TARGET_TEST="cpp/cpp_integration_tests/test_mass_continuity.cpp"
+' "$ORCHESTRATOR_CPP"
 
 echo "📌 3. Writing clean heap-allocated version of $TARGET_TEST..."
 cat << 'EOF' > "$TARGET_TEST"
