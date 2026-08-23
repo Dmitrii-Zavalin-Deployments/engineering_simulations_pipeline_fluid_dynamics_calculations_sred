@@ -3,7 +3,7 @@ set -euo pipefail
 
 TARGET_FILE="cpp/cpp_integration_tests/test_mass_continuity.cpp"
 
-echo "📌 1. Rewriting $TARGET_FILE with clean divergence loop..."
+echo "📌 1. Rewriting $TARGET_FILE with heap-allocated orchestrator..."
 
 cat << 'CPP_EOF' > "$TARGET_FILE"
 /**
@@ -16,6 +16,7 @@ cat << 'CPP_EOF' > "$TARGET_FILE"
 #include "orchestrator.hpp"
 #include "grid_math.hpp"
 #include <vector>
+#include <memory>
 #include <cmath>
 #include <numeric>
 #include <cstdint>
@@ -76,12 +77,13 @@ protected:
 TEST_F(MassContinuityIntegrationTest, EnforcesZeroDivergenceInFluidDomain) {
     std::cout << "[debug] MassContinuityIntegrationTest starting\n";
 
-    NavierStokesOrchestrator orchestrator(dims_, config_);
+    // Heap-allocate orchestrator to prevent stack frame overflow
+    auto orchestrator = std::make_unique<NavierStokesOrchestrator>(dims_, config_);
 
     const double dt = 0.001;
     const double mu = 0.01;
 
-    orchestrator.step(dt, mu, gravity_, fx_, fy_, fz_, mask_, bc_list_, u_, v_, w_, p_);
+    orchestrator->step(dt, mu, gravity_, fx_, fy_, fz_, mask_, bc_list_, u_, v_, w_, p_);
 
     double max_divergence = 0.0;
     double total_divergence = 0.0;
