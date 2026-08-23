@@ -1,77 +1,131 @@
 #!/usr/bin/env bash
 # src/debug/forensic_audit.sh
-# Forensic diagnostic and automated repair script for CTest/GoogleTest stack smashing crashes.
+# Post-test forensic audit for MassContinuityTest stack smashing in GitHub Actions
 
 set -euo pipefail
 
-echo "================================================================="
-echo " FORENSIC AUDIT: STACK SMASHING & BUFFER OVERFLOW DIAGNOSTICS"
-echo "================================================================="
+echo "[forensic] starting forensic_audit.sh"
 
-# -----------------------------------------------------------------------------
-# 1. DIAGNOSTICS: GREP & ROOT CAUSE SEARCH
-# -----------------------------------------------------------------------------
-echo -e "\n[+] Audit Step 1: Searching for stack-allocated raw buffers (primary cause of stack smashing)..."
-grep -rnE "double\s+[a-zA-Z0-9_]+\s*\[" tests/ cpp/ tests/ 2>/dev/null || true
-grep -rnE "float\s+[a-zA-Z0-9_]+\s*\[" tests/ cpp/ tests/ 2>/dev/null || true
-grep -rnE "int\s+[a-zA-Z0-9_]+\s*\[" tests/ cpp/ tests/ 2>/dev/null || true
+ROOT_DIR="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+BUILD_DIR="${ROOT_DIR}/build"
+LOG_DIR="${ROOT_DIR}/src/debug/logs"
+mkdir -p "${LOG_DIR}"
 
-echo -e "\n[+] Audit Step 2: Locating MassContinuity test implementation files..."
-MASS_TEST_FILE=$(find . -type f \( -name "*mass_continuity*.cpp" -o -name "*MassContinuity*.cpp" \) | head -n 1)
+CTEST_LOG="${LOG_DIR}/ctest_full.log"
+GTEST_LOG="${LOG_DIR}/gtest_mass_continuity.log"
 
-if [ -z "${MASS_TEST_FILE}" ]; then
-    echo "[-] WARNING: MassContinuity test file not found in standard paths. Searching all test files..."
-    MASS_TEST_FILE=$(grep -rl "EnforcesZeroDivergenceInFluidDomain" . | head -n 1)
-fi
+echo "[forensic] root: ${ROOT_DIR}"
+echo "[forensic] build: ${BUILD_DIR}"
+echo "[forensic] logs: ${LOG_DIR}"
 
-echo "--> Target Test File: ${MASS_TEST_FILE}"
-
-echo -e "\n[+] Audit Step 3: Checking for grid dimension arithmetic vs allocation size mismatches..."
-grep -rnC 5 "EnforcesZeroDivergenceInFluidDomain" . 2>/dev/null || true
-
-# -----------------------------------------------------------------------------
-# 2. SMOKING-GUN SOURCE AUDITS (cat -n)
-# -----------------------------------------------------------------------------
-echo -e "\n[+] Audit Step 4: Printing source code with line numbers for smoking-gun analysis..."
-if [ -n "${MASS_TEST_FILE}" ] && [ -f "${MASS_TEST_FILE}" ]; then
-    echo "================================================================="
-    echo " SOURCE CODE: ${MASS_TEST_FILE}"
-    echo "================================================================="
-    cat -n "${MASS_TEST_FILE}"
+# 1) Capture raw CTest output (if available)
+echo "[forensic] capturing CTest output (if any)"
+if [ -f "${BUILD_DIR}/Testing/Temporary/LastTest.log" ]; then
+  cp "${BUILD_DIR}/Testing/Temporary/LastTest.log" "${CTEST_LOG}"
+  echo "[forensic] saved LastTest.log -> ${CTEST_LOG}"
 else
-    echo "[-] ERROR: Could not locate MassContinuity test source for printing."
+  echo "[forensic] no LastTest.log found in ${BUILD_DIR}/Testing/Temporary" | tee "${CTEST_LOG}"
 fi
 
-echo -e "\n[+] Audit Step 5: Printing grid math flat index helper header for bounds verification..."
-GRID_MATH_HEADER=$(find . -type f -name "grid_math.hpp" | head -n 1)
-if [ -n "${GRID_MATH_HEADER}" ] && [ -f "${GRID_MATH_HEADER}" ]; then
-    echo "================================================================="
-    echo " SOURCE CODE: ${GRID_MATH_HEADER}"
-    echo "================================================================="
-    cat -n "${GRID_MATH_HEADER}"
+# 2) Extract MassContinuityTest section + stack smashing lines
+echo "[forensic] extracting MassContinuityTest diagnostics"
+grep -n -E "MassContinuityTest|MassContinuityIntegrationTest|stack smashing detected|Subprocess aborted" "${CTEST_LOG}" || true
+
+# 3) Run MassContinuityTest directly with verbose output (if binary exists)
+MASS_BIN="${BUILD_DIR}/test_mass_continuity"
+if [ -x "${MASS_BIN}" ]; then
+  echo "[forensic] re-running ${MASS_BIN} with --gtest_filter and --gtest_break_on_failure"
+  set +e
+  "${MASS_BIN}" \
+    --gtest_filter=MassContinuityIntegrationTest.EnforcesZeroDivergenceInFluidDomain \
+    --gtest_repeat=1 \
+    --gtest_break_on_failure \
+    --gtest_print_time \
+    2>&1 | tee "${GTEST_LOG}"
+  MASS_EXIT=$?
+  set -e
+  echo "[forensic] MassContinuityIntegrationTest exit code: ${MASS_EXIT}"
+else
+  echo "[forensic] binary not found: ${MASS_BIN}"
 fi
 
-# -----------------------------------------------------------------------------
-# 3. SED INJECTIONS FOR AUTOMATED REPAIRS (# prepended to each sed command)
-# -----------------------------------------------------------------------------
-echo -e "\n[+] Audit Step 6: Prepared Automated Repair Commands (Uncomment in script to apply)"
+# 4) Search for typical stack-smashing root causes in source tree
+echo "[forensic] scanning source for potential stack-smashing patterns"
+SRC_DIR="${ROOT_DIR}/src"
+TEST_DIR="${ROOT_DIR}/tests"
 
-# Repair Strategy A: Convert stack-allocated double arrays to dynamic std::vector allocations
-# # sed -i 's/double u\[\(.*\)\];/std::vector<double> u(\1, 0.0);/g' "${MASS_TEST_FILE}"
-# # sed -i 's/double v\[\(.*\)\];/std::vector<double> v(\1, 0.0);/g' "${MASS_TEST_FILE}"
-# # sed -i 's/double w\[\(.*\)\];/std::vector<double> w(\1, 0.0);/g' "${MASS_TEST_FILE}"
-# # sed -i 's/double p\[\(.*\)\];/std::vector<double> p(\1, 0.0);/g' "${MASS_TEST_FILE}"
-# # sed -i 's/double div\[\(.*\)\];/std::vector<double> div(\1, 0.0);/g' "${MASS_TEST_FILE}"
-# # sed -i 's/double div_out\[\(.*\)\];/std::vector<double> div_out(\1, 0.0);/g' "${MASS_TEST_FILE}"
+for DIR in "${SRC_DIR}" "${TEST_DIR}"; do
+  if [ -d "${DIR}" ]; then
+    echo "[forensic] scanning ${DIR}"
+    grep -R --line-number --color=never -E \
+      "strcpy|strncpy|memcpy|memmove|sprintf|snprintf|gets\(|fgets\(|std::array<|std::vector<|new " \
+      "${DIR}" || true
+  else
+    echo "[forensic] directory not found: ${DIR}"
+  fi
+done
 
-# Repair Strategy B: Update operator function call signatures to pass .data() pointers for std::vector
-# # sed -i 's/compute_divergence(u, v, w, div/compute_divergence(u.data(), v.data(), w.data(), div.data()/g' "${MASS_TEST_FILE}"
-# # sed -i 's/compute_divergence(u_star, v_star, w_star, div_out/compute_divergence(u_star.data(), v_star.data(), w_star.data(), div_out.data()/g' "${MASS_TEST_FILE}"
+# 5) Identify likely smoking-gun files around MassContinuity* symbols
+echo "[forensic] locating MassContinuity-related source files"
+grep -R --line-number --color=never -E "MassContinuity|EnforcesZeroDivergenceInFluidDomain" "${ROOT_DIR}" || true
 
-# Repair Strategy C: Fix 2D vs 3D cell count allocation bugs (e.g., Nx * Ny -> Nx * Ny * Nz)
-# # sed -i 's/size_t total_cells = Nx \* Ny;/size_t total_cells = static_cast<size_t>(Nx) \* Ny \* Nz;/g' "${MASS_TEST_FILE}"
-# # sed -i 's/int total_cells = Nx \* Ny;/int total_cells = Nx \* Ny \* Nz;/g' "${MASS_TEST_FILE}"
+# 6) cat -n suspected source files for manual audit
+echo "[forensic] dumping numbered source for MassContinuity-related files"
+SUSPECT_FILES=$(grep -R -l -E "MassContinuity|EnforcesZeroDivergenceInFluidDomain" "${ROOT_DIR}" || true)
 
-echo -e "\n================================================================="
-echo " FORENSIC AUDIT SCRIPT COMPLETE"
-echo "================================================================="
+if [ -n "${SUSPECT_FILES}" ]; then
+  for F in ${SUSPECT_FILES}; do
+    if [ -f "${F}" ]; then
+      echo "==================== [cat -n ${F}] ===================="
+      cat -n "${F}"
+    fi
+  done
+else
+  echo "[forensic] no MassContinuity-related files found via grep"
+fi
+
+# 7) If core dump exists, try to map crash location (best-effort)
+CORE_CANDIDATES=$(find "${BUILD_DIR}" -maxdepth 2 -type f -name "core*" 2>/dev/null || true)
+if [ -n "${CORE_CANDIDATES}" ]; then
+  echo "[forensic] core dump(s) detected:"
+  echo "${CORE_CANDIDATES}"
+  # NOTE: GitHub Actions may not have gdb installed; this is best-effort.
+  if command -v gdb >/dev/null 2>&1; then
+    for CORE in ${CORE_CANDIDATES}; do
+      echo "==================== [gdb backtrace for ${CORE}] ===================="
+      gdb -q "${MASS_BIN}" "${CORE}" -ex "bt" -ex "info frame" -ex "quit" || true
+    done
+  else
+    echo "[forensic] gdb not available; skipping core backtrace"
+  fi
+else
+  echo "[forensic] no core dumps found under ${BUILD_DIR}"
+fi
+
+# 8) addr2line mapping for last frames (if we have an address hint)
+# (Placeholder: if you capture an address from logs, you can feed it here.)
+if command -v addr2line >/dev/null 2>&1 && [ -x "${MASS_BIN}" ]; then
+  echo "[forensic] addr2line is available; add addresses here if logs expose them"
+  # Example usage (manual injection once you know the address):
+  # echo "[forensic] mapping example address 0xDEADBEEF"
+  # addr2line -e "${MASS_BIN}" 0xDEADBEEF || true
+fi
+
+# 9) Suggested automated repair sed injections (commented out)
+# These are templates; enable and adapt once the smoking-gun lines are known.
+
+# sed -i 's/char buffer
+
+\[128\]
+
+;/char buffer[256]; \/\/ expanded to avoid overflow/' "${SRC_DIR}/mass_continuity_solver.cpp"
+# sed -i 's/strcpy(\(.*\));/strncpy(\1, sizeof(\1)); \/\/ safer copy with bound/' "${SRC_DIR}/mass_continuity_solver.cpp"
+# sed -i 's/sprintf(\(.*\));/snprintf(\1, sizeof(\1)); \/\/ bounded sprintf/' "${SRC_DIR}/mass_continuity_solver.cpp"
+# sed -i 's/std::array<double, 128>/std::array<double, 256> \/\/ increased capacity for divergence stencil/' "${SRC_DIR}/mass_continuity_solver.hpp"
+# sed -i 's/memcpy(\(.*\));/memmove(\1); \/\/ safer move for overlapping regions/' "${SRC_DIR}/mass_continuity_solver.cpp"
+
+# 10) Final summary
+echo "[forensic] forensic_audit.sh completed"
+echo "[forensic] artifacts:"
+echo "  - CTest log:  ${CTEST_LOG}"
+echo "  - GTest log:  ${GTEST_LOG}"
