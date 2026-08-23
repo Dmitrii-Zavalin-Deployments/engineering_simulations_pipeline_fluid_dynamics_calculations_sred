@@ -235,12 +235,13 @@ void solve_poisson_red_black_parallel(
                     const size_t idx_down  = static_cast<size_t>(get_flat_index(i, j, k - 1, nx, ny));
                     const size_t idx_up    = static_cast<size_t>(get_flat_index(i, j, k + 1, nx, ny));
 
-                    const double p_west  = p[idx_west];
-                    const double p_east  = p[idx_east];
-                    const double p_south = p[idx_south];
-                    const double p_north = p[idx_north];
-                    const double p_down  = p[idx_down];
-                    const double p_up    = p[idx_up];
+                    // Mask-aware neighbor pressure evaluation (enforces Neumann dp/dn = 0 at boundaries/solids)
+                    const double p_west  = (mask[idx_west] == 1)  ? p[idx_west]  : p[idx];
+                    const double p_east  = (mask[idx_east] == 1)  ? p[idx_east]  : p[idx];
+                    const double p_south = (mask[idx_south] == 1) ? p[idx_south] : p[idx];
+                    const double p_north = (mask[idx_north] == 1) ? p[idx_north] : p[idx];
+                    const double p_down  = (mask[idx_down] == 1)  ? p[idx_down]  : p[idx];
+                    const double p_up    = (mask[idx_up] == 1)    ? p[idx_up]    : p[idx];
 
                     double p_new = factor * (
                         (p_east + p_west) * idx2 +
@@ -284,12 +285,13 @@ void solve_poisson_red_black_parallel(
                     const size_t idx_down  = static_cast<size_t>(get_flat_index(i, j, k - 1, nx, ny));
                     const size_t idx_up    = static_cast<size_t>(get_flat_index(i, j, k + 1, nx, ny));
 
-                    const double p_west  = p[idx_west];
-                    const double p_east  = p[idx_east];
-                    const double p_south = p[idx_south];
-                    const double p_north = p[idx_north];
-                    const double p_down  = p[idx_down];
-                    const double p_up    = p[idx_up];
+                    // Mask-aware neighbor pressure evaluation (enforces Neumann dp/dn = 0 at boundaries/solids)
+                    const double p_west  = (mask[idx_west] == 1)  ? p[idx_west]  : p[idx];
+                    const double p_east  = (mask[idx_east] == 1)  ? p[idx_east]  : p[idx];
+                    const double p_south = (mask[idx_south] == 1) ? p[idx_south] : p[idx];
+                    const double p_north = (mask[idx_north] == 1) ? p[idx_north] : p[idx];
+                    const double p_down  = (mask[idx_down] == 1)  ? p[idx_down]  : p[idx];
+                    const double p_up    = (mask[idx_up] == 1)    ? p[idx_up]    : p[idx];
 
                     double p_new = factor * (
                         (p_east + p_west) * idx2 +
@@ -335,4 +337,3 @@ void solve_poisson_red_black_parallel(
 }
 
 } // namespace navier_stokes_solver
-
