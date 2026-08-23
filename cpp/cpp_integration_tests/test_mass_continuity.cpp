@@ -29,6 +29,7 @@
 #include <vector>
 #include <cmath>
 #include <numeric>
+#include <cstdint>
 
 namespace navier_stokes_solver {
 

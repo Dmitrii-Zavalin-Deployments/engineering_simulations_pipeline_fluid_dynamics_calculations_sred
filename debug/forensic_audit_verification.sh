@@ -31,7 +31,7 @@ if [ -d "build/Testing" ]; then
     done
 else
     echo "    No CTest Testing directory found."
-end
+fi
 
 echo -e "\n[+] Checking System Kernel Messages for Segmentation Faults / Aborts:"
 dmesg -T | tail -n 30 || echo "    dmesg restricted or unavailable."
