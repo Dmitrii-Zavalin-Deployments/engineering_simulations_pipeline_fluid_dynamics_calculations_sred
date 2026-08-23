@@ -43,48 +43,71 @@ void apply_neumann_pressure(
     const double dp_dy = density * gy;
     const double dp_dz = density * gz;
 
+    std::vector<double> p_tmp = p;
+
     #pragma omp parallel for collapse(3) schedule(static)
     for (int k = 0; k < nz; ++k) {
         for (int j = 0; j < ny; ++j) {
             for (int i = 0; i < nx; ++i) {
-                const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
+                const int raw_idx = get_flat_index(i, j, k, nx, ny);
+                if (raw_idx < 0) continue;
+                const size_t idx = static_cast<size_t>(raw_idx);
 
                 int count = 0;
                 double val = 0.0;
 
                 // Accumulate normal pressure gradient conditions across active boundary faces, skipping Dirichlet anchors
-                if ((location == "x_min" || location == "wall") && i == 0 && !dirichlet.x_min) {
-                    val += p[static_cast<size_t>(get_flat_index(1, j, k, nx, ny))] - dp_dx * dx;
-                    count++;
+                if ((location == "x_min" || location == "wall") && i == 0 && !dirichlet.x_min && nx > 1) {
+                    const int neighbor = get_flat_index(1, j, k, nx, ny);
+                    if (neighbor >= 0) {
+                        val += p[static_cast<size_t>(neighbor)] - dp_dx * dx;
+                        count++;
+                    }
                 }
-                if ((location == "x_max" || location == "wall") && i == nx - 1 && !dirichlet.x_max) {
-                    val += p[static_cast<size_t>(get_flat_index(nx - 2, j, k, nx, ny))] + dp_dx * dx;
-                    count++;
+                if ((location == "x_max" || location == "wall") && i == nx - 1 && !dirichlet.x_max && nx > 1) {
+                    const int neighbor = get_flat_index(nx - 2, j, k, nx, ny);
+                    if (neighbor >= 0) {
+                        val += p[static_cast<size_t>(neighbor)] + dp_dx * dx;
+                        count++;
+                    }
                 }
-                if ((location == "y_min" || location == "wall") && j == 0 && !dirichlet.y_min) {
-                    val += p[static_cast<size_t>(get_flat_index(i, 1, k, nx, ny))] - dp_dy * dy;
-                    count++;
+                if ((location == "y_min" || location == "wall") && j == 0 && !dirichlet.y_min && ny > 1) {
+                    const int neighbor = get_flat_index(i, 1, k, nx, ny);
+                    if (neighbor >= 0) {
+                        val += p[static_cast<size_t>(neighbor)] - dp_dy * dy;
+                        count++;
+                    }
                 }
-                if ((location == "y_max" || location == "wall") && j == ny - 1 && !dirichlet.y_max) {
-                    val += p[static_cast<size_t>(get_flat_index(i, ny - 2, k, nx, ny))] + dp_dy * dy;
-                    count++;
+                if ((location == "y_max" || location == "wall") && j == ny - 1 && !dirichlet.y_max && ny > 1) {
+                    const int neighbor = get_flat_index(i, ny - 2, k, nx, ny);
+                    if (neighbor >= 0) {
+                        val += p[static_cast<size_t>(neighbor)] + dp_dy * dy;
+                        count++;
+                    }
                 }
-                if ((location == "z_min" || location == "wall") && k == 0 && !dirichlet.z_min) {
-                    val += p[static_cast<size_t>(get_flat_index(i, j, 1, nx, ny))] - dp_dz * dz;
-                    count++;
+                if ((location == "z_min" || location == "wall") && k == 0 && !dirichlet.z_min && nz > 1) {
+                    const int neighbor = get_flat_index(i, j, 1, nx, ny);
+                    if (neighbor >= 0) {
+                        val += p[static_cast<size_t>(neighbor)] - dp_dz * dz;
+                        count++;
+                    }
                 }
-                if ((location == "z_max" || location == "wall") && k == nz - 1 && !dirichlet.z_max) {
-                    val += p[static_cast<size_t>(get_flat_index(i, j, nz - 2, nx, ny))] + dp_dz * dz;
-                    count++;
+                if ((location == "z_max" || location == "wall") && k == nz - 1 && !dirichlet.z_max && nz > 1) {
+                    const int neighbor = get_flat_index(i, j, nz - 2, nx, ny);
+                    if (neighbor >= 0) {
+                        val += p[static_cast<size_t>(neighbor)] + dp_dz * dz;
+                        count++;
+                    }
                 }
 
                 // If cell is on one or more boundaries, average the target boundary values
                 if (count > 0) {
-                    p[idx] = val / static_cast<double>(count);
+                    p_tmp[idx] = val / static_cast<double>(count);
                 }
             }
         }
     }
+    p = std::move(p_tmp);
 }
 
 void apply_solid_neumann_pressure_parallel(
@@ -96,66 +119,72 @@ void apply_solid_neumann_pressure_parallel(
     if (nx <= 0 || ny <= 0 || nz <= 0) return;
     if (dx <= 0.0 || dy <= 0.0 || dz <= 0.0) return;
 
+    std::vector<double> p_tmp = p;
+
     #pragma omp parallel for collapse(3) schedule(static)
     for (int k = 0; k < nz; ++k) {
         for (int j = 0; j < ny; ++j) {
             for (int i = 0; i < nx; ++i) {
-                const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
-                if (mask[idx] != 0) continue; // Restrict strictly to internal solid cells (mask == 0), leaving outer wall cells (mask == -1) intact
+                const int raw_idx = get_flat_index(i, j, k, nx, ny);
+                if (raw_idx < 0) continue;
+                const size_t idx = static_cast<size_t>(raw_idx);
+
+                if (mask[idx] != 0) continue; // Restrict strictly to internal solid cells (mask == 0), leaving outer wall cells intact
 
                 int count = 0;
                 double val = 0.0;
 
                 // Accumulate pressures from valid adjacent active fluid cells with boundary guards
                 if (i > 0) {
-                    const size_t idx_west = static_cast<size_t>(get_flat_index(i - 1, j, k, nx, ny));
-                    if (mask[idx_west] == 1) {
-                        val += p[idx_west];
+                    const int idx_west = get_flat_index(i - 1, j, k, nx, ny);
+                    if (idx_west >= 0 && mask[static_cast<size_t>(idx_west)] == 1) {
+                        val += p[static_cast<size_t>(idx_west)];
                         count++;
                     }
                 }
                 if (i < nx - 1) {
-                    const size_t idx_east = static_cast<size_t>(get_flat_index(i + 1, j, k, nx, ny));
-                    if (mask[idx_east] == 1) {
-                        val += p[idx_east];
+                    const int idx_east = get_flat_index(i + 1, j, k, nx, ny);
+                    if (idx_east >= 0 && mask[static_cast<size_t>(idx_east)] == 1) {
+                        val += p[static_cast<size_t>(idx_east)];
                         count++;
                     }
                 }
                 if (j > 0) {
-                    const size_t idx_south = static_cast<size_t>(get_flat_index(i, j - 1, k, nx, ny));
-                    if (mask[idx_south] == 1) {
-                        val += p[idx_south];
+                    const int idx_south = get_flat_index(i, j - 1, k, nx, ny);
+                    if (idx_south >= 0 && mask[static_cast<size_t>(idx_south)] == 1) {
+                        val += p[static_cast<size_t>(idx_south)];
                         count++;
                     }
                 }
                 if (j < ny - 1) {
-                    const size_t idx_north = static_cast<size_t>(get_flat_index(i, j + 1, k, nx, ny));
-                    if (mask[idx_north] == 1) {
-                        val += p[idx_north];
+                    const int idx_north = get_flat_index(i, j + 1, k, nx, ny);
+                    if (idx_north >= 0 && mask[static_cast<size_t>(idx_north)] == 1) {
+                        val += p[static_cast<size_t>(idx_north)];
                         count++;
                     }
                 }
                 if (k > 0) {
-                    const size_t idx_down = static_cast<size_t>(get_flat_index(i, j, k - 1, nx, ny));
-                    if (mask[idx_down] == 1) {
-                        val += p[idx_down];
+                    const int idx_down = get_flat_index(i, j, k - 1, nx, ny);
+                    if (idx_down >= 0 && mask[static_cast<size_t>(idx_down)] == 1) {
+                        val += p[static_cast<size_t>(idx_down)];
                         count++;
                     }
                 }
                 if (k < nz - 1) {
-                    const size_t idx_up = static_cast<size_t>(get_flat_index(i, j, k + 1, nx, ny));
-                    if (mask[idx_up] == 1) {
-                        val += p[idx_up];
+                    const int idx_up = get_flat_index(i, j, k + 1, nx, ny);
+                    if (idx_up >= 0 && mask[static_cast<size_t>(idx_up)] == 1) {
+                        val += p[static_cast<size_t>(idx_up)];
                         count++;
                     }
                 }
 
                 if (count > 0) {
-                    p[idx] = val / static_cast<double>(count);
+                    p_tmp[idx] = val / static_cast<double>(count);
                 }
             }
         }
     }
+    p = std::move(p_tmp);
 }
 
 void solve_poisson_red_black_parallel(
@@ -225,15 +254,27 @@ void solve_poisson_red_black_parallel(
                 for (int i = 1; i < nx - 1; ++i) {
                     if ((i + j + k) % 2 != 0) continue;
 
-                    const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
+                    const int raw_idx = get_flat_index(i, j, k, nx, ny);
+                    if (raw_idx < 0) continue;
+                    const size_t idx = static_cast<size_t>(raw_idx);
+
                     if (mask[idx] != 1) continue;
 
-                    const size_t idx_west  = static_cast<size_t>(get_flat_index(i - 1, j, k, nx, ny));
-                    const size_t idx_east  = static_cast<size_t>(get_flat_index(i + 1, j, k, nx, ny));
-                    const size_t idx_south = static_cast<size_t>(get_flat_index(i, j - 1, k, nx, ny));
-                    const size_t idx_north = static_cast<size_t>(get_flat_index(i, j + 1, k, nx, ny));
-                    const size_t idx_down  = static_cast<size_t>(get_flat_index(i, j, k - 1, nx, ny));
-                    const size_t idx_up    = static_cast<size_t>(get_flat_index(i, j, k + 1, nx, ny));
+                    const int w = get_flat_index(i - 1, j, k, nx, ny);
+                    const int e = get_flat_index(i + 1, j, k, nx, ny);
+                    const int s = get_flat_index(i, j - 1, k, nx, ny);
+                    const int n = get_flat_index(i, j + 1, k, nx, ny);
+                    const int d = get_flat_index(i, j, k - 1, nx, ny);
+                    const int u = get_flat_index(i, j, k + 1, nx, ny);
+
+                    if (w < 0 || e < 0 || s < 0 || n < 0 || d < 0 || u < 0) continue;
+
+                    const size_t idx_west  = static_cast<size_t>(w);
+                    const size_t idx_east  = static_cast<size_t>(e);
+                    const size_t idx_south = static_cast<size_t>(s);
+                    const size_t idx_north = static_cast<size_t>(n);
+                    const size_t idx_down  = static_cast<size_t>(d);
+                    const size_t idx_up    = static_cast<size_t>(u);
 
                     // Mask-aware neighbor pressure evaluation (enforces Neumann dp/dn = 0 at boundaries/solids)
                     const double p_west  = (mask[idx_west] == 1)  ? p[idx_west]  : p[idx];
@@ -275,15 +316,27 @@ void solve_poisson_red_black_parallel(
                 for (int i = 1; i < nx - 1; ++i) {
                     if ((i + j + k) % 2 == 0) continue;
 
-                    const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
+                    const int raw_idx = get_flat_index(i, j, k, nx, ny);
+                    if (raw_idx < 0) continue;
+                    const size_t idx = static_cast<size_t>(raw_idx);
+
                     if (mask[idx] != 1) continue;
 
-                    const size_t idx_west  = static_cast<size_t>(get_flat_index(i - 1, j, k, nx, ny));
-                    const size_t idx_east  = static_cast<size_t>(get_flat_index(i + 1, j, k, nx, ny));
-                    const size_t idx_south = static_cast<size_t>(get_flat_index(i, j - 1, k, nx, ny));
-                    const size_t idx_north = static_cast<size_t>(get_flat_index(i, j + 1, k, nx, ny));
-                    const size_t idx_down  = static_cast<size_t>(get_flat_index(i, j, k - 1, nx, ny));
-                    const size_t idx_up    = static_cast<size_t>(get_flat_index(i, j, k + 1, nx, ny));
+                    const int w = get_flat_index(i - 1, j, k, nx, ny);
+                    const int e = get_flat_index(i + 1, j, k, nx, ny);
+                    const int s = get_flat_index(i, j - 1, k, nx, ny);
+                    const int n = get_flat_index(i, j + 1, k, nx, ny);
+                    const int d = get_flat_index(i, j, k - 1, nx, ny);
+                    const int u = get_flat_index(i, j, k + 1, nx, ny);
+
+                    if (w < 0 || e < 0 || s < 0 || n < 0 || d < 0 || u < 0) continue;
+
+                    const size_t idx_west  = static_cast<size_t>(w);
+                    const size_t idx_east  = static_cast<size_t>(e);
+                    const size_t idx_south = static_cast<size_t>(s);
+                    const size_t idx_north = static_cast<size_t>(n);
+                    const size_t idx_down  = static_cast<size_t>(d);
+                    const size_t idx_up    = static_cast<size_t>(u);
 
                     // Mask-aware neighbor pressure evaluation (enforces Neumann dp/dn = 0 at boundaries/solids)
                     const double p_west  = (mask[idx_west] == 1)  ? p[idx_west]  : p[idx];
