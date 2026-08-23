@@ -6,10 +6,16 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Options
 option(ENABLE_COVERAGE "Enable gcov coverage flags" OFF)
+option(ENABLE_ASAN "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 
 if(ENABLE_COVERAGE)
     add_compile_options(--coverage -O0 -g)
     add_link_options(--coverage)
+endif()
+
+if(ENABLE_ASAN)
+    add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer -g)
+    add_link_options(-fsanitize=address,undefined)
 endif()
 
 # Find required packages

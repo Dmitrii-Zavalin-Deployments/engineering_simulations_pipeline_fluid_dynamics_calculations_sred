@@ -6,6 +6,7 @@
 #include "ghost_handler.hpp"
 #include <iostream>
 #include <stdexcept>
+#include <cstdint>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -34,8 +35,8 @@ void sync_ghost_trial_buffers(
               << " | Active Threads: " << active_threads << "\n";
 
     // Direct buffer alignment across memory space without heap reallocations
-    #pragma omp parallel for
-    for (size_t idx = 0; idx < total_cells; ++idx) {
+    #pragma omp parallel for schedule(static)
+    for (int64_t idx = 0; idx < static_cast<int64_t>(total_cells); ++idx) {
         u_star[idx] = u[idx];
         v_star[idx] = v[idx];
         w_star[idx] = w[idx];
@@ -44,4 +45,3 @@ void sync_ghost_trial_buffers(
 }
 
 } // namespace navier_stokes_solver
-

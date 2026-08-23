@@ -63,6 +63,9 @@ jobs:
 
       - name: 🧪 Execute C++, Python Bridge Tests, and Coverage
         run: |
+          echo "🧪 Configuring OpenMP stack size for multi-threaded stability..."
+          export OMP_STACKSIZE=64M
+
           echo "🧪 Executing C++ Test Suites via CTest..."
           cd build
           ctest --output-on-failure -V
