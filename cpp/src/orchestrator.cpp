@@ -13,6 +13,7 @@
 #include "rhie_chow.hpp"
 #include <stdexcept>
 #include <iostream>
+#include <sstream>
 #include <chrono>
 #include <ctime>
 
@@ -20,26 +21,36 @@
 #include <omp.h>
 #endif
 
-// Optional debug dump for unit tests only.
-// Define NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS in test build to enable.
+namespace navier_stokes_solver {
+
 #ifdef NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS
-namespace {
-    void dump_field(const char* name, const std::vector<double>& f, std::size_t max_print = 32) {
-        std::cout << "[DEBUG_DUMP] " << name << " (size=" << f.size() << "): ";
-        std::size_t n = std::min<std::size_t>(f.size(), max_print);
-        for (std::size_t i = 0; i < n; ++i) {
-            std::cout << f[i];
-            if (i + 1 < n) std::cout << ", ";
-        }
-        if (f.size() > n) {
-            std::cout << " ...";
-        }
-        std::cout << "\n";
-    }
+void NavierStokesOrchestrator::capture_debug_snapshot(
+    const std::string& stage_name,
+    const std::vector<double>& u,
+    const std::vector<double>& v,
+    const std::vector<double>& w,
+    const std::vector<double>& p
+) {
+    OrchestratorDebugSnapshot snap;
+    snap.stage_name = stage_name;
+    snap.u = u;
+    snap.v = v;
+    snap.w = w;
+    snap.p = p;
+    snap.u_star = u_star_;
+    snap.v_star = v_star_;
+    snap.w_star = w_star_;
+    snap.rhs = rhs_;
+
+    debug_snapshots_.push_back(snap);
+
+    // Safe stack-smash-free console output using std::ostringstream
+    std::ostringstream oss;
+    oss << "[DEBUG_DUMP] Snapshot captured: " << stage_name 
+        << " (cells=" << total_cells_ << ", u_size=" << u.size() << ")\n";
+    std::cout << oss.str();
 }
 #endif
-
-namespace navier_stokes_solver {
 
 NavierStokesOrchestrator::NavierStokesOrchestrator(const GridDimensions& dims, const SolverConfig& config)
     : dims_(dims), config_(config), total_cells_(static_cast<size_t>(dims.nx) * dims.ny * dims.nz) {
@@ -63,6 +74,10 @@ void NavierStokesOrchestrator::step(
     std::vector<double>& w,
     std::vector<double>& p
 ) {
+#ifdef NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS
+    debug_snapshots_.clear();
+#endif
+
     #ifdef _OPENMP
     int active_threads = omp_get_max_threads();
     #else
@@ -85,10 +100,7 @@ void NavierStokesOrchestrator::step(
     ).count();
 
     #ifdef NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS
-    dump_field("u_after_pre_step", u);
-    dump_field("v_after_pre_step", v);
-    dump_field("w_after_pre_step", w);
-    dump_field("p_after_pre_step", p);
+    capture_debug_snapshot("pre_step", u, v, w, p);
     #endif
 
     // 1.5. GHOST & BOUNDARY SYNCHRONIZATION
@@ -103,10 +115,7 @@ void NavierStokesOrchestrator::step(
     ).count();
 
     #ifdef NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS
-    dump_field("u_star_after_sync1", u_star_);
-    dump_field("v_star_after_sync1", v_star_);
-    dump_field("w_star_after_sync1", w_star_);
-    dump_field("rhs_after_sync1", rhs_);
+    capture_debug_snapshot("ghost_sync_1", u, v, w, p);
     #endif
 
     // 2. PREDICTOR STEP
@@ -125,9 +134,7 @@ void NavierStokesOrchestrator::step(
     ).count();
 
     #ifdef NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS
-    dump_field("u_star_after_predictor", u_star_);
-    dump_field("v_star_after_predictor", v_star_);
-    dump_field("w_star_after_predictor", w_star_);
+    capture_debug_snapshot("predictor", u, v, w, p);
     #endif
 
     // 3. RHIE-CHOW INTERPOLATION & PRESSURE POISSON STEP
@@ -220,7 +227,7 @@ void NavierStokesOrchestrator::step(
     }
 
     #ifdef NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS
-    dump_field("rhs_after_assembly", rhs_);
+    capture_debug_snapshot("rhs_assembly", u, v, w, p);
     #endif
 
     solve_poisson_red_black_parallel(
@@ -234,7 +241,7 @@ void NavierStokesOrchestrator::step(
     );
 
     #ifdef NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS
-    dump_field("p_after_poisson", p);
+    capture_debug_snapshot("poisson", u, v, w, p);
     #endif
 
     RhieChowInterpolator::interpolateFaceVelocities(
@@ -260,9 +267,7 @@ void NavierStokesOrchestrator::step(
     ).count();
 
     #ifdef NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS
-    dump_field("u_after_corrector", u);
-    dump_field("v_after_corrector", v);
-    dump_field("w_after_corrector", w);
+    capture_debug_snapshot("corrector", u, v, w, p);
     #endif
 
     // 5. FINAL BUFFER SYNCHRONIZATION
@@ -277,10 +282,7 @@ void NavierStokesOrchestrator::step(
     ).count();
 
     #ifdef NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS
-    dump_field("u_star_after_sync2", u_star_);
-    dump_field("v_star_after_sync2", v_star_);
-    dump_field("w_star_after_sync2", w_star_);
-    dump_field("rhs_after_sync2", rhs_);
+    capture_debug_snapshot("ghost_sync_2", u, v, w, p);
     #endif
 
     auto wall_end = std::chrono::high_resolution_clock::now();
