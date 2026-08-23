@@ -15,7 +15,10 @@ echo "  -> Found orchestrator.hpp at: $ORCHESTRATOR_HPP"
 echo "  -> Found orchestrator.cpp at: $ORCHESTRATOR_CPP"
 echo "  -> Found test_mass_continuity.cpp at: $TARGET_TEST"
 
-echo "📌 1. Automatically fixing member declaration order in $ORCHESTRATOR_HPP..."
+echo "📌 1. Resetting $ORCHESTRATOR_HPP to clean git state..."
+git checkout "$ORCHESTRATOR_HPP"
+
+echo "📌 1.5. Safely reordering private members in $ORCHESTRATOR_HPP..."
 python3 -c '
 import sys, re
 
@@ -23,57 +26,28 @@ path = sys.argv[1]
 with open(path, "r") as f:
     content = f.read()
 
-# We ensure that scalar config/dimensions and total_cells_ are declared 
-# before any vector buffers to prevent C++ initialization order bugs.
-# Let us perform a clean structural rewrite of the private section if needed.
+# Define the exact clean private members block with correct initialization order:
+# Scalars (dims_, config_, total_cells_) MUST precede vectors to prevent ASan heap-buffer-overflow.
+old_private_block = re.search(r"private:\s*(.*?)\s*};", content, re.DOTALL)
 
-print("✅ Successfully processed member reordering rules for:", path)
-' "$ORCHESTRATOR_HPP"
-
-# Let us explicitly patch orchestrator.hpp via Python to enforce correct member ordering:
-python3 -c '
-import sys, re
-
-path = sys.argv[1]
-with open(path, "r") as f:
-    lines = f.readlines()
-
-new_lines = []
-capturing_private = False
-scalars = []
-vectors = []
-others = []
-
-for line in lines:
-    stripped = line.strip()
-    if "private:" in stripped or "protected:" in stripped:
-        capturing_private = True
-        new_lines.append(line)
-        continue
+if old_private_block:
+    new_private_content = """private:
+    GridDimensions dims_;
+    SolverConfig config_;
+    size_t total_cells_;
+    std::vector<double> u_star_;
+    std::vector<double> v_star_;
+    std::vector<double> w_star_;
+    std::vector<double> rhs_;
+    std::vector<OrchestratorDebugSnapshot> debug_snapshots_;"""
     
-    if capturing_private and ";" in stripped and not stripped.startswith("//"):
-        if "std::vector" in stripped:
-            vectors.append(line)
-        elif any(k in stripped for k in ["GridDimensions", "SolverConfig", "size_t", "int", "double", "bool", "std::string"]):
-            scalars.append(line)
-        else:
-            others.append(line)
-    else:
-        if capturing_private and "};" in stripped:
-            # Flush reordered members before closing class
-            for s in scalars: new_lines.append(s)
-            for o in others: new_lines.append(o)
-            for v in vectors: new_lines.append(v)
-            scalars.clear()
-            vectors.clear()
-            others.clear()
-            capturing_private = False
-        new_lines.append(line)
-
-with open(path, "w") as f:
-    f.writelines(new_lines)
-
-print("✅ Rewrote", path, "with scalars declared before vectors.")
+    content = content.replace(old_private_block.group(0), new_private_content + "\n};")
+    with open(path, "w") as f:
+        f.write(content)
+    print("✅ Successfully updated private member order in", path)
+else:
+    print("❌ Error: Could not locate private block in header.")
+    sys.exit(1)
 ' "$ORCHESTRATOR_HPP"
 
 echo "📌 2. Writing clean heap-allocated version of $TARGET_TEST..."
