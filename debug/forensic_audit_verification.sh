@@ -127,4 +127,16 @@ CPP_EOF
 echo "📌 2. Rebuilding and running test_mass_continuity..."
 cmake -B build -S . -DCMAKE_BUILD_TYPE=Debug
 cmake --build build --target test_mass_continuity -j$(nproc)
-./build/cpp/cpp_integration_tests/test_mass_continuity
+
+echo "📌 Locating test_mass_continuity binary in build tree..."
+BINARY_PATH=$(find build -name "test_mass_continuity" -type f 2>/dev/null || true)
+
+if [ -n "$BINARY_PATH" ]; then
+    echo "Found binary at: $BINARY_PATH"
+    echo "📌 Running Mass Continuity Integration Test..."
+    "$BINARY_PATH"
+else
+    echo "❌ Error: test_mass_continuity binary not found."
+    find build -maxdepth 3
+    exit 1
+fi
