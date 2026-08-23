@@ -1,9 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 
-echo "🌐 Installing C++ build essentials, testing libraries, and gcovr..."
+echo "🌐 Installing C++ build essentials, CMake, testing libraries, and gcovr..."
 sudo apt-get update
-sudo apt-get install -y build-essential libgtest-dev gcovr
+sudo apt-get install -y build-essential cmake libgtest-dev nlohmann-json3-dev gcovr
 
 echo "🚀 Upgrading core Python packaging tools & installing pybind11..."
 python -m pip install --upgrade pip setuptools wheel pybind11
@@ -11,13 +11,8 @@ python -m pip install --upgrade pip setuptools wheel pybind11
 echo "📦 Installing solver dependencies from requirements.txt..."
 python -m pip install -r requirements.txt
 
-echo "⚙ Compiling base C++ solver extension..."
-mkdir -p bin
-# Compile core sources and nested ops/ directory using find to ensure complete coverage
-g++ -O3 -march=native -shared -fPIC -fopenmp \
-  $(find cpp/src -name "*.cpp") \
-  -Icpp/include \
-  $(python3 -m pybind11 --includes) \
-  -o navier_stokes_cpp$(python3-config --extension-suffix)
+echo "⚙️ Configuring and building all targets via CMake..."
+cmake -B build -DCMAKE_BUILD_TYPE=Debug
+cmake --build build --parallel $(nproc)
 
-echo "✅ Base environment and C++ module compiled successfully."
+echo "✅ Environment setup and CMake compilation completed successfully."
