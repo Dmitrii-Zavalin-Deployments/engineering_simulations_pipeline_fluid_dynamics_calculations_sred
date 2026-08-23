@@ -92,6 +92,9 @@ public:
 #endif
 
 private:
+    // CRITICAL: Scalar dimensions and configuration members MUST be declared
+    // before vector buffers to guarantee correct initialization order and
+    // prevent AddressSanitizer heap-buffer-overflow faults.
     GridDimensions dims_;
     SolverConfig config_;
     size_t total_cells_;

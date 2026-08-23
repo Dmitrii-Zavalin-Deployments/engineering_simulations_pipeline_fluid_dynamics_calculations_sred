@@ -54,6 +54,9 @@ void NavierStokesOrchestrator::capture_debug_snapshot(
 
 NavierStokesOrchestrator::NavierStokesOrchestrator(const GridDimensions& dims, const SolverConfig& config)
     : dims_(dims), config_(config), total_cells_(static_cast<size_t>(dims.nx) * dims.ny * dims.nz) {
+    if (total_cells_ == 0) {
+        throw std::invalid_argument("GridDimensions result in zero total cells.");
+    }
     u_star_.resize(total_cells_, 0.0);
     v_star_.resize(total_cells_, 0.0);
     w_star_.resize(total_cells_, 0.0);
@@ -99,9 +102,9 @@ void NavierStokesOrchestrator::step(
         std::chrono::high_resolution_clock::now() - t_pre
     ).count();
 
-    #ifdef NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS
+#ifdef NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS
     capture_debug_snapshot("pre_step", u, v, w, p);
-    #endif
+#endif
 
     // 1.5. GHOST & BOUNDARY SYNCHRONIZATION
     auto t_sync1 = std::chrono::high_resolution_clock::now();
@@ -114,9 +117,9 @@ void NavierStokesOrchestrator::step(
         std::chrono::high_resolution_clock::now() - t_sync1
     ).count();
 
-    #ifdef NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS
+#ifdef NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS
     capture_debug_snapshot("ghost_sync_1", u, v, w, p);
-    #endif
+#endif
 
     // 2. PREDICTOR STEP
     auto t_pred = std::chrono::high_resolution_clock::now();
@@ -133,9 +136,9 @@ void NavierStokesOrchestrator::step(
         std::chrono::high_resolution_clock::now() - t_pred
     ).count();
 
-    #ifdef NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS
+#ifdef NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS
     capture_debug_snapshot("predictor", u, v, w, p);
-    #endif
+#endif
 
     // 3. RHIE-CHOW INTERPOLATION & PRESSURE POISSON STEP
     auto t_poisson = std::chrono::high_resolution_clock::now();
@@ -226,9 +229,9 @@ void NavierStokesOrchestrator::step(
         }
     }
 
-    #ifdef NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS
+#ifdef NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS
     capture_debug_snapshot("rhs_assembly", u, v, w, p);
-    #endif
+#endif
 
     solve_poisson_red_black_parallel(
         p, rhs_, mask, bc_list,
@@ -240,9 +243,9 @@ void NavierStokesOrchestrator::step(
         gravity
     );
 
-    #ifdef NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS
+#ifdef NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS
     capture_debug_snapshot("poisson", u, v, w, p);
-    #endif
+#endif
 
     RhieChowInterpolator::interpolateFaceVelocities(
         u_star_, v_star_, w_star_, p, a_p, mask, rc_config, u_face, v_face, w_face
@@ -266,9 +269,9 @@ void NavierStokesOrchestrator::step(
         std::chrono::high_resolution_clock::now() - t_corr
     ).count();
 
-    #ifdef NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS
+#ifdef NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS
     capture_debug_snapshot("corrector", u, v, w, p);
-    #endif
+#endif
 
     // 5. FINAL BUFFER SYNCHRONIZATION
     auto t_sync2 = std::chrono::high_resolution_clock::now();
@@ -281,9 +284,9 @@ void NavierStokesOrchestrator::step(
         std::chrono::high_resolution_clock::now() - t_sync2
     ).count();
 
-    #ifdef NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS
+#ifdef NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS
     capture_debug_snapshot("ghost_sync_2", u, v, w, p);
-    #endif
+#endif
 
     auto wall_end = std::chrono::high_resolution_clock::now();
     std::clock_t cpu_end = std::clock();
