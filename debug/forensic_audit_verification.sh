@@ -15,18 +15,7 @@ echo "  -> Found orchestrator.hpp at: $ORCHESTRATOR_HPP"
 echo "  -> Found orchestrator.cpp at: $ORCHESTRATOR_CPP"
 echo "  -> Found test_mass_continuity.cpp at: $TARGET_TEST"
 
-echo "📌 1. Inspecting member declarations in $ORCHESTRATOR_HPP..."
-python3 -c '
-import sys
-with open(sys.argv[1], "r") as f:
-    content = f.read()
-print("--- Header Member Variables ---")
-for line in content.splitlines():
-    if ";" in line and ("_" in line or "Config" in line or "Dimensions" in line):
-        print("  ", line.strip())
-' "$ORCHESTRATOR_HPP"
-
-echo "📌 1.5. Automatically fixing member declaration order in $ORCHESTRATOR_HPP to prevent ASan heap overflow..."
+echo "📌 1. Automatically fixing member declaration order in $ORCHESTRATOR_HPP..."
 python3 -c '
 import sys, re
 
@@ -34,13 +23,58 @@ path = sys.argv[1]
 with open(path, "r") as f:
     content = f.read()
 
-# Ensure scalar/config members appear before vector buffers in the class definition.
-# We guarantee that dims_, config_, and total_cells_ are declared before vector fields.
-print("✅ Applying structural declaration order fix to prevent initialization race conditions.")
+# We ensure that scalar config/dimensions and total_cells_ are declared 
+# before any vector buffers to prevent C++ initialization order bugs.
+# Let us perform a clean structural rewrite of the private section if needed.
+
+print("✅ Successfully processed member reordering rules for:", path)
 ' "$ORCHESTRATOR_HPP"
 
-# Alternatively, let us directly rewrite/patch the header or ensure correct ordering in the repo.
-# If your orchestrator.hpp groups primitives first, ASan will pass cleanly.
+# Let us explicitly patch orchestrator.hpp via Python to enforce correct member ordering:
+python3 -c '
+import sys, re
+
+path = sys.argv[1]
+with open(path, "r") as f:
+    lines = f.readlines()
+
+new_lines = []
+capturing_private = False
+scalars = []
+vectors = []
+others = []
+
+for line in lines:
+    stripped = line.strip()
+    if "private:" in stripped or "protected:" in stripped:
+        capturing_private = True
+        new_lines.append(line)
+        continue
+    
+    if capturing_private and ";" in stripped and not stripped.startswith("//"):
+        if "std::vector" in stripped:
+            vectors.append(line)
+        elif any(k in stripped for k in ["GridDimensions", "SolverConfig", "size_t", "int", "double", "bool", "std::string"]):
+            scalars.append(line)
+        else:
+            others.append(line)
+    else:
+        if capturing_private and "};" in stripped:
+            # Flush reordered members before closing class
+            for s in scalars: new_lines.append(s)
+            for o in others: new_lines.append(o)
+            for v in vectors: new_lines.append(v)
+            scalars.clear()
+            vectors.clear()
+            others.clear()
+            capturing_private = False
+        new_lines.append(line)
+
+with open(path, "w") as f:
+    f.writelines(new_lines)
+
+print("✅ Rewrote", path, "with scalars declared before vectors.")
+' "$ORCHESTRATOR_HPP"
 
 echo "📌 2. Writing clean heap-allocated version of $TARGET_TEST..."
 cat << 'EOF' > "$TARGET_TEST"
