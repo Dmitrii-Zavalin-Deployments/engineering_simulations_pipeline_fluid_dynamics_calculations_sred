@@ -41,7 +41,9 @@
  * after each stage.
  */
 
+#ifndef NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS
 #define NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS
+#endif
 #include <gtest/gtest.h>
 #include <vector>
 #include <cmath>

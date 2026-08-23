@@ -26,7 +26,7 @@ enable_testing()
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/cpp/include)
 
 # ---------------------------------------------------------------------------
-# 1. Core Navier-Stokes Library Target (Clean & Production-Ready)
+# 1. Core Navier-Stokes Library Target
 # ---------------------------------------------------------------------------
 file(GLOB_RECURSE CORE_SOURCES "cpp/src/*.cpp")
 
@@ -37,6 +37,11 @@ add_library(navier_stokes_core STATIC ${CORE_SOURCES})
 
 # Ensure position-independent code so it can be safely linked into the shared pybind module
 set_target_properties(navier_stokes_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+# Enable debug snapshot fields in orchestrator.cpp strictly for Debug builds
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    target_compile_definitions(navier_stokes_core PRIVATE NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS)
+endif()
 
 target_link_libraries(navier_stokes_core
     PUBLIC
@@ -66,7 +71,7 @@ add_test(NAME UnitTests COMMAND unit_tests)
 # Copy input data required by integration tests into the build tree
 file(COPY cpp/cpp_integration_tests/data DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
-# Full Pipeline Literate Test (Requires debug snapshots enabled)
+# Full Pipeline Literate Test
 add_executable(test_full_pipeline_literate
     cpp/cpp_integration_tests/test_full_pipeline_literate.cpp
 )
@@ -77,11 +82,6 @@ target_link_libraries(test_full_pipeline_literate
         nlohmann_json::nlohmann_json
         OpenMP::OpenMP_CXX
         Threads::Threads
-)
-# Scope the debug snapshot dump fields macro ONLY to this integration test
-target_compile_definitions(test_full_pipeline_literate
-    PRIVATE
-        NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS
 )
 add_test(NAME FullPipelineLiterateTest COMMAND test_full_pipeline_literate)
 
