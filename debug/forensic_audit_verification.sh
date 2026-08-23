@@ -1,45 +1,49 @@
 #!/usr/bin/env bash
+# ==============================================================================
+# Forensic Audit Script: Stack Smashing Analysis (MassContinuityTest)
+# Target: cpp/src/pressure_poisson_solver.cpp
+# ==============================================================================
 set -euo pipefail
 
-echo "=================================================="
-echo " [FORENSIC AUDIT] Navier-Stokes Core ABI & Segfault Audit"
-echo "=================================================="
+echo "=================================================================="
+echo "🔍 STARTING FORENSIC AUDIT: Stack Smashing & Poisson Solver Analysis"
+echo "=================================================================="
 
-INTEGRATION_CMAKE="cpp/cpp_integration_tests/CMakeLists.txt"
-MASS_TEST="cpp/cpp_integration_tests/test_mass_continuity.cpp"
-ORCHESTRATOR_HPP="cpp/include/orchestrator.hpp"
-ORCHESTRATOR_CPP="cpp/src/orchestrator.cpp"
-
-# 1. Diagnostics: Search for library definition and preprocessor macro consistency
-echo "--> Step 1: Searching for navier_stokes_core library definitions..."
-grep -rn "add_library" cpp/ || true
-grep -rn "navier_stokes_core" cpp/ || true
-
-echo "--> Audit preprocessor macro presence across header files:"
-grep -rn "NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS" cpp/include/ || true
-
-# 2. Source Audit: Inspect conditional member layout in orchestrator.hpp and test implementation
-echo "--> Step 2: Executing cat -n source audits..."
-
-if [ -f "$ORCHESTRATOR_HPP" ]; then
-    echo "=== Audit: $ORCHESTRATOR_HPP (Class definition & memory layout) ==="
-    cat -n "$ORCHESTRATOR_HPP" | grep -n -C 5 "NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS" || true
+echo "--- 1. Diagnostic Environment & Compiler Flags ---"
+echo "Checking build configuration and compiler flags for stack protection..."
+if [ -f "build/CMakeCache.txt" ]; then
+    grep -i "CMAKE_CXX_FLAGS" build/CMakeCache.txt || echo "No CMAKE_CXX_FLAGS in cache."
+else
+    echo "build/CMakeCache.txt not found. Inspecting CMakeLists.txt instead:"
+    grep -rn "CXX_FLAGS" CMakeLists.txt cpp/ || echo "No explicit CXX_FLAGS found in CMake files."
 fi
 
-if [ -f "$MASS_TEST" ]; then
-    echo "=== Audit: $MASS_TEST (Test suite setup and execution) ==="
-    cat -n "$MASS_TEST" | head -n 90
+echo ""
+echo "--- 2. Scanning Pressure Poisson Solver for Indexing & Memory Risks ---"
+echo "Checking array access patterns, loops, and memory operations in pressure_poisson_solver.cpp:"
+grep -n -E "(vector|\[|\]|memcpy|memset|get_flat_index)" cpp/src/pressure_poisson_solver.cpp || true
+
+echo ""
+echo "--- 3. Smoking-Gun Source Audit: pressure_poisson_solver.cpp ---"
+POISSON_SRC="cpp/src/pressure_poisson_solver.cpp"
+if [ -f "$POISSON_SRC" ]; then
+    echo "Found source file: $POISSON_SRC. Displaying complete source with line numbers:"
+    cat -n "$POISSON_SRC"
+else
+    echo "⚠️ Error: $POISSON_SRC not found."
+    find cpp/src -name "*.cpp"
 fi
 
-# 3. Automated Repair Injections
-echo "--> Step 3: Providing safe automated repair injection templates..."
+echo ""
+echo "=================================================================="
+echo "🛠️ AUTOMATED REPAIR TEMPLATES (Uncomment `# sed` lines to apply fixes)"
+echo "=================================================================="
+# Fix potential boundary off-by-one or array bounds condition in solver loops:
+# sed -i 's/nx - 1/nx - 2/g' cpp/src/pressure_poisson_solver.cpp
+# sed -i 's/ny - 1/ny - 2/g' cpp/src/pressure_poisson_solver.cpp
+# sed -i 's/nz - 1/nz - 2/g' cpp/src/pressure_poisson_solver.cpp
 
-# # Option A: Force PUBLIC propagation of the debug macro on navier_stokes_core target so caller and library share identical binary layout
-# sed -i '/add_library(navier_stokes_core/a target_compile_definitions(navier_stokes_core PUBLIC NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS)' cpp/CMakeLists.txt
+# Fix OpenMP conditional threshold for small grids (e.g., 1000 cells):
+# sed -i 's/total_cells > 1000/total_cells >= 1000/g' cpp/src/pressure_poisson_solver.cpp
 
-# # Option B: Apply global compile definition across all CMake compilation units in integration tests
-# sed -i '/cmake_minimum_required/a add_compile_definitions(NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS)' cpp/cpp_integration_tests/CMakeLists.txt
-
-echo "=================================================="
-echo " [FORENSIC AUDIT] Audit complete."
-echo "=================================================="
+echo "Forensic audit complete."
