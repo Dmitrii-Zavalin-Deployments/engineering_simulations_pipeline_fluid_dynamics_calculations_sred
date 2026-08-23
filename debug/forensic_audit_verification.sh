@@ -124,19 +124,20 @@ TEST_F(MassContinuityIntegrationTest, EnforcesZeroDivergenceInFluidDomain) {
 } // namespace navier_stokes_solver
 CPP_EOF
 
-echo "📌 2. Rebuilding and running test_mass_continuity..."
-cmake -B build -S . -DCMAKE_BUILD_TYPE=Debug
+echo "📌 2. Configuring CMake with AddressSanitizer..."
+cmake -B build -S . -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer"
+
+echo "📌 3. Rebuilding test_mass_continuity target..."
 cmake --build build --target test_mass_continuity -j$(nproc)
 
-echo "📌 Locating test_mass_continuity binary in build tree..."
-BINARY_PATH=$(find build -name "test_mass_continuity" -type f 2>/dev/null || true)
+echo "📌 4. Locating binary and running under AddressSanitizer..."
+BINARY_PATH=$(find build -name "test_mass_continuity" -type f 2>/dev/null | head -n 1)
 
 if [ -n "$BINARY_PATH" ]; then
     echo "Found binary at: $BINARY_PATH"
-    echo "📌 Running Mass Continuity Integration Test..."
+    export ASAN_OPTIONS="symbolize=1:detect_stack_use_after_return=1"
     "$BINARY_PATH"
 else
     echo "❌ Error: test_mass_continuity binary not found."
-    find build -maxdepth 3
     exit 1
 fi
