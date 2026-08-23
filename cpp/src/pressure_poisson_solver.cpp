@@ -248,7 +248,7 @@ void solve_poisson_red_black_parallel(
     for (int iter = 0; iter < max_iters; ++iter) {
         
         // --- PASS 1: Update RED Interior Fluid Cells ((i + j + k) % 2 == 0) ---
-        #pragma omp parallel for collapse(3) schedule(static) if(total_cells > 1000)
+        #pragma omp parallel for collapse(3) schedule(static) if(total_cells >= 1000)
         for (int k = 1; k < nz - 1; ++k) {
             for (int j = 1; j < ny - 1; ++j) {
                 for (int i = 1; i < nx - 1; ++i) {
@@ -310,7 +310,7 @@ void solve_poisson_red_black_parallel(
         }
 
         // --- PASS 2: Update BLACK Interior Fluid Cells ((i + j + k) % 2 != 0) ---
-        #pragma omp parallel for collapse(3) schedule(static) if(total_cells > 1000)
+        #pragma omp parallel for collapse(3) schedule(static) if(total_cells >= 1000)
         for (int k = 1; k < nz - 1; ++k) {
             for (int j = 1; j < ny - 1; ++j) {
                 for (int i = 1; i < nx - 1; ++i) {
@@ -390,3 +390,4 @@ void solve_poisson_red_black_parallel(
 }
 
 } // namespace navier_stokes_solver
+
