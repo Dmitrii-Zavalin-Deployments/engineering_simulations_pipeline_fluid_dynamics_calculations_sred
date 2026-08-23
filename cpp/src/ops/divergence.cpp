@@ -1,6 +1,6 @@
 /**
  * @file divergence.cpp
- * @brief Implementation of 3D Divergence operator with OpenMP multi-threading.
+ * @brief Implementation of 3D Divergence operator with OpenMP multi-threading and cache-optimized loop ordering.
  */
 
 #include "divergence.hpp"
@@ -8,6 +8,7 @@
 #include <cmath>
 #include <stdexcept>
 #include <iostream>
+#include <algorithm>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -27,6 +28,9 @@ void compute_divergence(
 
     const long long total_cells = static_cast<long long>(Nx) * Ny * Nz;
 
+    // Zero-initialize output array to eliminate uninitialized boundary memory garbage
+    std::fill_n(div_out, total_cells, 0.0);
+
     #ifdef _OPENMP
     int active_threads = omp_get_max_threads();
     #else
@@ -41,10 +45,11 @@ void compute_divergence(
     int err_i = 0, err_j = 0, err_k = 0;
     double err_x = 0.0, err_y = 0.0, err_z = 0.0, err_val = 0.0;
 
+    // Loop order optimized to k -> j -> i for row-major cache locality
     #pragma omp parallel for collapse(3) schedule(static) if(total_cells > 1000)
-    for (int i = 1; i < Nx - 1; ++i) {
+    for (int k = 1; k < Nz - 1; ++k) {
         for (int j = 1; j < Ny - 1; ++j) {
-            for (int k = 1; k < Nz - 1; ++k) {
+            for (int i = 1; i < Nx - 1; ++i) {
                 size_t c = get_flat_index(i, j, k, Nx, Ny);
 
                 // 1. Central difference components: ∂u*/∂x, ∂v*/∂y, ∂w*/∂z
@@ -86,4 +91,3 @@ void compute_divergence(
 }
 
 } // namespace navier_stokes_solver
-

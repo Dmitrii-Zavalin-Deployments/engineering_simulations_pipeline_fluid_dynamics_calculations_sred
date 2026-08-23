@@ -1,6 +1,6 @@
 /**
  * @file laplacian.cpp
- * @brief Implementation of 3D Laplacian operator with OpenMP multi-threading and safe exception handling.
+ * @brief Implementation of 3D Laplacian operator with OpenMP multi-threading, cache-optimized loop ordering, and safe exception handling.
  */
 
 #include "laplacian.hpp"
@@ -8,6 +8,7 @@
 #include <cmath>
 #include <stdexcept>
 #include <iostream>
+#include <algorithm>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -29,6 +30,9 @@ void compute_laplacian(
 
     const long long total_cells = static_cast<long long>(Nx) * Ny * Nz;
 
+    // Zero-initialize output array to eliminate uninitialized boundary memory garbage
+    std::fill_n(lap_out, total_cells, 0.0);
+
     #ifdef _OPENMP
     int active_threads = omp_get_max_threads();
     #else
@@ -47,6 +51,7 @@ void compute_laplacian(
     int err_i = 0, err_j = 0, err_k = 0;
     double err_val = 0.0;
 
+    // Loop order optimized to k -> j -> i for row-major cache locality
     #pragma omp parallel for collapse(3) schedule(static) if(total_cells > 1000)
     for (int k = 1; k < Nz - 1; ++k) {
         for (int j = 1; j < Ny - 1; ++j) {
@@ -94,4 +99,3 @@ void compute_laplacian(
 }
 
 } // namespace navier_stokes_solver
-

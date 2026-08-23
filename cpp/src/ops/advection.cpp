@@ -1,6 +1,6 @@
 /**
  * @file advection.cpp
- * @brief Mask-aware 3D Advection operator with boundary-safe stencils.
+ * @brief Mask-aware 3D Advection operator with boundary-safe stencils and cache-optimized loop ordering.
  */
 
 #include "advection.hpp"
@@ -8,6 +8,7 @@
 #include <cmath>
 #include <stdexcept>
 #include <iostream>
+#include <algorithm>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -27,6 +28,9 @@ void compute_advection(
 
     const long long total_cells = static_cast<long long>(Nx) * Ny * Nz;
 
+    // Zero-initialize output array to eliminate uninitialized boundary memory garbage
+    std::fill_n(adv_out, total_cells, 0.0);
+
     #ifdef _OPENMP
     int active_threads = omp_get_max_threads();
     #else
@@ -45,12 +49,13 @@ void compute_advection(
     // -------------------------------------------------------------------------
     // IMPORTANT:
     // Advection must NOT read boundary garbage. We compute only on interior cells.
+    // Loop order optimized to k -> j -> i for row-major cache locality.
     // -------------------------------------------------------------------------
 
     #pragma omp parallel for collapse(3) schedule(static) if(total_cells > 1000)
-    for (int i = 1; i < Nx - 1; ++i) {
+    for (int k = 1; k < Nz - 1; ++k) {
         for (int j = 1; j < Ny - 1; ++j) {
-            for (int k = 1; k < Nz - 1; ++k) {
+            for (int i = 1; i < Nx - 1; ++i) {
 
                 size_t c = get_flat_index(i, j, k, Nx, Ny);
 
@@ -106,4 +111,3 @@ void compute_advection(
 }
 
 } // namespace navier_stokes_solver
-

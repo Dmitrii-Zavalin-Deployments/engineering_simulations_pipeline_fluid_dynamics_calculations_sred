@@ -1,6 +1,6 @@
 /**
  * @file ghost_handler.cpp
- * @brief Implementation of ghost trial buffer synchronization with execution tracing.
+ * @brief Implementation of ghost trial buffer synchronization with execution tracing and consistent OpenMP cell threshold.
  */
 
 #include "ghost_handler.hpp"
@@ -35,7 +35,8 @@ void sync_ghost_trial_buffers(
               << " | Active Threads: " << active_threads << "\n";
 
     // Direct buffer alignment across memory space without heap reallocations
-    #pragma omp parallel for schedule(static)
+    // Added cell-count threshold guard for consistency with operator files
+    #pragma omp parallel for schedule(static) if(total_cells > 1000)
     for (int64_t idx = 0; idx < static_cast<int64_t>(total_cells); ++idx) {
         u_star[idx] = u[idx];
         v_star[idx] = v[idx];

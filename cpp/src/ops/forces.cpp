@@ -4,6 +4,8 @@
  */
 
 #include "forces.hpp"
+#include <vector>
+#include <array>
 #include <cmath>
 #include <stdexcept>
 #include <iostream>
@@ -15,7 +17,7 @@
 namespace navier_stokes_solver {
 
 std::array<double, 3> validate_and_get_forces(const std::vector<double>& forces) {
-    // 1. Contract & Dimension Guard (Rule 8 equivalent)
+    // 1. Contract & Dimension Guard
     if (forces.size() != 3) {
         std::cerr << "CONTRACT VIOLATION: Invalid force vector length: " << forces.size() 
                   << ". Expected 3 components (Fx, Fy, Fz).\n";
@@ -31,7 +33,7 @@ std::array<double, 3> validate_and_get_forces(const std::vector<double>& forces)
     std::cout << "[THREAD_TRACE] File: forces.cpp | Operations (Forces): 3" 
               << " | Active Threads: " << active_threads << "\n";
 
-    // 2. Forensic Numerical Audit (Rule 7 equivalent)
+    // 2. Forensic Numerical Audit
     for (size_t i = 0; i < 3; ++i) {
         if (!std::isfinite(forces[i])) {
             std::cerr << "MATH FAILURE: Non-finite body force detected at index " << i 
