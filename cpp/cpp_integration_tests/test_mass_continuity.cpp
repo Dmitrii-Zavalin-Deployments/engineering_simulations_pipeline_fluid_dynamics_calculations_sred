@@ -108,8 +108,6 @@ protected:
  */
 TEST_F(MassContinuityIntegrationTest, EnforcesZeroDivergenceInFluidDomain) {
     std::cout << "[debug] MassContinuityIntegrationTest.EnforcesZeroDivergenceInFluidDomain starting\n";
-    std::cout << "[debug] The failure is 100% reproducible when running test_mass_continuity directly; "
-                 "this log traces fixture/setup/solver path.\n";
 
     NavierStokesOrchestrator orchestrator(dims_, config_);
 
@@ -148,17 +146,6 @@ TEST_F(MassContinuityIntegrationTest, EnforcesZeroDivergenceInFluidDomain) {
                     double dwdz = (w_[idx_t] - w_[idx_b]) / (2.0 * dims_.dz);
 
                     double div_u = dudx + dvdy + dwdz;
-
-                    // Per-cell forensic logging to GitHub Actions logs
-                    std::cout << "[debug] Cell (i=" << i << ", j=" << j << ", k=" << k << ") idx=" << idx
-                              << " mask=" << mask_[idx] << "\n";
-                    std::cout << "[debug] Neighbors: E=" << idx_e << " W=" << idx_w
-                              << " N=" << idx_n << " S=" << idx_s
-                              << " T=" << idx_t << " B=" << idx_b << "\n";
-                    std::cout << "[debug] div_u=" << div_u
-                              << " dudx=" << dudx
-                              << " dvdy=" << dvdy
-                              << " dwdz=" << dwdz << "\n";
 
                     max_divergence = std::max(max_divergence, std::abs(div_u));
                     total_divergence += div_u;
