@@ -53,14 +53,16 @@ void NavierStokesOrchestrator::capture_debug_snapshot(
 #endif
 
 NavierStokesOrchestrator::NavierStokesOrchestrator(const GridDimensions& dims, const SolverConfig& config)
-    : dims_(dims), config_(config), total_cells_(static_cast<size_t>(dims.nx) * dims.ny * dims.nz) {
+    : dims_(dims),
+      config_(config),
+      total_cells_(static_cast<size_t>(dims.nx) * dims.ny * dims.nz),
+      u_star_(total_cells_, 0.0),
+      v_star_(total_cells_, 0.0),
+      w_star_(total_cells_, 0.0),
+      rhs_(total_cells_, 0.0) {
     if (total_cells_ == 0) {
         throw std::invalid_argument("GridDimensions result in zero total cells.");
     }
-    u_star_.resize(total_cells_, 0.0);
-    v_star_.resize(total_cells_, 0.0);
-    w_star_.resize(total_cells_, 0.0);
-    rhs_.resize(total_cells_, 0.0);
 }
 
 void NavierStokesOrchestrator::step(
