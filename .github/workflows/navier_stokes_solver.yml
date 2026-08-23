@@ -48,9 +48,9 @@ jobs:
           python-version: "3.11"
           cache: 'pip'
 
-      - name: 📦 Provision Environment Layers (Pip)
+      - name: 📦 Provision Environment Layers & Build via Requirements
         run: |
-          python -m pip install --upgrade pip
+          python3 -m pip install --upgrade pip
           chmod +x requirements.sh
           ./requirements.sh
 
@@ -61,18 +61,8 @@ jobs:
           # libgl1 replaces the deprecated libgl1-mesa-glx on Ubuntu 24.04+
           sudo apt-get install -y libgl1 xvfb libglu1-mesa
 
-      - name: ⚙️ Compile, Test C++, and Run Python Bridge Tests
+      - name: 🧪 Execute C++, Python Bridge Tests, and Coverage
         run: |
-          sudo apt-get update && sudo apt-get install -y nlohmann-json3-dev libgtest-dev cmake python3-pytest
-          
-          echo "🚀 Configuring CMake build tree with coverage..."
-          cmake -B build \
-            -DCMAKE_BUILD_TYPE=Debug \
-            -DENABLE_COVERAGE=ON
-
-          echo "⚙️ Compiling all targets (Unit tests, Integration tests, and Python extension)..."
-          cmake --build build --parallel $(nproc)
-
           echo "🧪 Executing C++ Test Suites via CTest..."
           cd build
           ctest --output-on-failure -V
