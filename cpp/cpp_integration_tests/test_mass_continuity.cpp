@@ -107,24 +107,29 @@ protected:
  *        continuity constraint (div(u) = 0).
  */
 TEST_F(MassContinuityIntegrationTest, EnforcesZeroDivergenceInFluidDomain) {
-    std::cout << "[debug] MassContinuityIntegrationTest.EnforcesZeroDivergenceInFluidDomain starting\n";
+    std::cout << "[debug] === MassContinuityIntegrationTest.EnforcesZeroDivergenceInFluidDomain starting ===" << std::endl;
+    std::cout << "[debug] Grid dims: nx=" << dims_.nx << ", ny=" << dims_.ny << ", nz=" << dims_.nz << std::endl;
+    std::cout << "[debug] Total cells allocated: " << total_cells_ << std::endl;
 
     NavierStokesOrchestrator orchestrator(dims_, config_);
+    std::cout << "[debug] NavierStokesOrchestrator instantiated successfully." << std::endl;
 
     const double dt = 0.001;
     const double mu = 0.01;
 
-    std::cout << "[debug] Calling orchestrator.step(dt=" << dt << ", mu=" << mu << ")\n";
+    std::cout << "[debug] About to invoke orchestrator.step(dt=" << dt << ", mu=" << mu << ")..." << std::flush;
 
     // We execute a single solver step to apply advection, diffusion, 
     // and the pressure Poisson projection necessary for enforcing mass conservation.
     orchestrator.step(dt, mu, gravity_, fx_, fy_, fz_, mask_, bc_list_, u_, v_, w_, p_);
 
-    std::cout << "[debug] Finished orchestrator.step()\n";
+    std::cout << " [SUCCESS] orchestrator.step() completed." << std::endl;
 
     double max_divergence = 0.0;
     double total_divergence = 0.0;
     int interior_fluid_count = 0;
+
+    std::cout << "[debug] Starting discrete velocity divergence loop over interior cells..." << std::flush;
 
     // We compute the discrete velocity divergence across the interior fluid domain using 
     // central differences: div(u) = du/dx + dv/dy + dw/dz
@@ -141,6 +146,14 @@ TEST_F(MassContinuityIntegrationTest, EnforcesZeroDivergenceInFluidDomain) {
                     size_t idx_t = static_cast<size_t>(get_flat_index(i, j, k + 1, dims_.nx, dims_.ny));
                     size_t idx_b = static_cast<size_t>(get_flat_index(i, j, k - 1, dims_.nx, dims_.ny));
 
+                    // Defensive index check to catch index mapping issues early
+                    if (idx_e >= total_cells_ || idx_w >= total_cells_ || 
+                        idx_n >= total_cells_ || idx_s >= total_cells_ || 
+                        idx_t >= total_cells_ || idx_b >= total_cells_ || idx >= total_cells_) {
+                        std::cerr << "\n[CRITICAL ERROR] Out-of-bounds stencil index at i=" 
+                                  << i << ", j=" << j << ", k=" << k << std::endl;
+                    }
+
                     double dudx = (u_[idx_e] - u_[idx_w]) / (2.0 * dims_.dx);
                     double dvdy = (v_[idx_n] - v_[idx_s]) / (2.0 * dims_.dy);
                     double dwdz = (w_[idx_t] - w_[idx_b]) / (2.0 * dims_.dz);
@@ -155,7 +168,7 @@ TEST_F(MassContinuityIntegrationTest, EnforcesZeroDivergenceInFluidDomain) {
         }
     }
 
-    std::cout << "[debug] interior_fluid_count=" << interior_fluid_count << "\n";
+    std::cout << " Done. interior_fluid_count=" << interior_fluid_count << std::endl;
 
     // Ensure that valid interior fluid cells were successfully evaluated.
     ASSERT_GT(interior_fluid_count, 0) 
@@ -164,7 +177,7 @@ TEST_F(MassContinuityIntegrationTest, EnforcesZeroDivergenceInFluidDomain) {
     double mean_divergence = total_divergence / static_cast<double>(interior_fluid_count);
 
     std::cout << "[debug] max_divergence=" << max_divergence 
-              << " mean_divergence=" << mean_divergence << "\n";
+              << " mean_divergence=" << mean_divergence << std::endl;
 
     // Assertion 1: Local divergence must remain below the strict numerical tolerance threshold.
     ASSERT_LT(max_divergence, 2e-2) 
@@ -174,7 +187,7 @@ TEST_F(MassContinuityIntegrationTest, EnforcesZeroDivergenceInFluidDomain) {
     ASSERT_NEAR(mean_divergence, 0.0, 1e-5) 
         << "Global mass conservation failure: Net domain volume flux is non-zero.";
 
-    std::cout << "[debug] MassContinuityIntegrationTest.EnforcesZeroDivergenceInFluidDomain completed successfully\n";
+    std::cout << "[debug] === MassContinuityIntegrationTest.EnforcesZeroDivergenceInFluidDomain completed successfully ===" << std::endl;
 }
 
 } // namespace navier_stokes_solver
