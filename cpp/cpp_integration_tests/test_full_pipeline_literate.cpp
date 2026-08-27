@@ -324,6 +324,35 @@ TEST(FullPipelineLiterateTest, StepByStepMicroManaged) {
             ASSERT_NEAR(w[idx], 0.0, 1e-12);
         }
     }
+
+    // ============================================================================
+    // SECTION 12 — Verify Fluid Core Streamwise Uniformity (u=0, v=0, w=1)
+    // ============================================================================
+
+    /**
+     * In a straight duct with uniform inlet/outlet (w = 1.0):
+     *   - Transverse components (u, v) must remain zero across the fluid core.
+     *   - Streamwise velocity (w) must propagate through all internal fluid layers (k=1, 2).
+     */
+    for (int k = 0; k < dims.nz; ++k) {
+        for (int j = 0; j < dims.ny; ++j) {
+            for (int i = 0; i < dims.nx; ++i) {
+                const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, dims.nx, dims.ny));
+
+                if (mask[idx] == 1) {
+                    // No transverse flow in a straight uniform channel
+                    ASSERT_NEAR(u[idx], 0.0, 1e-6) 
+                        << "Non-zero u velocity at fluid cell (" << i << ", " << j << ", " << k << ")";
+                    ASSERT_NEAR(v[idx], 0.0, 1e-6) 
+                        << "Non-zero v velocity at fluid cell (" << i << ", " << j << ", " << k << ")";
+
+                    // Streamwise flow must propagate through the entire core
+                    ASSERT_NEAR(w[idx], 1.0, 1e-2) 
+                        << "Inconsistent streamwise w velocity at fluid cell (" << i << ", " << j << ", " << k << ")";
+                }
+            }
+        }
+    }
 }
 
 } // namespace navier_stokes_solver
