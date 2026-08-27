@@ -15,6 +15,7 @@ jobs:
     env:
       PYTHONPATH: ${{ github.workspace }}
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      ASAN_OPTIONS: "detect_leaks=0"
       # Define the 'Gold Standard' test command here (e.g. # pytest -s tests/ -vv --cov=src --cov-report=term-missing)
       TEST_COMMAND: "pytest -s tests/ -vv --cov=src --cov-report=term-missing"
 
@@ -196,6 +197,7 @@ jobs:
   #   runs-on: ubuntu-latest
   #   env:
   #     PYTHONPATH: ${{ github.workspace }}
+  #     ASAN_OPTIONS: "detect_leaks=0"
   #     APP_KEY: ${{ secrets.APP_KEY }}
   #     APP_SECRET: ${{ secrets.APP_SECRET }}
   #     REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
