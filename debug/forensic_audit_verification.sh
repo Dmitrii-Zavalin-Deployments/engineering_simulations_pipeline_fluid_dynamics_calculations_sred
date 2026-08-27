@@ -2,33 +2,31 @@
 set -eo pipefail
 
 echo "=================================================================="
-echo "      NAVIER-STOKES SOLVER: STACK SMASHING FORENSIC AUDIT        "
+echo "    NAVIER-STOKES SOLVER: ADVANCED VLA & STACK BUFFER AUDIT     "
 echo "=================================================================="
 
-# 1. Diagnostic Search: Identify stack-allocated arrays or fixed-size buffers
-echo "[*] Step 1: Scanning for raw stack arrays and fixed-size buffers..."
+# 1. Hunt for Variable-Length Arrays (VLAs) and non-literal stack allocations
+echo "[*] Step 1: Scanning for Variable-Length Arrays (VLAs) [e.g., arr[nx], arr[total_cells]]..."
 echo "------------------------------------------------------------------"
-grep -rnE "\b(double|float|int|char|size_t)\s+\w+\s*\[\s*[0-9]+.*\]" src/ include/ tests/ || echo "No fixed-size stack arrays found with literal dimensions."
-grep -rnE "alloca\(" src/ include/ tests/ || echo "No dynamic stack allocation (alloca) detected."
+grep -rnE "\b(double|float|int|char|size_t)\s+\w+\s*\[\s*[a-zA-Z_][a-zA-Z0-9_]*\s*\]" src/ include/ tests/ || echo "No explicit VLA patterns detected with single identifiers."
+grep -rnE "\b(double|float|int|char|size_t)\s+\w+\s*\[\s*[^0-9\]]+\s*\]" src/ include/ tests/ || echo "No complex non-literal bracket expressions found."
 
-# 2. Smoking-Gun Source Audit: Inspect test file and core solver modules
+# 2. Hunt for raw pointer casting or stack array passing to C-style functions
 echo ""
-echo "[*] Step 2: Extracting source lines from test and solver modules..."
+echo "[*] Step 2: Scanning for raw pointer decays and potential buffer overflows..."
 echo "------------------------------------------------------------------"
-for file in tests/test_mass_continuity.cpp src/orchestrator.cpp src/pressure_poisson_solver.cpp; do
+grep -rnE "\b(memcpy|memset|strcpy|sprintf)\s*\(" src/ include/ || echo "No unsafe C-string/memory functions found."
+
+# 3. Smoking-Gun Source Audit: Inspect solver inner modules for local arrays
+echo ""
+echo "[*] Step 3: Inspecting core solver implementation files..."
+echo "------------------------------------------------------------------"
+for file in src/pressure_poisson_solver.cpp src/orchestrator.cpp src/advection.cpp src/laplacian.cpp; do
     if [ -f "$file" ]; then
         echo "=== FILE: $file ==="
-        cat -n "$file" | head -n 100
+        grep -nE "(double|float|int)\s+\w+\s*\[" "$file" || echo "No stack array declarations found in $file."
     fi
 done
-
-# 3. Automated Repair Templates (Commented out for safety)
-echo ""
-echo "[*] Step 3: Available Automated Remediation Patches (Sed Injections)"
-echo "------------------------------------------------------------------"
-echo "If fixed-size stack arrays are identified, apply corrections using sed:"
-echo "# sed -i 's/double \([a-zA-Z0-9_]*\)\[[0-9]*\]/std::vector<double> \\1(total_cells, 0.0)/g' src/orchestrator.cpp"
-echo "# sed -i 's/int \([a-zA-Z0-9_]*\)\[[0-9]*\]/std::vector<int> \\1(total_cells, 0)/g' src/orchestrator.cpp"
 
 echo "=================================================================="
 echo "                  AUDIT COMPLETE - REVIEW OUTPUT                  "
