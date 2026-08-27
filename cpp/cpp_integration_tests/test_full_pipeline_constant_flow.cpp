@@ -1,11 +1,14 @@
 /**
- * @file test_full_pipeline_literate.cpp
- * @brief Literate-style integration test for the full Navier–Stokes solver pipeline.
+ * @file test_full_pipeline_constant_flow.cpp
+ * @brief Literate-style integration test for the full Navier–Stokes solver pipeline under constant flow.
  *
- * This test evaluates the complete end-to-end execution of the solver pipeline.
- * Rather than invoking individual modules manually, it delegates execution entirely
- * to NavierStokesOrchestrator::step() and inspects intermediate state snapshots
- * captured after each stage.
+ * This test evaluates the complete end-to-end execution of the solver pipeline driven by
+ * NavierStokesOrchestrator::step() and inspects intermediate state snapshots captured after each stage.
+ *
+ * Physical & Numerical Verification Goal:
+ * Verifies that under zero external forces (fx = fy = fz = 0, gravity = 0) and uniform inlet/outlet
+ * boundary conditions (w = 1.0 at z_min and z_max), the solver correctly preserves a constant,
+ * unaccelerated flow profile (u = 0.0, v = 0.0, w = 1.0) along the entire internal fluid domain.
  */
 
 #ifndef NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS
@@ -26,7 +29,7 @@
 
 namespace navier_stokes_solver {
 
-TEST(FullPipelineLiterateTest, StepByStepMicroManaged) {
+TEST(FullPipelineConstantFlowTest, StepByStepMicroManaged) {
 
     // ============================================================================
     // SECTION 1 — Grid Setup
@@ -330,9 +333,9 @@ TEST(FullPipelineLiterateTest, StepByStepMicroManaged) {
     // ============================================================================
 
     /**
-     * In a straight duct with uniform inlet/outlet (w = 1.0):
+     * In an unforced straight duct with uniform inlet/outlet (w = 1.0):
      *   - Transverse components (u, v) must remain zero across the fluid core.
-     *   - Streamwise velocity (w) must propagate through all internal fluid layers (k=1, 2).
+     *   - Streamwise velocity (w) must propagate uniformly through all internal fluid layers (k=1, 2).
      */
     for (int k = 0; k < dims.nz; ++k) {
         for (int j = 0; j < dims.ny; ++j) {
@@ -346,7 +349,7 @@ TEST(FullPipelineLiterateTest, StepByStepMicroManaged) {
                     ASSERT_NEAR(v[idx], 0.0, 1e-6) 
                         << "Non-zero v velocity at fluid cell (" << i << ", " << j << ", " << k << ")";
 
-                    // Streamwise flow must propagate through the entire core
+                    // Streamwise flow must remain constant across the core
                     ASSERT_NEAR(w[idx], 1.0, 1e-2) 
                         << "Inconsistent streamwise w velocity at fluid cell (" << i << ", " << j << ", " << k << ")";
                 }

@@ -1,4 +1,0 @@
-{
-  "max_poisson_iterations": 2000,
-  "poisson_tolerance": 1e-8
-}
