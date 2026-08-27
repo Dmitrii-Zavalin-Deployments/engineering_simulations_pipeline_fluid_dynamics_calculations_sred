@@ -34,55 +34,65 @@ public:
             throw py::value_error("FATAL ERROR: state object cannot be None.");
         }
 
-        // 1. Extract Grid Dimensions & Spatial Bounds
-        int nx = state.attr("nx").cast<int>();
-        int ny = state.attr("ny").cast<int>();
-        int nz = state.attr("nz").cast<int>();
+        try {
+            // 1. Extract Grid Dimensions & Spatial Bounds
+            int nx = state.attr("nx").cast<int>();
+            int ny = state.attr("ny").cast<int>();
+            int nz = state.attr("nz").cast<int>();
 
-        if (nx < 2 || ny < 2 || nz < 2) {
-            throw py::value_error("GEOMETRY ERROR: nx, ny, nz must be at least 2 for node-based spacing.");
+            if (nx < 2 || ny < 2 || nz < 2) {
+                throw py::value_error("GEOMETRY ERROR: nx, ny, nz must be at least 2 for node-based spacing.");
+            }
+
+            double x_min = state.attr("x_min").cast<double>();
+            double x_max = state.attr("x_max").cast<double>();
+            double y_min = state.attr("y_min").cast<double>();
+            double y_max = state.attr("y_max").cast<double>();
+            double z_min = state.attr("z_min").cast<double>();
+            double z_max = state.attr("z_max").cast<double>();
+
+            // Node-based grid: spacing uses (N - 1)
+            double dx = (x_max - x_min) / static_cast<double>(nx - 1);
+            double dy = (y_max - y_min) / static_cast<double>(ny - 1);
+            double dz = (z_max - z_min) / static_cast<double>(nz - 1);
+
+            if (dx <= 0.0 || dy <= 0.0 || dz <= 0.0 || !std::isfinite(dx) || !std::isfinite(dy) || !std::isfinite(dz)) {
+                throw py::value_error("GEOMETRY ERROR: Computed grid spacing (dx, dy, dz) must be positive and finite.");
+            }
+
+            dims_ = {nx, ny, nz, dx, dy, dz};
+
+            // 2. Extract Fluid Properties & Solver Configuration
+            py::dict fluid_props = state.attr("fluid_properties").cast<py::dict>();
+            double density = fluid_props["density"].cast<double>();
+            if (density <= 0.0 || !std::isfinite(density)) {
+                throw py::value_error("PHYSICS ERROR: Fluid density must be strictly positive and finite.");
+            }
+
+            py::dict config = state.attr("config").cast<py::dict>();
+            size_t max_poisson_iters = config["max_poisson_iterations"].cast<size_t>();
+            double poisson_tolerance = config["poisson_tolerance"].cast<double>();
+
+            config_ = {max_poisson_iters, poisson_tolerance, density};
+
+            // Allocate persistent cell-centered state buffers
+            size_t total_cells = static_cast<size_t>(nx) * ny * nz;
+            u_.resize(total_cells, 0.0);
+            v_.resize(total_cells, 0.0);
+            w_.resize(total_cells, 0.0);
+            p_.resize(total_cells, 0.0);
+
+            // 3. Initialize C++ Orchestrator Core
+            orchestrator_ = std::make_unique<navier_stokes_solver::NavierStokesOrchestrator>(dims_, config_);
+        } catch (const py::error_already_set& e) {
+            std::string what = e.what();
+            // If it's already a ValueError or TypeError we threw deliberately, re-throw it as-is
+            if (what.find("ValueError") != std::string::npos || what.find("TypeError") != std::string::npos) {
+                throw;
+            }
+            // Otherwise, wrap missing/invalid attribute errors into standard ValueError for test contract compliance
+            throw py::value_error("STATE CONTRACT ERROR: Missing or invalid attributes in state container.");
         }
-
-        double x_min = state.attr("x_min").cast<double>();
-        double x_max = state.attr("x_max").cast<double>();
-        double y_min = state.attr("y_min").cast<double>();
-        double y_max = state.attr("y_max").cast<double>();
-        double z_min = state.attr("z_min").cast<double>();
-        double z_max = state.attr("z_max").cast<double>();
-
-        // Node-based grid: spacing uses (N - 1)
-        double dx = (x_max - x_min) / static_cast<double>(nx - 1);
-        double dy = (y_max - y_min) / static_cast<double>(ny - 1);
-        double dz = (z_max - z_min) / static_cast<double>(nz - 1);
-
-        if (dx <= 0.0 || dy <= 0.0 || dz <= 0.0 || !std::isfinite(dx) || !std::isfinite(dy) || !std::isfinite(dz)) {
-            throw py::value_error("GEOMETRY ERROR: Computed grid spacing (dx, dy, dz) must be positive and finite.");
-        }
-
-        dims_ = {nx, ny, nz, dx, dy, dz};
-
-        // 2. Extract Fluid Properties & Solver Configuration
-        py::dict fluid_props = state.attr("fluid_properties").cast<py::dict>();
-        double density = fluid_props["density"].cast<double>();
-        if (density <= 0.0 || !std::isfinite(density)) {
-            throw py::value_error("PHYSICS ERROR: Fluid density must be strictly positive and finite.");
-        }
-
-        py::dict config = state.attr("config").cast<py::dict>();
-        size_t max_poisson_iters = config["max_poisson_iterations"].cast<size_t>();
-        double poisson_tolerance = config["poisson_tolerance"].cast<double>();
-
-        config_ = {max_poisson_iters, poisson_tolerance, density};
-
-        // Allocate persistent cell-centered state buffers
-        size_t total_cells = static_cast<size_t>(nx) * ny * nz;
-        u_.resize(total_cells, 0.0);
-        v_.resize(total_cells, 0.0);
-        w_.resize(total_cells, 0.0);
-        p_.resize(total_cells, 0.0);
-
-        // 3. Initialize C++ Orchestrator Core
-        orchestrator_ = std::make_unique<navier_stokes_solver::NavierStokesOrchestrator>(dims_, config_);
     }
 
     void step(py::object state) {
