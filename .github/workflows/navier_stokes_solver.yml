@@ -87,20 +87,20 @@ jobs:
           # Initialize failure collector variable
           TEST_FAILED=0
           
-          # Run pytest and capture its exit code into the variable instead of crashing or using || true
-          pytest cpp/python_bridge_tests/ -vv --tb=short || TEST_FAILED=$?
-
-          # Check if tests failed using our variable collector
-          if [ $TEST_FAILED -ne 0 ]; then
-            echo "--------------------------------------------------"
-            echo "❌ ERROR: Python bridge tests failed with exit code $TEST_FAILED."
-            echo "🛑 Aborting pipeline before coverage generation to address test failures."
-            echo "--------------------------------------------------"
-            exit 1
-          fi
+          # Run pytest and capture its exit code into the variable
+          pytest cpp/python_bridge_tests/ -vv --tb=long || TEST_FAILED=$?
 
           echo "📊 Generating Combined Code Coverage Report..."
           gcovr --root=. --filter=cpp/src/ --print-summary --txt
+
+          # Fail the build AFTER coverage and memory diagnostics are fully printed
+          if [ $TEST_FAILED -ne 0 ]; then
+            echo "--------------------------------------------------"
+            echo "❌ ERROR: Python bridge tests failed with exit code $TEST_FAILED."
+            echo "🛑 Failing the pipeline now that logs and coverage are complete."
+            echo "--------------------------------------------------"
+            exit 1
+          fi
 
       # - name: 🧹 Auto-Clean (Autoflake)
       #   run: |
