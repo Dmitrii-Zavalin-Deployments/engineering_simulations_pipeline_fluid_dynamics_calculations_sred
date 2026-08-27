@@ -82,7 +82,7 @@ jobs:
           echo "🐍 Executing Python C++ bridge tests from cpp/python_bridge_tests/..."
           # Include repository root and build directory in PYTHONPATH
           export PYTHONPATH=$PWD:$PWD/build:$PYTHONPATH
-          pytest cpp/python_bridge_tests/ -v
+          pytest cpp/python_bridge_tests/ -v --tb=short
 
           echo "📊 Generating Combined Code Coverage Report..."
           gcovr --root=. --filter=cpp/src/ --print-summary --txt

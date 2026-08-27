@@ -89,10 +89,9 @@ public:
             // 3. Initialize C++ Orchestrator Core
             orchestrator_ = std::make_unique<navier_stokes_solver::NavierStokesOrchestrator>(dims_, config_);
         } catch (const py::error_already_set&) {
-            if (!PyErr_Occurred()) {
-                PyErr_SetString(PyExc_ValueError, "STATE CONTRACT ERROR: Failed to initialize solver from state container.");
-            }
-            throw;
+            PyErr_Clear();
+            PyErr_SetString(PyExc_ValueError, "STATE CONTRACT ERROR: Missing or invalid attributes in state container.");
+            throw py::error_already_set();
         }
     }
 
@@ -237,10 +236,9 @@ public:
                 }
             }
         } catch (const py::error_already_set&) {
-            if (!PyErr_Occurred()) {
-                PyErr_SetString(PyExc_ValueError, "STATE CONTRACT ERROR: Failed to extract step parameters from state container.");
-            }
-            throw;
+            PyErr_Clear();
+            PyErr_SetString(PyExc_ValueError, "STATE CONTRACT ERROR: Missing or invalid attributes during step execution.");
+            throw py::error_already_set();
         }
     }
 
@@ -270,10 +268,9 @@ public:
                 }
             }
         } catch (const py::error_already_set&) {
-            if (!PyErr_Occurred()) {
-                PyErr_SetString(PyExc_ValueError, "STATE CONTRACT ERROR: Failed to synchronize fields with state container.");
-            }
-            throw;
+            PyErr_Clear();
+            PyErr_SetString(PyExc_ValueError, "STATE CONTRACT ERROR: Missing fields attribute during synchronization.");
+            throw py::error_already_set();
         }
     }
 
