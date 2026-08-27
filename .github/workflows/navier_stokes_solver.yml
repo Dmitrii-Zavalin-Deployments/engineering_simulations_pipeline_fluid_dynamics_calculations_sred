@@ -67,22 +67,36 @@ jobs:
           echo "🧪 Configuring OpenMP stack size for multi-threaded stability..."
           export OMP_STACKSIZE=64M
 
-          # Preload the GCC AddressSanitizer library to allow Python to load ASan-instrumented C++ modules
+          # ==========================================
+          # PHASE 1: Run C++ Test Suites with ASan
+          # ==========================================
+          echo "🔬 Preloading ASan and executing C++ Test Suites via CTest..."
           export LD_PRELOAD=$(g++ -print-file-name=libasan.so)
-
-          # # echo "🧪 Executing isolated C++ MassContinuityTest via CTest..."
-          # # cd build
-          # # ctest --output-on-failure -V -R MassContinuity
-          # # cd ..
-
-          # echo "🧪 Executing C++ Test Suites via CTest..."
-          # cd build
-          # ctest --output-on-failure -V
-          # cd ..
-
-          echo "🛑 Unsetting LD_PRELOAD before Python tests to prevent ASan __cxa_throw crashes..."
+          
+          cd build
+          # Run all C++ tests. 
+          # Tip: To run a single isolated test, use the -R flag with the test name pattern:
+          #   ctest --output-on-failure -V -R MassContinuity
+          ctest --output-on-failure -V
+          cd ..
+          
+          echo "🛑 Unsetting LD_PRELOAD before Python steps..."
           unset LD_PRELOAD
 
+          # ==========================================
+          # PHASE 2: Re-build without ASan for Python
+          # ==========================================
+          echo "⚙️ Re-configuring CMake without ASan for Python / Pybind11 compatibility..."
+          cmake -B build -S . \
+              -DCMAKE_BUILD_TYPE=Debug \
+              -DENABLE_ASAN=OFF \
+              -DENABLE_COVERAGE=OFF
+          
+          cmake --build build --parallel $(nproc)
+
+          # ==========================================
+          # PHASE 3: Execute Python Bridge Tests & Coverage
+          # ==========================================
           echo "🐍 Executing Python C++ bridge tests from cpp/python_bridge_tests/..."
           # Include repository root and build directory in PYTHONPATH
           export PYTHONPATH=$PWD:$PWD/build:$PYTHONPATH
