@@ -35,58 +35,65 @@ public:
             throw py::error_already_set();
         }
 
-        // 1. Extract Grid Dimensions & Spatial Bounds
-        int nx = state.attr("nx").cast<int>();
-        int ny = state.attr("ny").cast<int>();
-        int nz = state.attr("nz").cast<int>();
+        try {
+            // 1. Extract Grid Dimensions & Spatial Bounds
+            int nx = state.attr("nx").cast<int>();
+            int ny = state.attr("ny").cast<int>();
+            int nz = state.attr("nz").cast<int>();
 
-        if (nx < 2 || ny < 2 || nz < 2) {
-            PyErr_SetString(PyExc_ValueError, "GEOMETRY ERROR: nx, ny, nz must be at least 2 for node-based spacing.");
-            throw py::error_already_set();
+            if (nx < 2 || ny < 2 || nz < 2) {
+                PyErr_SetString(PyExc_ValueError, "GEOMETRY ERROR: nx, ny, nz must be at least 2 for node-based spacing.");
+                throw py::error_already_set();
+            }
+
+            double x_min = state.attr("x_min").cast<double>();
+            double x_max = state.attr("x_max").cast<double>();
+            double y_min = state.attr("y_min").cast<double>();
+            double y_max = state.attr("y_max").cast<double>();
+            double z_min = state.attr("z_min").cast<double>();
+            double z_max = state.attr("z_max").cast<double>();
+
+            // Node-based grid: spacing uses (N - 1)
+            double dx = (x_max - x_min) / static_cast<double>(nx - 1);
+            double dy = (y_max - y_min) / static_cast<double>(ny - 1);
+            double dz = (z_max - z_min) / static_cast<double>(nz - 1);
+
+            if (dx <= 0.0 || dy <= 0.0 || dz <= 0.0 || !std::isfinite(dx) || !std::isfinite(dy) || !std::isfinite(dz)) {
+                PyErr_SetString(PyExc_ValueError, "GEOMETRY ERROR: Computed grid spacing (dx, dy, dz) must be positive and finite.");
+                throw py::error_already_set();
+            }
+
+            dims_ = {nx, ny, nz, dx, dy, dz};
+
+            // 2. Extract Fluid Properties & Solver Configuration
+            py::dict fluid_props = state.attr("fluid_properties");
+            double density = fluid_props["density"].cast<double>();
+            if (density <= 0.0 || !std::isfinite(density)) {
+                PyErr_SetString(PyExc_ValueError, "PHYSICS ERROR: Fluid density must be strictly positive and finite.");
+                throw py::error_already_set();
+            }
+
+            py::dict config = state.attr("config");
+            size_t max_poisson_iters = config["max_poisson_iterations"].cast<size_t>();
+            double poisson_tolerance = config["poisson_tolerance"].cast<double>();
+
+            config_ = {max_poisson_iters, poisson_tolerance, density};
+
+            // Allocate persistent cell-centered state buffers
+            size_t total_cells = static_cast<size_t>(nx) * ny * nz;
+            u_.resize(total_cells, 0.0);
+            v_.resize(total_cells, 0.0);
+            w_.resize(total_cells, 0.0);
+            p_.resize(total_cells, 0.0);
+
+            // 3. Initialize C++ Orchestrator Core
+            orchestrator_ = std::make_unique<navier_stokes_solver::NavierStokesOrchestrator>(dims_, config_);
+        } catch (const py::error_already_set&) {
+            if (!PyErr_Occurred()) {
+                PyErr_SetString(PyExc_ValueError, "STATE CONTRACT ERROR: Failed to initialize solver from state container.");
+            }
+            throw;
         }
-
-        double x_min = state.attr("x_min").cast<double>();
-        double x_max = state.attr("x_max").cast<double>();
-        double y_min = state.attr("y_min").cast<double>();
-        double y_max = state.attr("y_max").cast<double>();
-        double z_min = state.attr("z_min").cast<double>();
-        double z_max = state.attr("z_max").cast<double>();
-
-        // Node-based grid: spacing uses (N - 1)
-        double dx = (x_max - x_min) / static_cast<double>(nx - 1);
-        double dy = (y_max - y_min) / static_cast<double>(ny - 1);
-        double dz = (z_max - z_min) / static_cast<double>(nz - 1);
-
-        if (dx <= 0.0 || dy <= 0.0 || dz <= 0.0 || !std::isfinite(dx) || !std::isfinite(dy) || !std::isfinite(dz)) {
-            PyErr_SetString(PyExc_ValueError, "GEOMETRY ERROR: Computed grid spacing (dx, dy, dz) must be positive and finite.");
-            throw py::error_already_set();
-        }
-
-        dims_ = {nx, ny, nz, dx, dy, dz};
-
-        // 2. Extract Fluid Properties & Solver Configuration
-        py::dict fluid_props = state.attr("fluid_properties");
-        double density = fluid_props["density"].cast<double>();
-        if (density <= 0.0 || !std::isfinite(density)) {
-            PyErr_SetString(PyExc_ValueError, "PHYSICS ERROR: Fluid density must be strictly positive and finite.");
-            throw py::error_already_set();
-        }
-
-        py::dict config = state.attr("config");
-        size_t max_poisson_iters = config["max_poisson_iterations"].cast<size_t>();
-        double poisson_tolerance = config["poisson_tolerance"].cast<double>();
-
-        config_ = {max_poisson_iters, poisson_tolerance, density};
-
-        // Allocate persistent cell-centered state buffers
-        size_t total_cells = static_cast<size_t>(nx) * ny * nz;
-        u_.resize(total_cells, 0.0);
-        v_.resize(total_cells, 0.0);
-        w_.resize(total_cells, 0.0);
-        p_.resize(total_cells, 0.0);
-
-        // 3. Initialize C++ Orchestrator Core
-        orchestrator_ = std::make_unique<navier_stokes_solver::NavierStokesOrchestrator>(dims_, config_);
     }
 
     void step(py::object state) {
@@ -95,138 +102,145 @@ public:
             throw py::error_already_set();
         }
 
-        int nx = dims_.nx;
-        int ny = dims_.ny;
-        int nz = dims_.nz;
-        size_t total_cells = static_cast<size_t>(nx) * ny * nz;
+        try {
+            int nx = dims_.nx;
+            int ny = dims_.ny;
+            int nz = dims_.nz;
+            size_t total_cells = static_cast<size_t>(nx) * ny * nz;
 
-        #ifdef _OPENMP
-        int active_threads = omp_get_max_threads();
-        #else
-        int active_threads = 1;
-        #endif
+            #ifdef _OPENMP
+            int active_threads = omp_get_max_threads();
+            #else
+            int active_threads = 1;
+            #endif
 
-        std::cout << "[THREAD_TRACE] File: python_gate.cpp | Operations (Cells): " << total_cells 
-                  << " | Grid: " << nx << "x" << ny << "x" << nz 
-                  << " | Active Threads: " << active_threads << "\n";
+            std::cout << "[THREAD_TRACE] File: python_gate.cpp | Operations (Cells): " << total_cells 
+                      << " | Grid: " << nx << "x" << ny << "x" << nz 
+                      << " | Active Threads: " << active_threads << "\n";
 
-        // 4. Extract Tensors with correct buffer stride mapping
-        py::array_t<double> fields = state.attr("fields").cast<py::array_t<double>>();
-        py::array_t<int> mask = state.attr("mask").cast<py::array_t<int>>();
+            // 4. Extract Tensors with correct buffer stride mapping
+            py::array_t<double> fields = state.attr("fields").cast<py::array_t<double>>();
+            py::array_t<int> mask = state.attr("mask").cast<py::array_t<int>>();
 
-        auto r_fields = fields.mutable_unchecked<4>();
+            auto r_fields = fields.mutable_unchecked<4>();
 
-        // 5. Extract Simulation Parameters & Fluid Viscosity
-        double dt = state.attr("dt").cast<double>();
-        if (dt <= 0.0 || !std::isfinite(dt)) {
-            PyErr_SetString(PyExc_ValueError, "TEMPORAL ERROR: Time step dt must be strictly positive and finite.");
-            throw py::error_already_set();
-        }
+            // 5. Extract Simulation Parameters & Fluid Viscosity
+            double dt = state.attr("dt").cast<double>();
+            if (dt <= 0.0 || !std::isfinite(dt)) {
+                PyErr_SetString(PyExc_ValueError, "TEMPORAL ERROR: Time step dt must be strictly positive and finite.");
+                throw py::error_already_set();
+            }
 
-        py::dict fluid_props = state.attr("fluid_properties");
-        double mu = fluid_props["viscosity"].cast<double>();
-        if (mu < 0.0 || !std::isfinite(mu)) {
-            PyErr_SetString(PyExc_ValueError, "PHYSICS ERROR: Dynamic viscosity mu cannot be negative and must be finite.");
-            throw py::error_already_set();
-        }
+            py::dict fluid_props = state.attr("fluid_properties");
+            double mu = fluid_props["viscosity"].cast<double>();
+            if (mu < 0.0 || !std::isfinite(mu)) {
+                PyErr_SetString(PyExc_ValueError, "PHYSICS ERROR: Dynamic viscosity mu cannot be negative and must be finite.");
+                throw py::error_already_set();
+            }
 
-        // 6. Extract External Forces & 3D Gravity Vector Symmetrically
-        py::dict ext_forces = state.attr("external_forces");
-        std::vector<double> gravity = ext_forces["gravity_vector"].cast<std::vector<double>>();
-        std::vector<double> force_vec = ext_forces["force_vector"].cast<std::vector<double>>();
+            // 6. Extract External Forces & 3D Gravity Vector Symmetrically
+            py::dict ext_forces = state.attr("external_forces");
+            std::vector<double> gravity = ext_forces["gravity_vector"].cast<std::vector<double>>();
+            std::vector<double> force_vec = ext_forces["force_vector"].cast<std::vector<double>>();
 
-        if (gravity.size() != 3) {
-            PyErr_SetString(PyExc_ValueError, "CONTRACT VIOLATION: gravity_vector must contain exactly 3 components [gx, gy, gz].");
-            throw py::error_already_set();
-        }
-        if (force_vec.size() != 3) {
-            PyErr_SetString(PyExc_ValueError, "CONTRACT VIOLATION: force_vector must contain exactly 3 components [fx, fy, fz].");
-            throw py::error_already_set();
-        }
+            if (gravity.size() != 3) {
+                PyErr_SetString(PyExc_ValueError, "CONTRACT VIOLATION: gravity_vector must contain exactly 3 components [gx, gy, gz].");
+                throw py::error_already_set();
+            }
+            if (force_vec.size() != 3) {
+                PyErr_SetString(PyExc_ValueError, "CONTRACT VIOLATION: force_vector must contain exactly 3 components [fx, fy, fz].");
+                throw py::error_already_set();
+            }
 
-        // 7. Map NumPy fields to C++ persistent vectors for Orchestrator consumption
-        std::vector<int> mask_vec(total_cells);
-        std::vector<double> fx_vec(total_cells, force_vec[0]);
-        std::vector<double> fy_vec(total_cells, force_vec[1]);
-        std::vector<double> fz_vec(total_cells, force_vec[2]);
+            // 7. Map NumPy fields to C++ persistent vectors for Orchestrator consumption
+            std::vector<int> mask_vec(total_cells);
+            std::vector<double> fx_vec(total_cells, force_vec[0]);
+            std::vector<double> fy_vec(total_cells, force_vec[1]);
+            std::vector<double> fz_vec(total_cells, force_vec[2]);
 
-        // Support both 3D and 1D NumPy array masks using SSoT get_flat_index
-        if (mask.ndim() == 3) {
-            auto r_mask = mask.unchecked<3>();
+            // Support both 3D and 1D NumPy array masks using SSoT get_flat_index
+            if (mask.ndim() == 3) {
+                auto r_mask = mask.unchecked<3>();
+                for (int k = 0; k < nz; ++k) {
+                    for (int j = 0; j < ny; ++j) {
+                        for (int i = 0; i < nx; ++i) {
+                            size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
+                            mask_vec[idx] = r_mask(i, j, k);
+                        }
+                    }
+                }
+            } else if (mask.ndim() == 1) {
+                auto r_mask = mask.unchecked<1>();
+                for (size_t idx = 0; idx < total_cells; ++idx) {
+                    mask_vec[idx] = r_mask(idx);
+                }
+            } else {
+                PyErr_SetString(PyExc_ValueError, "GEOMETRY ERROR: mask must be a 1D or 3D NumPy array.");
+                throw py::error_already_set();
+            }
+
+            // Extract primary collocated velocity and pressure fields using SSoT get_flat_index
             for (int k = 0; k < nz; ++k) {
                 for (int j = 0; j < ny; ++j) {
                     for (int i = 0; i < nx; ++i) {
                         size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
-                        mask_vec[idx] = r_mask(i, j, k);
+                        u_[idx] = r_fields(0, i, j, k);
+                        v_[idx] = r_fields(1, i, j, k);
+                        w_[idx] = r_fields(2, i, j, k);
+                        p_[idx] = r_fields(3, i, j, k);
                     }
                 }
             }
-        } else if (mask.ndim() == 1) {
-            auto r_mask = mask.unchecked<1>();
-            for (size_t idx = 0; idx < total_cells; ++idx) {
-                mask_vec[idx] = r_mask(idx);
-            }
-        } else {
-            PyErr_SetString(PyExc_ValueError, "GEOMETRY ERROR: mask must be a 1D or 3D NumPy array.");
-            throw py::error_already_set();
-        }
 
-        // Extract primary collocated velocity and pressure fields using SSoT get_flat_index
-        for (int k = 0; k < nz; ++k) {
-            for (int j = 0; j < ny; ++j) {
-                for (int i = 0; i < nx; ++i) {
-                    size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
-                    u_[idx] = r_fields(0, i, j, k);
-                    v_[idx] = r_fields(1, i, j, k);
-                    w_[idx] = r_fields(2, i, j, k);
-                    p_[idx] = r_fields(3, i, j, k);
+            // 8. Extract Boundary Conditions List
+            py::list py_bc_list = state.attr("boundary_conditions");
+            std::vector<navier_stokes_solver::BoundaryCondition> bc_list;
+
+            for (auto item : py_bc_list) {
+                if (py::isinstance<py::dict>(item)) {
+                    py::dict bc_dict = item.cast<py::dict>();
+                    navier_stokes_solver::BoundaryCondition bc;
+                    
+                    if (bc_dict.contains("location")) bc.location = bc_dict["location"].cast<std::string>();
+                    if (bc_dict.contains("type")) bc.type = bc_dict["type"].cast<std::string>();
+
+                    if (bc_dict.contains("values")) {
+                        py::dict val_dict = bc_dict["values"].cast<py::dict>();
+                        if (val_dict.contains("u")) bc.u_val = val_dict["u"].cast<double>();
+                        if (val_dict.contains("v")) bc.v_val = val_dict["v"].cast<double>();
+                        if (val_dict.contains("w")) bc.w_val = val_dict["w"].cast<double>();
+                        if (val_dict.contains("p")) bc.scalar_p = val_dict["p"].cast<double>();
+                    }
+                    bc_list.push_back(bc);
+                } else {
+                    bc_list.push_back(item.cast<navier_stokes_solver::BoundaryCondition>());
                 }
             }
-        }
 
-        // 8. Extract Boundary Conditions List
-        py::list py_bc_list = state.attr("boundary_conditions");
-        std::vector<navier_stokes_solver::BoundaryCondition> bc_list;
-
-        for (auto item : py_bc_list) {
-            if (py::isinstance<py::dict>(item)) {
-                py::dict bc_dict = item.cast<py::dict>();
-                navier_stokes_solver::BoundaryCondition bc;
-                
-                if (bc_dict.contains("location")) bc.location = bc_dict["location"].cast<std::string>();
-                if (bc_dict.contains("type")) bc.type = bc_dict["type"].cast<std::string>();
-
-                if (bc_dict.contains("values")) {
-                    py::dict val_dict = bc_dict["values"].cast<py::dict>();
-                    if (val_dict.contains("u")) bc.u_val = val_dict["u"].cast<double>();
-                    if (val_dict.contains("v")) bc.v_val = val_dict["v"].cast<double>();
-                    if (val_dict.contains("w")) bc.w_val = val_dict["w"].cast<double>();
-                    if (val_dict.contains("p")) bc.scalar_p = val_dict["p"].cast<double>();
-                }
-                bc_list.push_back(bc);
-            } else {
-                bc_list.push_back(item.cast<navier_stokes_solver::BoundaryCondition>());
+            // 9. Execute full time-step inside C++ Orchestrator Core (releasing GIL for OpenMP compute)
+            {
+                py::gil_scoped_release release;
+                orchestrator_->step(dt, mu, gravity, fx_vec, fy_vec, fz_vec, mask_vec, bc_list, u_, v_, w_, p_);
             }
-        }
 
-        // 9. Execute full time-step inside C++ Orchestrator Core (releasing GIL for OpenMP compute)
-        {
-            py::gil_scoped_release release;
-            orchestrator_->step(dt, mu, gravity, fx_vec, fy_vec, fz_vec, mask_vec, bc_list, u_, v_, w_, p_);
-        }
+            // 10. Copy modified collocated fields back into Python NumPy memory in-place using SSoT get_flat_index
+            for (int k = 0; k < nz; ++k) {
+                for (int j = 0; j < ny; ++j) {
+                    for (int i = 0; i < nx; ++i) {
+                        size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
 
-        // 10. Copy modified collocated fields back into Python NumPy memory in-place using SSoT get_flat_index
-        for (int k = 0; k < nz; ++k) {
-            for (int j = 0; j < ny; ++j) {
-                for (int i = 0; i < nx; ++i) {
-                    size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
-
-                    r_fields(0, i, j, k) = u_[idx];
-                    r_fields(1, i, j, k) = v_[idx];
-                    r_fields(2, i, j, k) = w_[idx];
-                    r_fields(3, i, j, k) = p_[idx];
+                        r_fields(0, i, j, k) = u_[idx];
+                        r_fields(1, i, j, k) = v_[idx];
+                        r_fields(2, i, j, k) = w_[idx];
+                        r_fields(3, i, j, k) = p_[idx];
+                    }
                 }
             }
+        } catch (const py::error_already_set&) {
+            if (!PyErr_Occurred()) {
+                PyErr_SetString(PyExc_ValueError, "STATE CONTRACT ERROR: Failed to extract step parameters from state container.");
+            }
+            throw;
         }
     }
 
@@ -236,23 +250,30 @@ public:
             throw py::error_already_set();
         }
 
-        int nx = dims_.nx;
-        int ny = dims_.ny;
-        int nz = dims_.nz;
+        try {
+            int nx = dims_.nx;
+            int ny = dims_.ny;
+            int nz = dims_.nz;
 
-        py::array_t<double> fields = state.attr("fields").cast<py::array_t<double>>();
-        auto r_fields = fields.mutable_unchecked<4>();
+            py::array_t<double> fields = state.attr("fields").cast<py::array_t<double>>();
+            auto r_fields = fields.mutable_unchecked<4>();
 
-        for (int k = 0; k < nz; ++k) {
-            for (int j = 0; j < ny; ++j) {
-                for (int i = 0; i < nx; ++i) {
-                    size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
-                    r_fields(0, i, j, k) = u_[idx];
-                    r_fields(1, i, j, k) = v_[idx];
-                    r_fields(2, i, j, k) = w_[idx];
-                    r_fields(3, i, j, k) = p_[idx];
+            for (int k = 0; k < nz; ++k) {
+                for (int j = 0; j < ny; ++j) {
+                    for (int i = 0; i < nx; ++i) {
+                        size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
+                        r_fields(0, i, j, k) = u_[idx];
+                        r_fields(1, i, j, k) = v_[idx];
+                        r_fields(2, i, j, k) = w_[idx];
+                        r_fields(3, i, j, k) = p_[idx];
+                    }
                 }
             }
+        } catch (const py::error_already_set&) {
+            if (!PyErr_Occurred()) {
+                PyErr_SetString(PyExc_ValueError, "STATE CONTRACT ERROR: Failed to synchronize fields with state container.");
+            }
+            throw;
         }
     }
 
