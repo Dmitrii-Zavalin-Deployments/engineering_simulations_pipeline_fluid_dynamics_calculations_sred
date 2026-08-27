@@ -40,11 +40,9 @@ def test_c_contiguous_stride_alignment():
     arr_c = np.zeros((channels, nx, ny, nz), dtype=np.float64, order='C')
     
     # We verify that the array successfully initializes with C-contiguous flags:
-    #     assert arr_c.flags['C_CONTIGUOUS'] == True
     assert arr_c.flags['C_CONTIGUOUS'], "Test array must initialize as C-contiguous."
 
     # We populate the grid with unique coordinate values structured by channel and spatial indices:
-    #     arr_c[c, i, j, k] = c * 1000 + i * 100 + j * 10 + k
     for c in range(channels):
         for i in range(nx):
             for j in range(ny):
@@ -52,18 +50,14 @@ def test_c_contiguous_stride_alignment():
                     arr_c[c, i, j, k] = float(c * 1000 + i * 100 + j * 10 + k)
 
     # We validate that the python gate buffer interface correctly interprets C-stride mapping.
-    # If a dedicated verification binding exists, we evaluate it directly:
-    if hasattr(navier_stokes_cpp, 'verify_buffer_strides'):
-        is_valid = navier_stokes_cpp.verify_buffer_strides(arr_c)
-        # The gateway must accept C-contiguous buffer strides without transposition errors:
-        #     assert is_valid == True
-        assert is_valid is True, "C++ gateway rejected C-contiguous buffer strides."
+    if hasattr(navier_stokes_cpp, "verify_buffer_strides"):
+        assert navier_stokes_cpp.verify_buffer_strides(arr_c), "C++ buffer stride verification failed."
     else:
-        # Otherwise, we perform structural validation of the buffer strides and item sizes:
-        #     stride_last == item_size
-        item_size = arr_c.itemsize
-        last_stride = arr_c.strides[-1]
-        
-        # We assert that the fastest running index stride matches the exact element size under C-order:
-        #     assert abs(last_stride - item_size) < 1e-9
-        assert abs(last_stride - item_size) < 1e-9, "Fastest running index stride must match element size (C-order)."
+        # Fallback verification of expected C-contiguous strides: (1296, 216, 36, 6) in bytes for float64
+        expected_strides = (216, 36, 6, 1) # in element counts
+        assert arr_c.strides == (
+            expected_strides[0] * 8,
+            expected_strides[1] * 8,
+            expected_strides[2] * 8,
+            expected_strides[3] * 8
+        ), f"Stride mismatch: expected {expected_strides}, got {arr_c.strides}"
