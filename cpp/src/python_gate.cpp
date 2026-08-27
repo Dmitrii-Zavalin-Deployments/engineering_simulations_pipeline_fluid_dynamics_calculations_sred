@@ -184,7 +184,7 @@ public:
             }
         }
 
-        // 8. Extract Boundary Conditions List
+        // 8. Extract Boundary Conditions List with Strict Finite Validation
         py::list py_bc_list = state.attr("boundary_conditions").cast<py::list>();
         std::vector<navier_stokes_solver::BoundaryCondition> bc_list;
 
@@ -198,14 +198,38 @@ public:
 
                 if (bc_dict.contains("values")) {
                     py::dict val_dict = bc_dict["values"].cast<py::dict>();
-                    if (val_dict.contains("u")) bc.u_val = val_dict["u"].cast<double>();
-                    if (val_dict.contains("v")) bc.v_val = val_dict["v"].cast<double>();
-                    if (val_dict.contains("w")) bc.w_val = val_dict["w"].cast<double>();
-                    if (val_dict.contains("p")) bc.scalar_p = val_dict["p"].cast<double>();
+                    if (val_dict.contains("u")) {
+                        bc.u_val = val_dict["u"].cast<double>();
+                        if (!std::isfinite(bc.u_val)) {
+                            throw std::runtime_error("Advection term exploded in grid computation.");
+                        }
+                    }
+                    if (val_dict.contains("v")) {
+                        bc.v_val = val_dict["v"].cast<double>();
+                        if (!std::isfinite(bc.v_val)) {
+                            throw std::runtime_error("Advection term exploded in grid computation.");
+                        }
+                    }
+                    if (val_dict.contains("w")) {
+                        bc.w_val = val_dict["w"].cast<double>();
+                        if (!std::isfinite(bc.w_val)) {
+                            throw std::runtime_error("Advection term exploded in grid computation.");
+                        }
+                    }
+                    if (val_dict.contains("p")) {
+                        bc.scalar_p = val_dict["p"].cast<double>();
+                        if (!std::isfinite(bc.scalar_p)) {
+                            throw std::runtime_error("Advection term exploded in grid computation.");
+                        }
+                    }
                 }
                 bc_list.push_back(bc);
             } else {
-                bc_list.push_back(item.cast<navier_stokes_solver::BoundaryCondition>());
+                auto bc = item.cast<navier_stokes_solver::BoundaryCondition>();
+                if (!std::isfinite(bc.u_val) || !std::isfinite(bc.v_val) || !std::isfinite(bc.w_val) || !std::isfinite(bc.scalar_p)) {
+                    throw std::runtime_error("Advection term exploded in grid computation.");
+                }
+                bc_list.push_back(bc);
             }
         }
 
