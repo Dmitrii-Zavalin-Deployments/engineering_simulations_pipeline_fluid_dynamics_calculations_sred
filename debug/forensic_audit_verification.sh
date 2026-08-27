@@ -2,31 +2,31 @@
 set -eo pipefail
 
 echo "=================================================================="
-echo "    NAVIER-STOKES SOLVER: ADVANCED VLA & STACK BUFFER AUDIT     "
+echo "    NAVIER-STOKES SOLVER: PATH-AWARE C++ STACK AUDIT            "
 echo "=================================================================="
 
-# 1. Hunt for Variable-Length Arrays (VLAs) and non-literal stack allocations
-echo "[*] Step 1: Scanning for Variable-Length Arrays (VLAs) [e.g., arr[nx], arr[total_cells]]..."
+# 1. Scan all C++ source and header files under cpp/ for local stack arrays (fixed or VLAs)
+echo "[*] Step 1: Scanning for stack array allocations across cpp/ directory..."
 echo "------------------------------------------------------------------"
-grep -rnE "\b(double|float|int|char|size_t)\s+\w+\s*\[\s*[a-zA-Z_][a-zA-Z0-9_]*\s*\]" src/ include/ tests/ || echo "No explicit VLA patterns detected with single identifiers."
-grep -rnE "\b(double|float|int|char|size_t)\s+\w+\s*\[\s*[^0-9\]]+\s*\]" src/ include/ tests/ || echo "No complex non-literal bracket expressions found."
+grep -rnE "\b(double|float|int|uint[0-9]+_t|size_t|char)\s+\w+\s*\[[^\]]+\]" cpp/ || echo "No explicit bracket array declarations found."
 
-# 2. Hunt for raw pointer casting or stack array passing to C-style functions
+# 2. Inspect test file implementation specifically for stack buffers or raw arrays
 echo ""
-echo "[*] Step 2: Scanning for raw pointer decays and potential buffer overflows..."
+echo "[*] Step 2: Auditing local stack variables in integration & unit tests..."
 echo "------------------------------------------------------------------"
-grep -rnE "\b(memcpy|memset|strcpy|sprintf)\s*\(" src/ include/ || echo "No unsafe C-string/memory functions found."
+grep -rnE "(double|float|int|char|uint[0-9]+_t)\s+\w+\[" cpp/cpp_integration_tests/ cpp/cpp_unit_tests/ || echo "No local arrays declared in test suites."
 
-# 3. Smoking-Gun Source Audit: Inspect solver inner modules for local arrays
+# 3. Check for unsafe memory operations or raw pointer writes
 echo ""
-echo "[*] Step 3: Inspecting core solver implementation files..."
+echo "[*] Step 3: Checking for raw pointer decay or unsafe memory routines..."
 echo "------------------------------------------------------------------"
-for file in src/pressure_poisson_solver.cpp src/orchestrator.cpp src/advection.cpp src/laplacian.cpp; do
-    if [ -f "$file" ]; then
-        echo "=== FILE: $file ==="
-        grep -nE "(double|float|int)\s+\w+\s*\[" "$file" || echo "No stack array declarations found in $file."
-    fi
-done
+grep -rnE "\b(memcpy|memset|strcpy|sprintf|snprintf)\b" cpp/ || echo "No unsafe C-style memory operations found."
+
+# 4. Target core solver cpp files directly
+echo ""
+echo "[*] Step 4: Full audit of cpp/src files..."
+echo "------------------------------------------------------------------"
+find cpp/src -type f \( -name "*.cpp" -o -name "*.hpp" \) -exec grep -HnE "\b(double|float|int)\s+\w+\s*\[" {} + || echo "Clean: No raw array declarations found in cpp/src."
 
 echo "=================================================================="
 echo "                  AUDIT COMPLETE - REVIEW OUTPUT                  "
