@@ -84,23 +84,11 @@ jobs:
           # Include repository root and build directory in PYTHONPATH
           export PYTHONPATH=$PWD:$PWD/build:$PYTHONPATH
 
-          # Initialize failure collector variable
-          TEST_FAILED=0
-          
-          # -s disables output capture so C++/ASan crash logs print instantly to the console
-          pytest cpp/python_bridge_tests/ -vv -s --tb=long || TEST_FAILED=$?
+          # Execute pytest with full tracebacks (--tb=long) and stream logs live (-s)
+          pytest cpp/python_bridge_tests/ -vv -s --tb=long
 
           echo "📊 Generating Combined Code Coverage Report..."
           gcovr --root=. --filter=cpp/src/ --print-summary --txt
-
-          # Fail the build AFTER coverage and memory diagnostics are fully printed
-          if [ $TEST_FAILED -ne 0 ]; then
-            echo "--------------------------------------------------"
-            echo "❌ ERROR: Python bridge tests failed with exit code $TEST_FAILED."
-            echo "🛑 Failing the pipeline now that logs and coverage are complete."
-            echo "--------------------------------------------------"
-            exit 1
-          fi
 
       # - name: 🧹 Auto-Clean (Autoflake)
       #   run: |
