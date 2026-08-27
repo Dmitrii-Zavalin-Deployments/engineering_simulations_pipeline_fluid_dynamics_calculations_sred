@@ -80,6 +80,9 @@ jobs:
           # ctest --output-on-failure -V
           # cd ..
 
+          echo "🛑 Unsetting LD_PRELOAD before Python tests to prevent ASan __cxa_throw crashes..."
+          unset LD_PRELOAD
+
           echo "🐍 Executing Python C++ bridge tests from cpp/python_bridge_tests/..."
           # Include repository root and build directory in PYTHONPATH
           export PYTHONPATH=$PWD:$PWD/build:$PYTHONPATH
