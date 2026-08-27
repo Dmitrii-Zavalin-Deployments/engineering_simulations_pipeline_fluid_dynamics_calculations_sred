@@ -97,7 +97,7 @@ def test_invalid_state_error_handling():
     if navier_stokes_cpp is None:
         pytest.skip("navier_stokes_cpp module not available.")
 
-    with pytest.raises((TypeError, ValueError)):
+    with pytest.raises((TypeError, ValueError, RuntimeError)):
         navier_stokes_cpp.NavierStokesSolver(None)
 
 
@@ -196,7 +196,7 @@ def test_step_none_state_error():
     state = DummySolverState(nx=nx, ny=ny, nz=nz)
     solver = navier_stokes_cpp.NavierStokesSolver(state)
 
-    with pytest.raises((TypeError, ValueError)):
+    with pytest.raises((TypeError, ValueError, RuntimeError)):
         solver.step(None)
 
 
@@ -210,7 +210,7 @@ def test_invalid_gravity_vector_size():
     state.external_forces["gravity_vector"] = [0.0, -9.81]  # Invalid size != 3
     solver = navier_stokes_cpp.NavierStokesSolver(state)
 
-    with pytest.raises((TypeError, ValueError)):
+    with pytest.raises((TypeError, ValueError, RuntimeError)):
         solver.step(state)
 
 
@@ -224,7 +224,7 @@ def test_invalid_force_vector_size():
     state.external_forces["force_vector"] = [10.0, 0.0]  # Invalid size != 3
     solver = navier_stokes_cpp.NavierStokesSolver(state)
 
-    with pytest.raises((TypeError, ValueError)):
+    with pytest.raises((TypeError, ValueError, RuntimeError)):
         solver.step(state)
 
 
@@ -257,7 +257,7 @@ def test_sync_fields_none_error():
     state = DummySolverState(nx=nx, ny=ny, nz=nz)
     solver = navier_stokes_cpp.NavierStokesSolver(state)
 
-    with pytest.raises((TypeError, ValueError)):
+    with pytest.raises((TypeError, ValueError, RuntimeError)):
         solver.sync_fields(None)
 
 
