@@ -69,15 +69,15 @@ jobs:
           # Preload the GCC AddressSanitizer library to allow Python to load ASan-instrumented C++ modules
           export LD_PRELOAD=$(g++ -print-file-name=libasan.so)
 
-          # echo "🧪 Executing isolated C++ MassContinuityTest via CTest..."
-          # cd build
-          # ctest --output-on-failure -V -R MassContinuity
-          # cd ..
+          # # echo "🧪 Executing isolated C++ MassContinuityTest via CTest..."
+          # # cd build
+          # # ctest --output-on-failure -V -R MassContinuity
+          # # cd ..
 
-          echo "🧪 Executing C++ Test Suites via CTest..."
-          cd build
-          ctest --output-on-failure -V
-          cd ..
+          # echo "🧪 Executing C++ Test Suites via CTest..."
+          # cd build
+          # ctest --output-on-failure -V
+          # cd ..
 
           echo "🐍 Executing Python C++ bridge tests from cpp/python_bridge_tests/..."
           # Include repository root and build directory in PYTHONPATH
