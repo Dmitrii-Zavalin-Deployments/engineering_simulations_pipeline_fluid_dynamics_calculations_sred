@@ -107,6 +107,14 @@ add_test(NAME MassContinuityTest COMMAND test_mass_continuity)
 file(GLOB ALL_CPP_SOURCES "cpp/src/*.cpp") # Includes python_gate.cpp
 
 pybind11_add_module(navier_stokes_cpp MODULE ${ALL_CPP_SOURCES})
+
+# Force the compiled module output directly into the src/ directory for seamless python imports
+set_target_properties(navier_stokes_cpp PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/src"
+    LIBRARY_OUTPUT_DIRECTORY_DEBUG "${CMAKE_CURRENT_SOURCE_DIR}/src"
+    LIBRARY_OUTPUT_DIRECTORY_RELEASE "${CMAKE_CURRENT_SOURCE_DIR}/src"
+)
+
 target_link_libraries(navier_stokes_cpp 
     PRIVATE 
         navier_stokes_core 
