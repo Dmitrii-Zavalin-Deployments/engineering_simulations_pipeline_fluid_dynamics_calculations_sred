@@ -2,59 +2,26 @@
  * @file test_full_pipeline_literate.cpp
  * @brief Literate-style integration test for the full Navier–Stokes solver pipeline.
  *
- * This test is written as a narrative. Each section explains the physics,
- * the numerical expectations, and the solver responsibilities. Executable
- * assertions appear inline with the prose.
- *
- * ============================================================================
- * SECTION 0 — Test Scenario Overview
- * ============================================================================
- *
- * We simulate a 3D domain:
- *
- *     x ∈ [0, 4],  nx = 8
- *     y ∈ [0, 4],  ny = 8
- *     z ∈ [0, 2],  nz = 4
- *
- * The mask defines an internal fluid cavity surrounded by solid walls (-1)
- * and solid interior obstacles (0). Fluid cells are marked with mask == 1.
- *
- * Boundary conditions:
- *   - z_min: inflow  (w = +1)
- *   - z_max: outflow (w = +1)
- *   - wall:  no-slip (u = v = w = 0)
- *
- * Fluid properties:
- *   - density ρ = 1.0
- *   - viscosity μ = 0.01
- *
- * Simulation parameters:
- *   - dt = 0.1
- *   - total_time = 1.0
- *   - output_interval = 5
- *
- * Solver config:
- *   - max_poisson_iterations = 2000
- *   - poisson_tolerance = 1e-8
- *
- * We will step through the solver pipeline *manually*, asserting correctness
- * after each stage.
+ * This test evaluates the complete end-to-end execution of the solver pipeline.
+ * Rather than invoking individual modules manually, it delegates execution entirely
+ * to NavierStokesOrchestrator::step() and inspects intermediate state snapshots
+ * captured after each stage.
  */
 
 #ifndef NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS
 #define NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS
 #endif
+
 #include <gtest/gtest.h>
 #include <vector>
 #include <cmath>
 #include <iostream>
+#include <string>
+#include <unordered_map>
+
 #include "orchestrator.hpp"
 #include "grid_math.hpp"
 #include "boundary_condition.hpp"
-#include "simulation_prestep.hpp"
-#include "predictor.hpp"
-#include "pressure_poisson_solver.hpp"
-#include "corrector.hpp"
 #include "ghost_handler.hpp"
 
 namespace navier_stokes_solver {
@@ -65,32 +32,8 @@ TEST(FullPipelineLiterateTest, StepByStepMicroManaged) {
     // SECTION 1 — Grid Setup
     // ============================================================================
 
-    /**
-    * The JSON domain is:
-    *   x ∈ [0, 4], nx = 8
-    *   y ∈ [0, 4], ny = 8
-    *   z ∈ [0, 2], nz = 4
-    *
-    * Python ingestion stores BOTH:
-    *   - physical extents (x_min, x_max, ...)
-    *   - grid resolution (nx, ny, nz)
-    *   - spacing (dx, dy, dz) computed as:
-    *
-    *       dx = (x_max - x_min) / nx
-    *       dy = (y_max - y_min) / ny
-    *       dz = (z_max - z_min) / nz
-    *
-    * The C++ GridDimensions struct stores ONLY:
-    *   nx, ny, nz,
-    *   dx, dy, dz.
-    *
-    * Therefore, this test must compute dx, dy, dz using the JSON extents,
-    * but must NOT assign x_min/x_max/etc. to dims (they do not exist in C++).
-    */
-
     GridDimensions dims;
 
-    // Physical extents from JSON (local variables only)
     double x_min = 0.0;
     double x_max = 4.0;
     double y_min = 0.0;
@@ -98,12 +41,10 @@ TEST(FullPipelineLiterateTest, StepByStepMicroManaged) {
     double z_min = 0.0;
     double z_max = 2.0;
 
-    // Resolution from JSON
     dims.nx = 8;
     dims.ny = 8;
     dims.nz = 4;
 
-    // Python-style spacing (division by N, not N−1)
     dims.dx = (x_max - x_min) / dims.nx;
     dims.dy = (y_max - y_min) / dims.ny;
     dims.dz = (z_max - z_min) / dims.nz;
@@ -116,19 +57,12 @@ TEST(FullPipelineLiterateTest, StepByStepMicroManaged) {
     // SECTION 2 — Allocate Fields
     // ============================================================================
 
-    // All fields begin at zero.
     std::vector<double> u(total_cells, 0.0);
     std::vector<double> v(total_cells, 0.0);
     std::vector<double> w(total_cells, 0.0);
     std::vector<double> p(total_cells, 0.0);
 
-    // Trial velocities (predictor output)
-    std::vector<double> u_star(total_cells, 0.0);
-    std::vector<double> v_star(total_cells, 0.0);
-    std::vector<double> w_star(total_cells, 0.0);
-
     std::vector<int> mask = {
-
         // --- Layer k = 0 ---
         0,  0,  0,  0,  0,  0,  0,  0,
         0, -1, -1, -1, -1, -1, -1,  0,
@@ -232,250 +166,164 @@ TEST(FullPipelineLiterateTest, StepByStepMicroManaged) {
     std::vector<double> fz(total_cells, 0.0);
 
     // ============================================================================
-    // SECTION 5 — Instantiate Orchestrator & Execute Full Pipeline
+    // SECTION 5 — Execute Pipeline via Orchestrator
     // ============================================================================
-
-    /**
-    * The orchestrator binds together:
-    *   - grid dimensions (nx, ny, nz, dx, dy, dz)
-    *   - solver configuration (Poisson iterations, tolerance, density)
-    *   - internal working buffers (u_star, v_star, w_star, rhs)
-    *
-    * In test builds (NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS enabled),
-    * orchestrator.step() records a snapshot after each internal stage:
-    *
-    *   1. pre_step
-    *   2. ghost_sync_1
-    *   3. predictor
-    *   4. rhie_chow
-    *   5. rhs_assembly
-    *   6. poisson
-    *   7. corrector
-    *   8. ghost_sync_2
-    *
-    * We call orchestrator.step() ONCE here, and all subsequent sections
-    * (6–10) will assert correctness using these snapshots.
-    */
 
     NavierStokesOrchestrator orchestrator(dims, config);
 
-    // Execute the full solver pipeline once
+    // Execute the full integrated pipeline
     orchestrator.step(dt, mu, gravity, fx, fy, fz, mask, bc_list, u, v, w, p);
 
-    // Retrieve all snapshots for later sections
+    // Retrieve debug snapshots generated by orchestrator.step()
     const auto& snapshots = orchestrator.get_debug_snapshots();
-
-    // Ensure snapshots exist
     ASSERT_FALSE(snapshots.empty());
 
-    // ============================================================================
-    // SECTION 6 — STEP 1: Pre-Step
-    // ============================================================================
-
-    /**
-    * In the pre-step, boundary conditions are applied:
-    *   - inflow/outflow on z-min/z-max
-    *   - no-slip on walls (mask == -1)
-    *   - solid interior cells (mask == 0) are clamped
-    *
-    * EXPECTATIONS (guaranteed by execute_pre_step):
-    *   - All mask == -1 cells have u = v = w = 0  (explicit wall BC)
-    *   - All mask == 0 cells have u = v = w = 0  (solid interior)
-    *   - z_min inflow plane has w = +1
-    *   - z_max outflow plane has w = +1
-    *   - No NaNs or Infs introduced
-    */
-
-    execute_pre_step(u, v, w, p, mask, bc_list, dims.nx, dims.ny, dims.nz);
-
-    // --- Assert pre-step invariants ---
-    for (int k = 0; k < dims.nz; ++k) {
-        for (int j = 0; j < dims.ny; ++j) {
-            for (int i = 0; i < dims.nx; ++i) {
-
-                const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, dims.nx, dims.ny));
-
-                // 1. Wall cells (mask == -1) must be clamped to no-slip
-                if (mask[idx] == -1) {
-                    ASSERT_NEAR(u[idx], 0.0, 1e-12);
-                    ASSERT_NEAR(v[idx], 0.0, 1e-12);
-                    ASSERT_NEAR(w[idx], 0.0, 1e-12);
-                }
-
-                // 2. Solid interior cells (mask == 0) must also be clamped
-                if (mask[idx] == 0) {
-                    ASSERT_NEAR(u[idx], 0.0, 1e-12);
-                    ASSERT_NEAR(v[idx], 0.0, 1e-12);
-                    ASSERT_NEAR(w[idx], 0.0, 1e-12);
-                }
-
-                // 3. Inflow plane (z_min)
-                if (k == 0 && mask[idx] == 1) {
-                    ASSERT_NEAR(w[idx], 1.0, 1e-12);
-                }
-
-                // 4. Outflow plane (z_max)
-                if (k == dims.nz - 1 && mask[idx] == 1) {
-                    ASSERT_NEAR(w[idx], 1.0, 1e-12);
-                }
-
-                // 5. No NaNs or Infs anywhere
-                ASSERT_TRUE(std::isfinite(u[idx]));
-                ASSERT_TRUE(std::isfinite(v[idx]));
-                ASSERT_TRUE(std::isfinite(w[idx]));
-                ASSERT_TRUE(std::isfinite(p[idx]));
-            }
-        }
-    }
+    // Helper lambda to fetch a snapshot by key safely
+    auto get_snapshot = [&](const std::string& stage_name) -> const PipelineSnapshot& {
+        auto it = snapshots.find(stage_name);
+        EXPECT_NE(it, snapshots.end()) << "Missing snapshot for stage: " << stage_name;
+        return it->second;
+    };
 
     // ============================================================================
-    // SECTION 7 — STEP 2: Predictor
+    // SECTION 6 — Verify Stage 1 Snapshot: Pre-Step
     // ============================================================================
 
-    /**
-    * Predictor computes trial velocities u*, v*, w* using:
-    *   - advection
-    *   - diffusion
-    *   - body forces
-    *   - gravity
-    *
-    * EXPECTATIONS (guaranteed by compute_trial_velocities):
-    *   - Fluid cells (mask == 1) update normally
-    *   - Solid/wall cells (mask != 1) remain clamped to pre-step values
-    *   - No NaNs or infinities appear in u*, v*, w*
-    *   - Pre-step boundary values are preserved because predictor copies
-    *     u, v, w → u*, v*, w* before applying updates only to fluid cells.
-    */
+    {
+        const auto& snap = get_snapshot("pre_step");
 
-    FluidProperties fluid;
-    fluid.nu = mu / config.density;   // kinematic viscosity
-    fluid.density = config.density;
+        for (int k = 0; k < dims.nz; ++k) {
+            for (int j = 0; j < dims.ny; ++j) {
+                for (int i = 0; i < dims.nx; ++i) {
+                    const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, dims.nx, dims.ny));
 
-    // Run predictor
-    compute_trial_velocities(
-        dims,
-        fluid,
-        dt,
-        u.data(), v.data(), w.data(),
-        fx.data(), fy.data(), fz.data(),
-        gravity,
-        mask,
-        u_star.data(), v_star.data(), w_star.data()
-    );
+                    // 1. Wall cells (mask == -1) clamped to zero
+                    if (mask[idx] == -1) {
+                        ASSERT_NEAR(snap.u[idx], 0.0, 1e-12);
+                        ASSERT_NEAR(snap.v[idx], 0.0, 1e-12);
+                        ASSERT_NEAR(snap.w[idx], 0.0, 1e-12);
+                    }
 
-    // --- Assert predictor invariants ---
-    for (int k = 0; k < dims.nz; ++k) {
-        for (int j = 0; j < dims.ny; ++j) {
-            for (int i = 0; i < dims.nx; ++i) {
+                    // 2. Solid interior cells (mask == 0) clamped to zero
+                    if (mask[idx] == 0) {
+                        ASSERT_NEAR(snap.u[idx], 0.0, 1e-12);
+                        ASSERT_NEAR(snap.v[idx], 0.0, 1e-12);
+                        ASSERT_NEAR(snap.w[idx], 0.0, 1e-12);
+                    }
 
-                const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, dims.nx, dims.ny));
+                    // 3. Inflow plane (z_min)
+                    if (k == 0 && mask[idx] == 1) {
+                        ASSERT_NEAR(snap.w[idx], 1.0, 1e-12);
+                    }
 
-                // 1. No NaNs or Infs anywhere
-                ASSERT_TRUE(std::isfinite(u_star[idx]));
-                ASSERT_TRUE(std::isfinite(v_star[idx]));
-                ASSERT_TRUE(std::isfinite(w_star[idx]));
+                    // 4. Outflow plane (z_max)
+                    if (k == dims.nz - 1 && mask[idx] == 1) {
+                        ASSERT_NEAR(snap.w[idx], 1.0, 1e-12);
+                    }
 
-                // 2. Solid interior or wall cells must remain clamped
-                if (mask[idx] != 1) {
-                    ASSERT_NEAR(u_star[idx], u[idx], 1e-12);
-                    ASSERT_NEAR(v_star[idx], v[idx], 1e-12);
-                    ASSERT_NEAR(w_star[idx], w[idx], 1e-12);
-                }
-
-                // 3. Fluid cells should have updated values (not necessarily non-zero)
-                if (mask[idx] == 1) {
-                    // Predictor guarantees finite values, but not specific magnitudes.
-                    ASSERT_TRUE(std::isfinite(u_star[idx]));
-                    ASSERT_TRUE(std::isfinite(v_star[idx]));
-                    ASSERT_TRUE(std::isfinite(w_star[idx]));
+                    // 5. Finite check
+                    ASSERT_TRUE(std::isfinite(snap.u[idx]));
+                    ASSERT_TRUE(std::isfinite(snap.v[idx]));
+                    ASSERT_TRUE(std::isfinite(snap.w[idx]));
+                    ASSERT_TRUE(std::isfinite(snap.p[idx]));
                 }
             }
         }
     }
 
     // ============================================================================
-    // SECTION 8 — STEP 3: Poisson Solver
+    // SECTION 7 — Verify Stage 2 Snapshot: Predictor
     // ============================================================================
 
-    /**
-     * PPE computes pressure that enforces divergence-free velocity.
-     *
-     * EXPECTATIONS:
-     *   - Pressure remains finite
-     *   - Solid cells follow Neumann constraints
-     *   - Divergence decreases
-     */
+    {
+        const auto& snap = get_snapshot("predictor");
+        const auto& pre_snap = get_snapshot("pre_step");
 
-    // PLACEHOLDER: call PPE
-    // solve_pressure_poisson_parallel(p, u_star, v_star, w_star, mask, dims.nx, dims.ny, dims.nz, dt, config.max_poisson_iterations, config.poisson_tolerance);
+        for (int k = 0; k < dims.nz; ++k) {
+            for (int j = 0; j < dims.ny; ++j) {
+                for (int i = 0; i < dims.nx; ++i) {
+                    const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, dims.nx, dims.ny));
 
-    // PLACEHOLDER: assert PPE invariants
-    // for (size_t idx = 0; idx < total_cells; ++idx) {
-    //     ASSERT_TRUE(std::isfinite(p[idx]));
-    // }
+                    // 1. Finite checks on trial velocities
+                    ASSERT_TRUE(std::isfinite(snap.u_star[idx]));
+                    ASSERT_TRUE(std::isfinite(snap.v_star[idx]));
+                    ASSERT_TRUE(std::isfinite(snap.w_star[idx]));
 
-    // ============================================================================
-    // SECTION 9 — STEP 4: Corrector
-    // ============================================================================
-
-    /**
-     * Corrector projects trial velocities onto divergence-free space:
-     *     u = u* - (dt/ρ) ∇p
-     *
-     * EXPECTATIONS:
-     *   - No-penetration at solid interfaces
-     *   - No-slip at walls
-     *   - Divergence-free interior
-     */
-
-    // PLACEHOLDER: call corrector
-    // solve_corrector_parallel(u, v, w, u_star, v_star, w_star, p, mask, dims.nx, dims.ny, dims.nz, dt, config.density);
-
-    // PLACEHOLDER: assert corrector invariants
-    // for (size_t idx = 0; idx < total_cells; ++idx) {
-    //     if (mask[idx] != 1) {
-    //         ASSERT_NEAR(u[idx], 0.0, 1e-12);
-    //         ASSERT_NEAR(v[idx], 0.0, 1e-12);
-    //         ASSERT_NEAR(w[idx], 0.0, 1e-12);
-    //     }
-    // }
+                    // 2. Solid/wall cells must preserve pre-step values
+                    if (mask[idx] != 1) {
+                        ASSERT_NEAR(snap.u_star[idx], pre_snap.u[idx], 1e-12);
+                        ASSERT_NEAR(snap.v_star[idx], pre_snap.v[idx], 1e-12);
+                        ASSERT_NEAR(snap.w_star[idx], pre_snap.w[idx], 1e-12);
+                    }
+                }
+            }
+        }
+    }
 
     // ============================================================================
-    // SECTION 10 — STEP 5: Ghost Sync
+    // SECTION 8 — Verify Stage 3 Snapshot: Poisson Solver
     // ============================================================================
 
-    /**
-     * Ghost handler synchronizes buffers and ensures boundary consistency.
-     *
-     * EXPECTATIONS:
-     *   - No overwriting of clamped values
-     *   - No NaNs introduced
-     */
+    {
+        const auto& snap = get_snapshot("poisson");
 
-    // PLACEHOLDER: call ghost sync
-    // sync_ghost_buffers(u, v, w, u_star, v_star, w_star, p, mask, dims.nx, dims.ny, dims.nz);
+        for (size_t idx = 0; idx < total_cells; ++idx) {
+            ASSERT_TRUE(std::isfinite(snap.p[idx]));
+        }
+    }
 
     // ============================================================================
-    // SECTION 11 — Final Assertions
+    // SECTION 9 — Verify Stage 4 Snapshot: Corrector
     // ============================================================================
 
-    /**
-     * At the end of the pipeline:
-     *   - All fields must be finite
-     *   - All solid/wall cells must be clamped
-     *   - Fluid interior must be divergence-free (placeholder)
-     */
+    {
+        const auto& snap = get_snapshot("corrector");
+
+        for (size_t idx = 0; idx < total_cells; ++idx) {
+            ASSERT_TRUE(std::isfinite(snap.u[idx]));
+            ASSERT_TRUE(std::isfinite(snap.v[idx]));
+            ASSERT_TRUE(std::isfinite(snap.w[idx]));
+
+            // Solid and wall boundaries remain non-penetrating / no-slip
+            if (mask[idx] != 1) {
+                ASSERT_NEAR(snap.u[idx], 0.0, 1e-12);
+                ASSERT_NEAR(snap.v[idx], 0.0, 1e-12);
+                ASSERT_NEAR(snap.w[idx], 0.0, 1e-12);
+            }
+        }
+    }
+
+    // ============================================================================
+    // SECTION 10 — Verify Stage 5 Snapshot: Ghost Sync
+    // ============================================================================
+
+    {
+        const auto& snap = get_snapshot("ghost_sync_2");
+
+        for (size_t idx = 0; idx < total_cells; ++idx) {
+            ASSERT_TRUE(std::isfinite(snap.u[idx]));
+            ASSERT_TRUE(std::isfinite(snap.v[idx]));
+            ASSERT_TRUE(std::isfinite(snap.w[idx]));
+            ASSERT_TRUE(std::isfinite(snap.p[idx]));
+        }
+    }
+
+    // ============================================================================
+    // SECTION 11 — Final Output Verification
+    // ============================================================================
 
     for (size_t idx = 0; idx < total_cells; ++idx) {
         ASSERT_TRUE(std::isfinite(u[idx]));
         ASSERT_TRUE(std::isfinite(v[idx]));
         ASSERT_TRUE(std::isfinite(w[idx]));
         ASSERT_TRUE(std::isfinite(p[idx]));
-    }
 
-    // PLACEHOLDER: divergence check
-    // double divergence = compute_divergence(u, v, w, dims.nx, dims.ny, dims.nz, dims.dx(), dims.dy(), dims.dz());
-    // ASSERT_NEAR(divergence, 0.0, 1e-6);
+        if (mask[idx] != 1) {
+            ASSERT_NEAR(u[idx], 0.0, 1e-12);
+            ASSERT_NEAR(v[idx], 0.0, 1e-12);
+            ASSERT_NEAR(w[idx], 0.0, 1e-12);
+        }
+    }
 }
 
 } // namespace navier_stokes_solver
