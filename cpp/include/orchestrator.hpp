@@ -29,7 +29,6 @@ struct SolverConfig {
     double density;
 };
 
-#ifdef NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS
 /**
  * @brief Snapshot of orchestrator internal buffers for unit testing.
  */
@@ -47,7 +46,6 @@ struct OrchestratorDebugSnapshot {
 
     std::vector<double> rhs;
 };
-#endif
 
 /**
  * @brief Orchestrates one full fractional-step Navier–Stokes time step.
@@ -71,7 +69,6 @@ public:
         std::vector<double>& p
     );
 
-#ifdef NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS
     /**
      * @brief Retrieve all debug snapshots collected during step().
      */
@@ -89,7 +86,6 @@ public:
         const std::vector<double>& w,
         const std::vector<double>& p
     );
-#endif
 
 private:
     // CRITICAL: Scalar dimensions and configuration members MUST be declared
@@ -104,10 +100,7 @@ private:
     std::vector<double> v_star_;
     std::vector<double> w_star_;
     std::vector<double> rhs_;
-
-#ifdef NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS
     std::vector<OrchestratorDebugSnapshot> debug_snapshots_;
-#endif
 };
 
 } // namespace navier_stokes_solver

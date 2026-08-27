@@ -45,11 +45,6 @@ add_library(navier_stokes_core STATIC ${CORE_SOURCES})
 # Ensure position-independent code so it can be safely linked into the shared pybind module
 set_target_properties(navier_stokes_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
-# Enable debug snapshot fields in orchestrator.cpp strictly for Debug builds
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    target_compile_definitions(navier_stokes_core PRIVATE NAVIER_STOKES_ORCHESTRATOR_DEBUG_DUMP_FIELDS)
-endif()
-
 target_link_libraries(navier_stokes_core
     PUBLIC
         OpenMP::OpenMP_CXX
