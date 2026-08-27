@@ -84,13 +84,13 @@ jobs:
           unset LD_PRELOAD
 
           # ==========================================
-          # PHASE 2: Re-build without ASan for Python
+          # PHASE 2: Re-build without ASan but WITH Coverage for Python
           # ==========================================
-          echo "⚙️ Re-configuring CMake without ASan for Python / Pybind11 compatibility..."
+          echo "⚙️ Re-configuring CMake without ASan (keeping Coverage ON) for Python..."
           cmake -B build -S . \
               -DCMAKE_BUILD_TYPE=Debug \
               -DENABLE_ASAN=OFF \
-              -DENABLE_COVERAGE=OFF
+              -DENABLE_COVERAGE=ON
           
           cmake --build build --parallel $(nproc)
 

@@ -22,7 +22,7 @@ echo "⚙ Configuring and building all targets via CMake (with ASan enabled for 
 cmake -B build \
     -DCMAKE_BUILD_TYPE=Debug \
     -DENABLE_ASAN=ON \
-    -DENABLE_COVERAGE=OFF
+    -DENABLE_COVERAGE=ON
 
 cmake --build build --parallel $(nproc)
 
