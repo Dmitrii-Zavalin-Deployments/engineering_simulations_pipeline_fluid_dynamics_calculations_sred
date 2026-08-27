@@ -66,20 +66,20 @@ jobs:
           echo "🧪 Configuring OpenMP stack size for multi-threaded stability..."
           export OMP_STACKSIZE=64M
 
-          echo "🧪 Executing isolated C++ MassContinuityTest via CTest..."
-          cd build
-          ctest --output-on-failure -V -R MassContinuity
-          cd ..
-
-          # echo "🧪 Executing C++ Test Suites via CTest..."
+          # echo "🧪 Executing isolated C++ MassContinuityTest via CTest..."
           # cd build
-          # ctest --output-on-failure -V
+          # ctest --output-on-failure -V -R MassContinuity
           # cd ..
 
-          # echo "🐍 Executing Python C++ bridge tests from cpp/python_bridge_tests/..."
-          # # Point PYTHONPATH to the build directory so Python can locate navier_stokes_cpp
-          # export PYTHONPATH=$PWD/build:$PYTHONPATH
-          # pytest cpp/python_bridge_tests/ -v
+          echo "🧪 Executing C++ Test Suites via CTest..."
+          cd build
+          ctest --output-on-failure -V
+          cd ..
+
+          echo "🐍 Executing Python C++ bridge tests from cpp/python_bridge_tests/..."
+          # Point PYTHONPATH to the build directory so Python can locate navier_stokes_cpp
+          export PYTHONPATH=$PWD/build:$PYTHONPATH
+          pytest cpp/python_bridge_tests/ -v
 
           echo "📊 Generating Combined Code Coverage Report..."
           gcovr --root=. --filter=cpp/src/ --print-summary --txt
