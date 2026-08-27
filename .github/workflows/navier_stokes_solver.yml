@@ -87,8 +87,8 @@ jobs:
           # Initialize failure collector variable
           TEST_FAILED=0
           
-          # Run pytest and capture its exit code into the variable
-          pytest cpp/python_bridge_tests/ -vv --tb=long || TEST_FAILED=$?
+          # -s disables output capture so C++/ASan crash logs print instantly to the console
+          pytest cpp/python_bridge_tests/ -vv -s --tb=long || TEST_FAILED=$?
 
           echo "📊 Generating Combined Code Coverage Report..."
           gcovr --root=. --filter=cpp/src/ --print-summary --txt
