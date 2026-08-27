@@ -1,34 +1,33 @@
 #!/usr/bin/env bash
 # ============================================================================
 # File: src/debug/forensic_audit.sh
-# Description: Post-test forensic audit script for Navier-Stokes Python-C++ bridge 
-#              diagnosing module import failures and library path resolutions.
+# Description: Post-test forensic audit script to isolate root-level module 
+#              import failures and C++ initialization crashes.
 # ============================================================================
 set -euo pipefail
 
-echo "=== [FORENSIC AUDIT] Starting diagnostic scan... ==="
+echo "=== [FORENSIC AUDIT] Starting Root Import & C++ Bridge Diagnostic ==="
 
-# 1. Diagnostic grep/cat for code/output root causes
-echo "--- Scanning test environment, Python path, and shared library locations ---"
-python3 -c "import sys; print('Python executable:', sys.executable); print('Python path:', sys.path)"
-find . -name "*.so" -o -name "*.pyd" -o -name "CMakeCache.txt" || echo "Warning: No C++ extension build artifacts or CMake cache found."
-pip list || true
-pytest --collect-only || true
+# 1. Verify exact binary existence in the repository root
+echo "--- Scanning root directory for compiled shared libraries ---"
+ls -la navier_stokes_cpp*.so || echo "CRITICAL: No compiled .so file found in root directory."
 
-# 2. Cat -n for smoking-gun source audits
-echo "--- Auditing test and gateway source files (cat -n) ---"
-if [ -f "cpp/python_bridge_tests/test_bindings.py" ]; then
-    echo "Inspecting cpp/python_bridge_tests/test_bindings.py (lines 1 to 40):"
-    sed -n '1,40p' cpp/python_bridge_tests/test_bindings.py | cat -n
-fi
+# 2. Test direct Python import behavior and catch segmentation faults / tracebacks
+echo "--- Testing isolated Python import of navier_stokes_cpp ---"
+python3 -c "
+import sys
+print('Python Path:', sys.path)
+try:
+    import navier_stokes_cpp
+    print('SUCCESS: navier_stokes_cpp imported successfully!')
+    print('Module attributes:', dir(navier_stokes_cpp))
+except Exception as e:
+    print('IMPORT FAILED:', type(e).__name__, e)
+    raise
+"
 
-if [ -f "src/cpp_gate.py" ]; then
-    echo "Inspecting src/cpp_gate.py (lines 1 to 30):"
-    sed -n '1,30p' src/cpp_gate.py | cat -n
-fi
+# 3. Run pytest with verbose short tracebacks to capture collection errors
+echo "--- Executing pytest with verbose collection diagnostics ---"
+pytest --tb=short -v cpp/python_bridge_tests/ || true
 
-# 3. Sed injections for automated repairs (commented out for safe dry-runs)
-# # sed -i 's/import navier_stokes_cpp/import sys; sys.path.insert(0, "src"); import navier_stokes_cpp/g' cpp/python_bridge_tests/test_bindings.py
-# # sed -i 's#LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/src"#LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"#g' CMakeLists.txt
-
-echo "=== [FORENSIC AUDIT] Audit execution completed successfully. ==="
+echo "=== [FORENSIC AUDIT] Diagnostic audit completed. ==="
