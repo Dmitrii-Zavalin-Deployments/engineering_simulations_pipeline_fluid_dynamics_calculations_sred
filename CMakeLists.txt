@@ -108,11 +108,12 @@ file(GLOB ALL_CPP_SOURCES "cpp/src/*.cpp") # Includes python_gate.cpp
 
 pybind11_add_module(navier_stokes_cpp MODULE ${ALL_CPP_SOURCES})
 
-# Force the compiled module output directly into the src/ directory for seamless python imports
+# Force the compiled module output directly into the repository root directory
+# so that Python's sys.path can discover and import it natively.
 set_target_properties(navier_stokes_cpp PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/src"
-    LIBRARY_OUTPUT_DIRECTORY_DEBUG "${CMAKE_CURRENT_SOURCE_DIR}/src"
-    LIBRARY_OUTPUT_DIRECTORY_RELEASE "${CMAKE_CURRENT_SOURCE_DIR}/src"
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    LIBRARY_OUTPUT_DIRECTORY_DEBUG "${CMAKE_CURRENT_SOURCE_DIR}"
+    LIBRARY_OUTPUT_DIRECTORY_RELEASE "${CMAKE_CURRENT_SOURCE_DIR}"
 )
 
 target_link_libraries(navier_stokes_cpp 
