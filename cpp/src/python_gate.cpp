@@ -31,7 +31,8 @@ class PythonSolverBridge {
 public:
     PythonSolverBridge(py::object state) {
         if (state.is_none()) {
-            throw std::invalid_argument("FATAL ERROR: state object cannot be None.");
+            PyErr_SetString(PyExc_ValueError, "FATAL ERROR: state object cannot be None.");
+            throw py::error_already_set();
         }
 
         // 1. Extract Grid Dimensions & Spatial Bounds
@@ -40,7 +41,8 @@ public:
         int nz = state.attr("nz").cast<int>();
 
         if (nx < 2 || ny < 2 || nz < 2) {
-            throw std::invalid_argument("GEOMETRY ERROR: nx, ny, nz must be at least 2 for node-based spacing.");
+            PyErr_SetString(PyExc_ValueError, "GEOMETRY ERROR: nx, ny, nz must be at least 2 for node-based spacing.");
+            throw py::error_already_set();
         }
 
         double x_min = state.attr("x_min").cast<double>();
@@ -56,7 +58,8 @@ public:
         double dz = (z_max - z_min) / static_cast<double>(nz - 1);
 
         if (dx <= 0.0 || dy <= 0.0 || dz <= 0.0 || !std::isfinite(dx) || !std::isfinite(dy) || !std::isfinite(dz)) {
-            throw std::invalid_argument("GEOMETRY ERROR: Computed grid spacing (dx, dy, dz) must be positive and finite.");
+            PyErr_SetString(PyExc_ValueError, "GEOMETRY ERROR: Computed grid spacing (dx, dy, dz) must be positive and finite.");
+            throw py::error_already_set();
         }
 
         dims_ = {nx, ny, nz, dx, dy, dz};
@@ -65,7 +68,8 @@ public:
         py::dict fluid_props = state.attr("fluid_properties");
         double density = fluid_props["density"].cast<double>();
         if (density <= 0.0 || !std::isfinite(density)) {
-            throw std::invalid_argument("PHYSICS ERROR: Fluid density must be strictly positive and finite.");
+            PyErr_SetString(PyExc_ValueError, "PHYSICS ERROR: Fluid density must be strictly positive and finite.");
+            throw py::error_already_set();
         }
 
         py::dict config = state.attr("config");
@@ -87,7 +91,8 @@ public:
 
     void step(py::object state) {
         if (state.is_none()) {
-            throw std::invalid_argument("FATAL ERROR: state object cannot be None during step execution.");
+            PyErr_SetString(PyExc_ValueError, "FATAL ERROR: state object cannot be None during step execution.");
+            throw py::error_already_set();
         }
 
         int nx = dims_.nx;
@@ -114,13 +119,15 @@ public:
         // 5. Extract Simulation Parameters & Fluid Viscosity
         double dt = state.attr("dt").cast<double>();
         if (dt <= 0.0 || !std::isfinite(dt)) {
-            throw std::invalid_argument("TEMPORAL ERROR: Time step dt must be strictly positive and finite.");
+            PyErr_SetString(PyExc_ValueError, "TEMPORAL ERROR: Time step dt must be strictly positive and finite.");
+            throw py::error_already_set();
         }
 
         py::dict fluid_props = state.attr("fluid_properties");
         double mu = fluid_props["viscosity"].cast<double>();
         if (mu < 0.0 || !std::isfinite(mu)) {
-            throw std::invalid_argument("PHYSICS ERROR: Dynamic viscosity mu cannot be negative and must be finite.");
+            PyErr_SetString(PyExc_ValueError, "PHYSICS ERROR: Dynamic viscosity mu cannot be negative and must be finite.");
+            throw py::error_already_set();
         }
 
         // 6. Extract External Forces & 3D Gravity Vector Symmetrically
@@ -129,10 +136,12 @@ public:
         std::vector<double> force_vec = ext_forces["force_vector"].cast<std::vector<double>>();
 
         if (gravity.size() != 3) {
-            throw std::invalid_argument("CONTRACT VIOLATION: gravity_vector must contain exactly 3 components [gx, gy, gz].");
+            PyErr_SetString(PyExc_ValueError, "CONTRACT VIOLATION: gravity_vector must contain exactly 3 components [gx, gy, gz].");
+            throw py::error_already_set();
         }
         if (force_vec.size() != 3) {
-            throw std::invalid_argument("CONTRACT VIOLATION: force_vector must contain exactly 3 components [fx, fy, fz].");
+            PyErr_SetString(PyExc_ValueError, "CONTRACT VIOLATION: force_vector must contain exactly 3 components [fx, fy, fz].");
+            throw py::error_already_set();
         }
 
         // 7. Map NumPy fields to C++ persistent vectors for Orchestrator consumption
@@ -158,7 +167,8 @@ public:
                 mask_vec[idx] = r_mask(idx);
             }
         } else {
-            throw std::invalid_argument("GEOMETRY ERROR: mask must be a 1D or 3D NumPy array.");
+            PyErr_SetString(PyExc_ValueError, "GEOMETRY ERROR: mask must be a 1D or 3D NumPy array.");
+            throw py::error_already_set();
         }
 
         // Extract primary collocated velocity and pressure fields using SSoT get_flat_index
@@ -222,7 +232,8 @@ public:
 
     void sync_fields(py::object state) {
         if (state.is_none()) {
-            throw std::invalid_argument("FATAL ERROR: state object cannot be None during sync_fields execution.");
+            PyErr_SetString(PyExc_ValueError, "FATAL ERROR: state object cannot be None during sync_fields execution.");
+            throw py::error_already_set();
         }
 
         int nx = dims_.nx;
@@ -272,4 +283,3 @@ PYBIND11_MODULE(navier_stokes_cpp, m) {
         .def("step", &PythonSolverBridge::step, py::arg("state"), "Advance the Navier-Stokes system by one time-step using state container references.")
         .def("sync_fields", &PythonSolverBridge::sync_fields, py::arg("state"), "Synchronize persistent C++ solution fields directly back into Python state memory.");
 }
-
