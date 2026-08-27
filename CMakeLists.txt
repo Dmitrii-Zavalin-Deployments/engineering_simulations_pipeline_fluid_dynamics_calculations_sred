@@ -14,6 +14,7 @@ if(ENABLE_COVERAGE)
 endif()
 
 if(ENABLE_ASAN)
+    message(STATUS "Building with AddressSanitizer and UndefinedBehaviorSanitizer")
     add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer -g)
     add_link_options(-fsanitize=address,undefined)
 endif()
