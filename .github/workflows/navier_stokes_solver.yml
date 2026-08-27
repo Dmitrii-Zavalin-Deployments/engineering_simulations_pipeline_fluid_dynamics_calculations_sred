@@ -68,25 +68,30 @@ jobs:
           export OMP_STACKSIZE=64M
 
           # ==========================================
-          # PHASE 1: Run C++ Test Suites with ASan
+          # PHASE 1: ASan Debugging Run (Memory Audit)
           # ==========================================
-          echo "🔬 Preloading ASan and executing C++ Test Suites via CTest..."
-          export LD_PRELOAD=$(g++ -print-file-name=libasan.so)
+          echo "⚙️ [PHASE 1/4] Configuring CMake with AddressSanitizer (ASan) enabled for rigorous memory debugging..."
+          cmake -B build -S . \
+              -DCMAKE_BUILD_TYPE=Debug \
+              -DENABLE_ASAN=ON \
+              -DENABLE_COVERAGE=OFF
           
+          cmake --build build --parallel $(nproc)
+
+          echo "🔬 [PHASE 1/4] Preloading libasan and executing C++ Test Suites via CTest (Debug & Memory Audit Run)..."
+          export LD_PRELOAD=$(g++ -print-file-name=libasan.so)
           cd build
-          # Run all C++ tests. 
-          # Tip: To run a single isolated test, use the -R flag with the test name pattern:
-          #   ctest --output-on-failure -V -R MassContinuity
           ctest --output-on-failure -V
           cd ..
-          
-          echo "🛑 Unsetting LD_PRELOAD before Python steps..."
           unset LD_PRELOAD
 
           # ==========================================
-          # PHASE 2: Re-build without ASan but WITH Coverage for Python
+          # PHASE 2: Clean Re-build for Coverage (ASan OFF, Coverage ON)
           # ==========================================
-          echo "⚙️ Re-configuring CMake without ASan (keeping Coverage ON) for Python..."
+          echo "⚙️ [PHASE 2/4] Re-configuring CMake with ASan disabled and Coverage enabled for reporting..."
+          # Purge stale or incompatible .gcda counters from the ASan build
+          find build -name "*.gcda" -delete
+
           cmake -B build -S . \
               -DCMAKE_BUILD_TYPE=Debug \
               -DENABLE_ASAN=OFF \
@@ -95,17 +100,29 @@ jobs:
           cmake --build build --parallel $(nproc)
 
           # ==========================================
-          # PHASE 3: Execute Python Bridge Tests & Coverage
+          # PHASE 3: Execution Run for Coverage (CTest & Pytest)
           # ==========================================
-          echo "🐍 Executing Python C++ bridge tests from cpp/python_bridge_tests/..."
+          echo "🧪 [PHASE 3/4] Executing C++ Test Suites (CTest) on Coverage Build (Reporting Run)..."
+          cd build
+          ctest --output-on-failure -V
+          cd ..
+
+          echo "🐍 [PHASE 3/4] Executing Python C++ bridge tests (Pytest) on Coverage Build..."
           # Include repository root and build directory in PYTHONPATH
           export PYTHONPATH=$PWD:$PWD/build:$PYTHONPATH
-
-          # Execute pytest with full tracebacks (--tb=long) and stream logs live (-s)
           pytest cpp/python_bridge_tests/ -vv -s --tb=long
 
-          echo "📊 Generating Combined Code Coverage Report..."
-          gcovr --root=. --filter=cpp/src/ --print-summary --txt
+          # ==========================================
+          # PHASE 4: Unified Coverage Report Generation
+          # ==========================================
+          echo "📊 [PHASE 4/4] Generating Unified Code Coverage Report across C++ and Python tests..."
+          gcovr --object-directory=build \
+                --filter="cpp/src" \
+                --exclude="cpp/cpp_unit_tests" \
+                --exclude="cpp/cpp_integration_tests" \
+                --print-summary \
+                --txt \
+                --xml coverage.xml
 
       # - name: 🧹 Auto-Clean (Autoflake)
       #   run: |
