@@ -1,36 +1,43 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/bash
+# Description: Automated forensic audit for Navier-Stokes solver NaN propagation exception failure.
+# Root Cause: Injection of NaN via boundary conditions bypassed exception gates because 
+#             advection/stencil routines lacked explicit finite checks (std::isfinite).
 
-echo "=========================================================="
-echo "🔍 STARTING FORENSIC AUDIT: ASan Exception Interception Crash"
-echo "=========================================================="
+echo "============================================================"
+echo "🔍 STARTING DEEP FORENSIC AUDIT: Non-Finite / NaN Exception Failure"
+echo "============================================================"
 
-echo -e "\n--- 1. Environment & Runtime Diagnostics ---"
-echo "Python binary: $(which python3)"
-python3 --version
-echo "LD_PRELOAD value: ${LD_PRELOAD:-'(not set)'}"
-echo "GCC version: $(g++ --version | head -n1)"
+echo ""
+echo "--- [DIAGNOSTIC 1] Searching for existing finite/NaN safety checks in C++ sources ---"
+grep -rn "isfinite" cpp/src/ || echo "⚠️ Warning: No 'isfinite' checks located in cpp/src/."
+grep -rn "isnan" cpp/src/ || echo "⚠️ Warning: No 'isnan' checks located in cpp/src/."
 
-echo -e "\n--- 2. Grep Diagnostics for Exception Handling in C++ Source ---"
-echo "Searching for throw statements or exception boundaries in cpp/src/:"
-grep -rn "throw " cpp/src/ || echo "No direct throw statements found via simple grep."
-
-echo -e "\n--- 3. Smoking-Gun Source Audit (cpp/src/python_gate.cpp around line 34) ---"
-if [ -f "cpp/src/python_gate.cpp" ]; then
-    echo "Displaying lines 1 to 65 of cpp/src/python_gate.cpp with line numbers:"
-    cat -n cpp/src/python_gate.cpp | sed -n '1,65p'
+echo ""
+echo "--- [DIAGNOSTIC 2] Inspecting Advection & Python Gate Implementation ---"
+if [ -f "cpp/src/advection.cpp" ]; then
+    echo "📄 Smoking-Gun Audit: cpp/src/advection.cpp (First 80 lines)"
+    cat -n cpp/src/advection.cpp | head -n 80
 else
-    echo "⚠️ Warning: cpp/src/python_gate.cpp not found at expected path."
+    echo "❌ Critical: cpp/src/advection.cpp not found."
 fi
 
-echo -e "\n--- 4. Automated Repair Simulation & Instructions ---"
-echo "To fix the ASan __cxa_throw mismatch when running against a non-ASan Python interpreter,"
-echo "wrap the constructor body in a try-catch block or handle pybind11 exception translation."
-echo ""
-echo "Example # sed injection for automated repair (commented out):"
-# sed -i '/PythonSolverBridge::PythonSolverBridge/ { N; s/{/{\n    try {/}' cpp/src/python_gate.cpp
-# sed -i '/^}/i \    } catch (const std::exception& e) { PyErr_SetString(PyExc_RuntimeError, e.what()); throw_error_already_set(); }' cpp/src/python_gate.cpp
+if [ -f "cpp/src/python_gate.cpp" ]; then
+    echo ""
+    echo "📄 Smoking-Gun Audit: cpp/src/python_gate.cpp (First 80 lines)"
+    cat -n cpp/src/python_gate.cpp | head -n 80
+fi
 
-echo "=========================================================="
-echo "🏁 FORENSIC AUDIT COMPLETE"
-echo "=========================================================="
+echo ""
+echo "============================================================"
+echo "🛠️ RECOMMENDED REPAIR STRATEGY"
+echo "============================================================"
+echo "The Python tests expect a RuntimeError ('Advection term exploded in grid computation.')"
+echo "when non-finite values are processed. Add a validation guard in advection.cpp or "
+echo "python_gate.cpp to throw std::runtime_error when non-finite values are detected."
+echo ""
+echo "Example automated repair pattern (uncomment `# sed` below once targeting exact line):"
+
+# # Example sed injection to insert a finite check inside advection.cpp loop or entry:
+# sed -i '/v_z\[idx\];/a \    if (!std::isfinite(v_x[idx])) { throw std::runtime_error("Advection term exploded in grid computation."); }' cpp/src/advection.cpp
+
+exit 1
