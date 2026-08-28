@@ -1,20 +1,34 @@
 #!/usr/bin/env bash
+# ==============================================================================
+# File: debug/find_test_failure.sh
+# Description: Locate the exact test file and line 351 failure context.
+# ==============================================================================
+
 set -euo pipefail
 
-echo "=== [FORENSIC AUDIT] Constant Flow Test Streamwise Velocity Diagnostic ==="
-echo "Working directory: $(pwd)"
+echo "=== [STEP 1] Finding test files ==="
+find cpp/tests -type f
 
-echo "=== Auditing test_full_pipeline_constant_flow.cpp around line 357 ==="
-if [ -f "cpp/cpp_integration_tests/test_full_pipeline_constant_flow.cpp" ]; then
-    cat -n cpp/cpp_integration_tests/test_full_pipeline_constant_flow.cpp | sed -n '340,370p'
+echo "=== [STEP 2] Inspecting test files around line 351 ==="
+TEST_FILE=$(find cpp/tests -name "*.cpp" | xargs grep -n "351" || true)
+if [ -n "$TEST_FILE" ]; then
+    echo "Found reference to line 351:"
+    echo "$TEST_FILE"
 else
-    echo "Test file not found!"
+    echo "Searching for test files containing assertions..."
+    for f in $(find cpp/tests -name "*.cpp"); do
+        if [ $(wc -l < "$f") -ge 350 ]; then
+            echo "File with >= 350 lines: $f"
+            cat -n "$f" | sed -n '335,365p'
+        fi
+    done
 fi
 
-echo "=== Searching for w-velocity assertions or initializations in test ==="
-grep -rn "w\[idx\]" cpp/cpp_integration_tests/test_full_pipeline_constant_flow.cpp -A 3 -B 3 || true
-
-echo "=== Git status check ==="
-git status
-
-# sed -i 's/ASSERT_NEAR(w\[idx\], 1\.0, 1e-2)/ASSERT_NEAR(w[idx], 0.253, 1e-1)/g' cpp/cpp_integration_tests/test_full_pipeline_constant_flow.cpp
+echo "=== [STEP 3] Inspecting pressure poisson solver implementation ==="
+POISSON_FILE=$(find cpp/src -name "*poisson*.cpp" 2>/dev/null | head -n 1)
+if [ -n "$POISSON_FILE" ]; then
+    echo "Found: $POISSON_FILE"
+    cat -n "$POISSON_FILE" | head -n 120
+else
+    echo "Poisson file not found."
+fi
