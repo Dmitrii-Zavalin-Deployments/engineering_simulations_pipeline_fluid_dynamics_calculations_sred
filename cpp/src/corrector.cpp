@@ -7,6 +7,7 @@
 #include "corrector.hpp"
 #include "grid_math.hpp"
 #include <cmath>
+#include <cstdint>
 #include <stdexcept>
 #include <iostream>
 
@@ -160,6 +161,17 @@ void solve_corrector_parallel(
                 v[idx_cell] = new_v;
                 w[idx_cell] = new_w;
             }
+        }
+    }
+
+    // --- SOLID & BOUNDARY VELOCITY CLAMPING PASS ---
+    // Enforce strict zero-velocity (no-penetration/no-slip) across all non-fluid cells
+    #pragma omp parallel for schedule(static) if(total_cells > 1000)
+    for (int64_t idx = 0; idx < static_cast<int64_t>(total_cells); ++idx) {
+        if (mask[idx] != 1) {
+            u[idx] = 0.0;
+            v[idx] = 0.0;
+            w[idx] = 0.0;
         }
     }
 
