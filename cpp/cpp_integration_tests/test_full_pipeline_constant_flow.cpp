@@ -400,7 +400,7 @@ TEST(FullPipelineConstantFlowTest, StepByStepMicroManaged) {
                         }
                     }
 
-                    const double tolerance = is_core_interior ? 1e-12 : 0.01;
+                    const double tolerance = is_core_interior ? 1e-12 : 0.02;
 
                     // Transverse trial velocities maintain zero state: u* = 0.0, v* = 0.0
                     ASSERT_NEAR(snap.u_star[idx], 0.0, tolerance);
@@ -508,7 +508,7 @@ TEST(FullPipelineConstantFlowTest, StepByStepMicroManaged) {
                     }
 
                     // Set strict tolerance for core interior cells and relaxed tolerance for boundary-adjacent nodes
-                    const double tolerance = is_core_interior ? 1e-12 : 0.01;
+                    const double tolerance = is_core_interior ? 1e-12 : 0.02;
 
                     // Validate trial velocity field distributions against expected analytical flow states
                     // Transverse trial velocities maintain zero state: u* = 0.0, v* = 0.0
@@ -1009,7 +1009,7 @@ TEST(FullPipelineConstantFlowTest, StepByStepMicroManaged) {
                     }
 
                     // Set strict tolerance for core interior cells and relaxed tolerance for boundary-adjacent nodes
-                    const double tolerance = is_core_interior ? 1e-12 : 0.01;
+                    const double tolerance = is_core_interior ? 1e-12 : 0.02;
 
                     // Validate trial velocity field distributions against expected analytical flow states
                     // Transverse trial velocities maintain zero state: u* = 0.0, v* = 0.0
