@@ -195,7 +195,7 @@ void NavierStokesOrchestrator::step(
                     }
                     if (i >= 0 && i < dims_.nx - 1) {
                         const size_t idx_e_face = i + (dims_.nx - 1) * (j + dims_.ny * k);
-                        dudx = u_face[idx_e_face] / dims_.dx;
+                        dudx += u_face[idx_e_face] / dims_.dx;
                     }
 
                     if (j > 0 && j < dims_.ny) {
@@ -204,7 +204,7 @@ void NavierStokesOrchestrator::step(
                     }
                     if (j >= 0 && j < dims_.ny - 1) {
                         const size_t idx_n_face = i + dims_.nx * (j + (dims_.ny - 1) * k);
-                        dvdy = v_face[idx_n_face] / dims_.dy;
+                        dvdy += v_face[idx_n_face] / dims_.dy;
                     }
 
                     if (k > 0 && k < dims_.nz) {
@@ -213,7 +213,7 @@ void NavierStokesOrchestrator::step(
                     }
                     if (k >= 0 && k < dims_.nz - 1) {
                         const size_t idx_t_face = i + dims_.nx * (j + dims_.ny * k);
-                        dwdz = w_face[idx_t_face] / dims_.dz;
+                        dwdz += w_face[idx_t_face] / dims_.dz;
                     }
 
                     rhs_[idx] = scale * (dudx + dvdy + dwdz);
