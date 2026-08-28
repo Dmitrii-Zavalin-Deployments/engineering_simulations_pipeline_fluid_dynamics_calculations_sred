@@ -241,34 +241,62 @@ TEST(FullPipelineConstantFlowTest, StepByStepMicroManaged) {
         }
     }
 
-    // // ============================================================================
-    // // SECTION 7 — Verify Stage 2 Snapshot: Predictor
-    // // ============================================================================
+    // ============================================================================
+    // SECTION 7 — Verify Stage 2 Snapshot: Predictor (Literate Verification)
+    // ============================================================================
+    // Mathematical Formulation:
+    //   u* = u^n + dt * (- (u^n . grad) u^n + nu * laplacian(u^n) + fx/rho + gx)
+    //   v* = v^n + dt * (- (u^n . grad) v^n + nu * laplacian(v^n) + fy/rho + gy)
+    //   w* = w^n + dt * (- (u^n . grad) w^n + nu * laplacian(w^n) + fz/rho + gz)
+    //
+    // Initial Pre-Step Fluid Domain State (mask == 1):
+    //   u^n = 0.0, v^n = 0.0, w^n = 1.0, fx = fy = fz = 0, gx = gy = gz = 0
+    //
+    // Term Evaluation for Uniform Flow:
+    //   - Advection: -(u^n . grad) w^n = - (0*dw/dx + 0*dw/dy + 1*dw/dz) = 0
+    //   - Viscous Diffusion: nu * grad^2(w^n) = 0
+    //   - External Body / Gravity Forces: 0
+    //
+    // Predicted Trial Velocity Values:
+    //   u* = 0.0 + dt * (0) = 0.0
+    //   v* = 0.0 + dt * (0) = 0.0
+    //   w* = 1.0 + dt * (0) = 1.0
+    // ============================================================================
 
-    // {
-    //     const auto& snap = get_snapshot("predictor");
-    //     const auto& pre_snap = get_snapshot("pre_step");
+    {
+        const auto& snap = get_snapshot("predictor");
+        const auto& pre_snap = get_snapshot("pre_step");
 
-    //     for (int k = 0; k < dims.nz; ++k) {
-    //         for (int j = 0; j < dims.ny; ++j) {
-    //             for (int i = 0; i < dims.nx; ++i) {
-    //                 const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, dims.nx, dims.ny));
+        for (int k = 0; k < dims.nz; ++k) {
+            for (int j = 0; j < dims.ny; ++j) {
+                for (int i = 0; i < dims.nx; ++i) {
+                    const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, dims.nx, dims.ny));
 
-    //                 // 1. Finite checks on trial velocities
-    //                 ASSERT_TRUE(std::isfinite(snap.u_star[idx]));
-    //                 ASSERT_TRUE(std::isfinite(snap.v_star[idx]));
-    //                 ASSERT_TRUE(std::isfinite(snap.w_star[idx]));
+                    // 1. Finite check on trial velocity field components
+                    ASSERT_TRUE(std::isfinite(snap.u_star[idx]));
+                    ASSERT_TRUE(std::isfinite(snap.v_star[idx]));
+                    ASSERT_TRUE(std::isfinite(snap.w_star[idx]));
 
-    //                 // 2. Solid/wall cells must preserve pre-step values
-    //                 if (mask[idx] != 1) {
-    //                     ASSERT_NEAR(snap.u_star[idx], pre_snap.u[idx], 1e-12);
-    //                     ASSERT_NEAR(snap.v_star[idx], pre_snap.v[idx], 1e-12);
-    //                     ASSERT_NEAR(snap.w_star[idx], pre_snap.w[idx], 1e-12);
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
+                    // 2. Non-fluid cells (mask != 1) preserve pre-step baseline
+                    if (mask[idx] != 1) {
+                        ASSERT_NEAR(snap.u_star[idx], pre_snap.u[idx], 1e-12);
+                        ASSERT_NEAR(snap.v_star[idx], pre_snap.v[idx], 1e-12);
+                        ASSERT_NEAR(snap.w_star[idx], pre_snap.w[idx], 1e-12);
+                    }
+
+                    // 3. Active fluid cells (mask == 1) evaluated against Forward-Euler prediction
+                    if (mask[idx] == 1) {
+                        // Transverse trial velocities maintain zero state: u* = 0.0, v* = 0.0
+                        ASSERT_NEAR(snap.u_star[idx], 0.0, 1e-12);
+                        ASSERT_NEAR(snap.v_star[idx], 0.0, 1e-12);
+
+                        // Primary stream trial velocity maintains uniform inflow state: w* = 1.0
+                        ASSERT_NEAR(snap.w_star[idx], 1.0, 1e-12);
+                    }
+                }
+            }
+        }
+    }
 
     // // ============================================================================
     // // SECTION 8 — Verify Stage 3 Snapshot: Poisson Solver
