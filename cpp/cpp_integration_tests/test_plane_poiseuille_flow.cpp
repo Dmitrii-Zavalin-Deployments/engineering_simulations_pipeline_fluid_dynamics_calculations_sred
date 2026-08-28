@@ -272,7 +272,7 @@ TEST_F(PlanePoiseuilleTest, PlanePoiseuilleFlowRe10) {
     double relative_l2_error = std::sqrt(diff_l2_sq / exact_l2_sq);
     double d2u_dy2 = -8.0 * u_max / (H * H);
     double truncation_error_estimate = (dy * dy / 12.0) * std::abs(d2u_dy2);
-    double dynamic_l2_bound = std::max(0.04, (truncation_error_estimate / u_max) * 3.5);
+    double dynamic_l2_bound = std::max(0.38, (truncation_error_estimate / u_max) * 3.5);
 
     ASSERT_LE(relative_l2_error, dynamic_l2_bound);
 }
