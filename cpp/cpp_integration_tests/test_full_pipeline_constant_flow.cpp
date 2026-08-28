@@ -181,11 +181,15 @@ TEST(FullPipelineConstantFlowTest, StepByStepMicroManaged) {
     const auto& snapshots = orchestrator.get_debug_snapshots();
     ASSERT_FALSE(snapshots.empty());
 
-    // Helper lambda to fetch a snapshot by key safely
-    auto get_snapshot = [&](const std::string& stage_name) -> const PipelineSnapshot& {
-        auto it = snapshots.find(stage_name);
-        EXPECT_NE(it, snapshots.end()) << "Missing snapshot for stage: " << stage_name;
-        return it->second;
+    // Helper lambda to fetch a snapshot by stage name from vector
+    auto get_snapshot = [&](const std::string& stage_name) -> const OrchestratorDebugSnapshot& {
+        for (const auto& snap : snapshots) {
+            if (snap.stage == stage_name) {
+                return snap;
+            }
+        }
+        ADD_FAILURE() << "Missing snapshot for stage: " << stage_name;
+        return snapshots.front();
     };
 
     // ============================================================================
