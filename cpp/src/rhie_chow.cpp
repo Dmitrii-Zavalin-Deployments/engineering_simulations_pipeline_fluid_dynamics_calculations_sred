@@ -76,9 +76,9 @@ void RhieChowInterpolator::interpolateFaceVelocities(
                 }
 
                 double dp_dx_E = dp_dx_sharp;
-                if ((i + 1) > 0 && (i + 1) < nx - 1) {
+                if ((i + 1) > 0 && (i + 1) < nx - 1 && (i + 2 < nx)) {
                     size_t idx_EE = get_idx(i + 2, j, k);
-                    if (mask.empty() || (i + 2 < nx && mask[idx_EE] == 1)) {
+                    if (mask.empty() || mask[idx_EE] == 1) {
                         dp_dx_E = (p[idx_EE] - p[idx_P]) / (2.0 * dx);
                     } else {
                         dp_dx_E = (p[idx_E] - p[idx_P]) / dx; // Fallback
@@ -119,9 +119,9 @@ void RhieChowInterpolator::interpolateFaceVelocities(
                 }
 
                 double dp_dy_N = dp_dy_sharp;
-                if ((j + 1) > 0 && (j + 1) < ny - 1) {
+                if ((j + 1) > 0 && (j + 1) < ny - 1 && (j + 2 < ny)) {
                     size_t idx_NN = get_idx(i, j + 2, k);
-                    if (mask.empty() || (j + 2 < ny && mask[idx_NN] == 1)) {
+                    if (mask.empty() || mask[idx_NN] == 1) {
                         dp_dy_N = (p[idx_NN] - p[idx_P]) / (2.0 * dy);
                     } else {
                         dp_dy_N = (p[idx_N] - p[idx_P]) / dy;
@@ -161,9 +161,9 @@ void RhieChowInterpolator::interpolateFaceVelocities(
                 }
 
                 double dp_dz_T = dp_dz_sharp;
-                if ((k + 1) > 0 && (k + 1) < nz - 1) {
+                if ((k + 1) > 0 && (k + 1) < nz - 1 && (k + 2 < nz)) {
                     size_t idx_TT = get_idx(i, j, k + 2);
-                    if (mask.empty() || (k + 2 < nz && mask[idx_TT] == 1)) {
+                    if (mask.empty() || mask[idx_TT] == 1) {
                         dp_dz_T = (p[idx_TT] - p[idx_P]) / (2.0 * dz);
                     } else {
                         dp_dz_T = (p[idx_T] - p[idx_P]) / dz;
@@ -179,4 +179,3 @@ void RhieChowInterpolator::interpolateFaceVelocities(
 }
 
 } // namespace navier_stokes_solver
-
