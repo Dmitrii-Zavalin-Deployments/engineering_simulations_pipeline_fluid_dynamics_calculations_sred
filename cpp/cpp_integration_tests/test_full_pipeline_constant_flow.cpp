@@ -731,9 +731,8 @@ TEST(FullPipelineConstantFlowTest, StepByStepMicroManaged) {
     //   For solid or wall obstacle cells (mask[idx] != 1), the source vector must be strictly zero[cite: 1]:
     //     rhs[idx] = 0.0
     // ============================================================================
-
-    TEST_F(FullPipelineConstantFlowTest, VerifyRhsAssemblySnapshot) {
-        // 1. Execute full step up to debug snapshot population
+    {
+        // 1. Trigger the step up to snapshot population
         orchestrator->step(dt, mu, gravity, fx, fy, fz, mask, bc_list, u, v, w, p);
 
         // 2. Retrieve the target debug snapshot for the rhs_assembly stage
