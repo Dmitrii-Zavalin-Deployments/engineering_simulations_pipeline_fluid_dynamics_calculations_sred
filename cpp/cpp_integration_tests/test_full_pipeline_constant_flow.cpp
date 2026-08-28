@@ -26,6 +26,7 @@
 #include "grid_math.hpp"
 #include "boundary_condition.hpp"
 #include "ghost_handler.hpp"
+#include "rhie_chow.hpp"
 
 namespace navier_stokes_solver {
 
