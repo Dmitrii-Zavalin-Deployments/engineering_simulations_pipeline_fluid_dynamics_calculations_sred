@@ -150,6 +150,8 @@ void NavierStokesOrchestrator::step(
         u_star_, v_star_, w_star_, p, a_p, mask, rc_config, u_face, v_face, w_face
     );
 
+    capture_debug_snapshot("rhie_chow_interpolation", u, v, w, p);
+
     const double scale = config_.density / dt;
 
     #pragma omp parallel for collapse(3) schedule(static) if(total_cells_ > 1000)
