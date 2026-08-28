@@ -1,26 +1,30 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "=== [FORENSIC AUDIT] Lambda Snapshot Return Type & PipelineSnapshot Diagnostic ==="
+echo "=== [FORENSIC AUDIT] OrchestratorDebugSnapshot Structure Diagnostic ==="
 echo "Working directory: $(pwd)"
 
-echo "=== Searching for PipelineSnapshot definition in codebase ==="
-grep -rn "PipelineSnapshot" cpp/ || echo "PipelineSnapshot symbol not found"
+echo "=== Searching for OrchestratorDebugSnapshot definition in headers ==="
+find cpp -name "*.hpp" -exec grep -Hn "struct OrchestratorDebugSnapshot" {} + || \
+find cpp -name "*.hpp" -exec grep -Hn "class OrchestratorDebugSnapshot" {} + || \
+grep -rn "OrchestratorDebugSnapshot" cpp/include/ || true
 
-echo "=== Auditing test_full_pipeline_constant_flow.cpp around line 185 ==="
-if [ -f "cpp/cpp_integration_tests/test_full_pipeline_constant_flow.cpp" ]; then
-    cat -n cpp/cpp_integration_tests/test_full_pipeline_constant_flow.cpp | sed -n '175,195p'
-else
-    echo "test_full_pipeline_constant_flow.cpp not found!"
-fi
-
-echo "=== Checking orchestrator.hpp for snapshot container types ==="
+echo "=== Auditing orchestrator.hpp around snapshot definition ==="
 if [ -f "cpp/include/orchestrator.hpp" ]; then
-    grep -rn "snapshots" cpp/include/orchestrator.hpp -A 5 -B 5 || true
+    grep -n "struct OrchestratorDebugSnapshot" cpp/include/orchestrator.hpp -A 20 || \
+    cat -n cpp/include/orchestrator.hpp | head -n 120
+else
+    find cpp -name "orchestrator.hpp" -exec cat -n {} +
 fi
 
-echo "=== Git status ==="
+echo "=== Auditing test_full_pipeline_constant_flow.cpp get_snapshot implementation ==="
+if [ -f "cpp/cpp_integration_tests/test_full_pipeline_constant_flow.cpp" ]; then
+    grep -n "get_snapshot" cpp/cpp_integration_tests/test_full_pipeline_constant_flow.cpp -A 15 -B 5
+fi
+
+echo "=== Git status check ==="
 git status
 
-# sed -i 's/-> const PipelineSnapshot&//g' cpp/cpp_integration_tests/test_full_pipeline_constant_flow.cpp
-# sed -i 's/auto get_snapshot = \[&\](const std::string& stage_name) -> const PipelineSnapshot&/auto get_snapshot = \[&\](const std::string\& stage_name)/g' cpp/cpp_integration_tests/test_full_pipeline_constant_flow.cpp
+# sed -i 's/snap\.stage/snap.name/g' cpp/cpp_integration_tests/test_full_pipeline_constant_flow.cpp
+# sed -i 's/snap\.stage/snap.stage_name/g' cpp/cpp_integration_tests/test_full_pipeline_constant_flow.cpp
+# sed -i 's/if (snap\.stage == stage_name)/if (snapshots[\&stage_name - \&stage_name] ...)/g' cpp/cpp_integration_tests/test_full_pipeline_constant_flow.cpp
