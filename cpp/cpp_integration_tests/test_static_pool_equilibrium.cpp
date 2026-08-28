@@ -125,7 +125,7 @@ TEST(StaticPoolDiagnosticTest, StaticPoolEquilibrium) {
     std::vector<double> fz(total_cells, 0.0);
 
     // Execute boundary condition setup prior to evaluating momentum equations.
-    execute_pre_step(u, v, w, p, mask, bc_list, nx, ny, nz);
+    execute_pre_step(u, v, w, p, mask, bc_list, nx, ny, nz, false);
 
     // Compute intermediate trial velocities (u_star) accounting for advection, 
     // diffusion, and external gravity body forces without pressure gradient coupling.

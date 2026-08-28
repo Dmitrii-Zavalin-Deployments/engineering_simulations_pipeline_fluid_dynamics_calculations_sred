@@ -105,7 +105,7 @@ TEST(BoundaryConditionsTest, PressureDrivenChannelFlow) {
 
     // We run a multi-step time integration loop to allow pressure gradient acceleration from rest:
     for (int step = 0; step < 150; ++step) {
-        execute_pre_step(u, v, w, p, mask, bc_list, nx, ny, nz);
+        execute_pre_step(u, v, w, p, mask, bc_list, nx, ny, nz, false);
 
         std::vector<double> u_star(total_cells, 0.0);
         std::vector<double> v_star(total_cells, 0.0);

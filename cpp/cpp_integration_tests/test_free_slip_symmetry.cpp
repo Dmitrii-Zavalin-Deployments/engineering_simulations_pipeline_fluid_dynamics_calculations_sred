@@ -67,7 +67,7 @@ TEST(BoundaryConditionsTest, FreeSlipSymmetryPlane) {
     bc_list.push_back(bc_sym);
 
     // We execute the simulation pre-step to enforce boundary conditions:
-    execute_pre_step(u, v, w, p, mask, bc_list, nx, ny, nz);
+    execute_pre_step(u, v, w, p, mask, bc_list, nx, ny, nz, false);
 
     // We verify that the normal velocity v is exactly zero across all cells at the y_max boundary:
     int top_j = ny - 1;

@@ -78,7 +78,7 @@ TEST(BoundaryConditionsTest, NoSlipWallShearBoundary) {
     bc_list.push_back(bc_wall);
 
     // We execute the pre-step to enforce boundary conditions across the grid:
-    execute_pre_step(u, v, w, p, mask, bc_list, nx, ny, nz);
+    execute_pre_step(u, v, w, p, mask, bc_list, nx, ny, nz, false);
 
     // We verify that no-slip conditions successfully maintain zero velocity directly on the wall face:
     for (int k = 0; k < nz; ++k) {
