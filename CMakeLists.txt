@@ -100,6 +100,20 @@ target_link_libraries(test_mass_continuity
 )
 add_test(NAME MassContinuityTest COMMAND test_mass_continuity)
 
+# Canonical Flows Benchmark Test (Lid-Driven Cavity & Poiseuille Flow)
+add_executable(test_canonical_flows
+    cpp/cpp_integration_tests/test_canonical_flows.cpp
+)
+target_link_libraries(test_canonical_flows
+    PRIVATE
+        GTest::gtest_main
+        navier_stokes_core
+        nlohmann_json::nlohmann_json
+        OpenMP::OpenMP_CXX
+        Threads::Threads
+)
+add_test(NAME CanonicalFlowsTest COMMAND test_canonical_flows)
+
 # ---------------------------------------------------------------------------
 # 4. Python Pybind11 Extension Module Target (`navier_stokes_cpp`)
 # ---------------------------------------------------------------------------
