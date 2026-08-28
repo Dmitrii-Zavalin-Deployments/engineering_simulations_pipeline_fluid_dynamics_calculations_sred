@@ -2,57 +2,38 @@
 set -euo pipefail
 
 BUILD_DIR="build"
-TEST_BINARY="test_full_pipeline_constant_flow"
 TARGET_I=2
 TARGET_J=2
 TARGET_K=1
 NX=8
 NY=8
-
-# Calculate flat index based on repository standard: i + nx * (j + ny * k)
 FLAT_IDX=$(( TARGET_I + NX * (TARGET_J + NY * TARGET_K) ))
 
-echo "=== NAVIER-STOKES PIPELINE FORENSIC DIAGNOSTIC ==="
-echo "Target Cell: (${TARGET_I}, ${TARGET_J}, ${TARGET_K}) -> Flat Index: ${FLAT_IDX}"
+LOG_PATH="${BUILD_DIR}/pipeline_debug_run.log"
 
-if [ ! -d "$BUILD_DIR" ]; then
-    mkdir -p "$BUILD_DIR"
-    cd "$BUILD_DIR"
-    cmake -DCMAKE_BUILD_TYPE=Debug ..
-else
-    cd "$BUILD_DIR"
-fi
+if [ ! -f "$LOG_PATH" ]; then
+    echo "Error: ${LOG_PATH} not found. Run the test first."
+    exit 1
+}
 
-echo "Building test target..."
-cmake --build . --target "$TEST_BINARY" -j$(nproc)
-
-EXECUTABLE="./${TEST_BINARY}"
-if [ ! -f "$EXECUTABLE" ]; then
-    EXECUTABLE=$(find . -name "$TEST_BINARY" -type f -executable | head -n 1)
-fi
-
-echo "Executing test and capturing debug snapshots..."
-OUTPUT_LOG="pipeline_debug_run.log"
-"$EXECUTABLE" --gtest_filter=*StepByStepMicroManaged* > "$OUTPUT_LOG" 2>&1 || true
-
-echo "=== EXTRACTING SNAPSHOT METRICS FOR CELL ${FLAT_IDX} ==="
+echo "=== DETAILED TRACE FOR CELL ${FLAT_IDX} (i=${TARGET_I}, j=${TARGET_J}, k=${TARGET_K}) ==="
 python3 -c "
 import os
 
 flat_idx = ${FLAT_IDX}
-log_path = '${OUTPUT_LOG}'
+log_path = '${LOG_PATH}'
 
-if os.path.exists(log_path):
-    with open(log_path, 'r') as f:
-        lines = f.readlines()
-    
-    print(f'Total log lines captured: {len(lines)}')
-    print('--- Relevant Failure & Snapshot Events ---')
-    for line in lines:
-        if any(kw in line for kw in ['Failure', 'exceeds', 'DEBUG_DUMP', 'u[idx]', 'Non-zero']):
-            print(line.strip())
-else:
-    print('Error: Log file not found.')
+with open(log_path, 'r') as f:
+    content = f.read()
+
+print('Searching log for snapshot dumps and vector states...')
+# Let's inspect all lines containing snapshot or array data around cell ${FLAT_IDX}
+lines = content.split('\n')
+for i, line in enumerate(lines):
+    if 'DEBUG_DUMP' in line or 'Snapshot' in line or 'u[' in line or 'p[' in line:
+        print(line)
+        # Print surrounding lines if any vector values are printed
+        for j in range(max(0, i-2), min(len(lines), i+3)):
+            if j != i and ('[' in lines[j] or 'val' in lines[j] or 'cell' in lines[j]):
+                print(f'   {lines[j]}')
 "
-
-echo "Diagnostic capture complete. Inspect full trace in ${BUILD_DIR}/${OUTPUT_LOG}"
