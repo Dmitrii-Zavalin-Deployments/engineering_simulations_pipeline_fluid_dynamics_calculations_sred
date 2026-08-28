@@ -695,50 +695,127 @@ TEST(FullPipelineConstantFlowTest, StepByStepMicroManaged) {
         }
     }
 
-    // // ============================================================================
-    // // SECTION 8 — Verify Stage Snapshot: RHS Assembly Divergence (Literate Verification)
-    // // ============================================================================
-    // // Mathematical Formulation:
-    // //   The discrete Rhie-Chow face-divergence assembly (RHS) for the Pressure Poisson Equation:
-    // //     RHS[i,j,k] = (rho / dt) * (dudx + dvdy + dwdz)
-    // //
-    // // Clamped Boundary Consistency:
-    // //   With robust clamped face indexing (std::min/std::max), boundary-adjacent cells 
-    // //   correctly enforce zero-gradient (Neumann) boundary conditions. For a uniform flow
-    // //   field (u* = 0.0, v* = 0.0, w* = 1.0), the divergence evaluates to identically 
-    // //   zero across all fluid cells, completely eliminating the previous boundary divergence error (19.92).
-    // // ============================================================================
+    // ============================================================================
+    // SECTION 10 — Verify Stage Snapshot: RHS Assembly Divergence (Literate Verification)
+    // ============================================================================
+    // Mathematical Formulation:
+    //   The discrete Rhie-Chow face-divergence assembly computes the right-hand side 
+    //   source vector b = rhs_ for the 3D Pressure Poisson Equation[cite: 1]:
+    //
+    //     \nabla^2 p = \frac{\rho}{\Delta t} \nabla \cdot \vec{u}^*
+    //
+    //   For each active fluid cell (mask[i,j,k] == 1), the cell-centered source term is[cite: 1]:
+    //
+    //     rhs[i,j,k] = \frac{\rho}{\Delta t} \left( \frac{u_{\text{east}} - u_{\text{west}}}{\Delta x} 
+    //                                            + \frac{v_{\text{north}} - v_{\text{south}}}{\Delta y} 
+    //                                            + \frac{w_{\text{top}} - w_{\text{bottom}}}{\Delta z} \right)
+    //
+    // Boundary Face Indexing & Fallback Stencils:
+    //   To prevent stencil truncation errors at domain boundaries, boundary face velocities 
+    //   default directly to cell-centered trial velocities (u*, v*, w*) when adjacent faces 
+    //   fall outside the face buffer boundaries[cite: 1]:
+    //
+    //   X-Direction[cite: 1]:
+    //     u_east  = (i == nx - 1) ? u*[idx] : u_face[i + (nx - 1) * (j + ny * k)]
+    //     u_west  = (i == 0)      ? u*[idx] : u_face[(i - 1) + (nx - 1) * (j + ny * k)]
+    //
+    //   Y-Direction[cite: 1]:
+    //     v_north = (j == ny - 1) ? v*[idx] : v_face[i + nx * (j + (ny - 1) * k)]
+    //     v_south = (j == 0)      ? v*[idx] : v_face[i + nx * ((j - 1) + (ny - 1) * k)]
+    //
+    //   Z-Direction[cite: 1]:
+    //     w_top   = (k == nz - 1) ? w*[idx] : w_face[i + nx * (j + ny * k)]
+    //     w_bottom= (k == 0)      ? w*[idx] : w_face[i + nx * (j + ny * (k - 1))]
+    //
+    // Non-Fluid Masking[cite: 1]:
+    //   For solid or wall obstacle cells (mask[idx] != 1), the source vector must be strictly zero[cite: 1]:
+    //     rhs[idx] = 0.0
+    // ============================================================================
 
-    // {
-    //     const auto& snap = get_snapshot("rhs_assembly");
+    TEST_F(FullPipelineConstantFlowTest, VerifyRhsAssemblySnapshot) {
+        // 1. Execute full step up to debug snapshot population
+        orchestrator->step(dt, mu, gravity, fx, fy, fz, mask, bc_list, u, v, w, p);
 
-    //     for (int k = 0; k < dims.nz; ++k) {
-    //         for (int j = 0; j < dims.ny; ++j) {
-    //             for (int i = 0; i < dims.nx; ++i) {
-    //                 const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, dims.nx, dims.ny));
+        // 2. Retrieve the target debug snapshot for the rhs_assembly stage
+        const auto& snapshots = orchestrator->get_debug_snapshots();
+        auto snap_it = std::find_if(snapshots.begin(), snapshots.end(),
+            [](const auto& s) { return s.stage_name == "rhs_assembly"; });
+        
+        ASSERT_NE(snap_it, snapshots.end()) << "ERROR: 'rhs_assembly' snapshot was not captured.";
+        const auto& snap = *snap_it;
 
-    //                 // 1. Safety audit: Ensure pressure and RHS values are strictly finite
-    //                 ASSERT_TRUE(std::isfinite(snap.p[idx]));
-    //                 ASSERT_TRUE(std::isfinite(snap.rhs[idx]));
+        // 3. Define local constant scale factor: scale = density / dt
+        const double scale = config.density / dt;
 
-    //                 // 2. Non-fluid solid/wall cells preserve zero RHS baseline
-    //                 if (mask[idx] != 1) {
-    //                     ASSERT_NEAR(snap.rhs[idx], 0.0, 1e-12);
-    //                 }
+        // 4. Independently reconstruct the Rhie-Chow face velocity fields (u_face, v_face, w_face)
+        std::vector<double> a_p(total_cells, config.density / dt);
+        navier_stokes_solver::RhieChowInterpolator::GridConfig rc_config{
+            dims.nx, dims.ny, dims.nz, dims.dx, dims.dy, dims.dz, dt
+        };
+        
+        std::vector<double> u_face((dims.nx - 1) * dims.ny * dims.nz, 0.0);
+        std::vector<double> v_face(dims.nx * (dims.ny - 1) * dims.nz, 0.0);
+        std::vector<double> w_face(dims.nx * dims.ny * (dims.nz - 1), 0.0);
 
-    //                 // 3. Active fluid cells evaluated against strict zero divergence
-    //                 if (mask[idx] == 1) {
-    //                     // With clamped face indexing, uniform flow yields zero divergence
-    //                     // uniformly across both core interior and boundary-adjacent cells.
-    //                     double rhs_tolerance = 1e-12;
+        navier_stokes_solver::RhieChowInterpolator::interpolateFaceVelocities(
+            snap.u_star, snap.v_star, snap.w_star, snap.p, a_p, mask, rc_config,
+            u_face, v_face, w_face
+        );
 
-    //                     // Assert assembly RHS divergence vector evaluates to zero
-    //                     ASSERT_NEAR(snap.rhs[idx], 0.0, rhs_tolerance);
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
+        // 5. Literate verification loop over all grid cells (k, j, i)
+        for (int k = 0; k < dims.nz; ++k) {
+            for (int j = 0; j < dims.ny; ++j) {
+                for (int i = 0; i < dims.nx; ++i) {
+                    const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, dims.nx, dims.ny));
+
+                    // Audit 1: Safety validation — verify RHS value is strictly finite (not NaN/Inf)
+                    ASSERT_TRUE(std::isfinite(snap.rhs[idx])) 
+                        << "Non-finite RHS source term detected at grid index [" << i << ", " << j << ", " << k << "]";
+
+                    // Audit 2: Solid / non-fluid cells must maintain zero RHS source term
+                    if (mask[idx] != 1) {
+                        ASSERT_NEAR(snap.rhs[idx], 0.0, 1e-12) 
+                            << "Non-zero RHS detected in non-fluid cell at index [" << i << ", " << j << ", " << k << "]";
+                        continue;
+                    }
+
+                    // Audit 3: Evaluate boundary-aware face fluxes using domain fallback logic
+                    const double u_east = (i == dims.nx - 1)
+                        ? snap.u_star[idx]
+                        : u_face[static_cast<size_t>(i) + (dims.nx - 1) * (j + dims.ny * k)];
+                    const double u_west = (i == 0)
+                        ? snap.u_star[idx]
+                        : u_face[static_cast<size_t>(i - 1) + (dims.nx - 1) * (j + dims.ny * k)];
+
+                    const double v_north = (j == dims.ny - 1)
+                        ? snap.v_star[idx]
+                        : v_face[static_cast<size_t>(i) + dims.nx * (j + (dims.ny - 1) * k)];
+                    const double v_south = (j == 0)
+                        ? snap.v_star[idx]
+                        : v_face[static_cast<size_t>(i) + dims.nx * ((j - 1) + (dims.ny - 1) * k)];
+
+                    const double w_top = (k == dims.nz - 1)
+                        ? snap.w_star[idx]
+                        : w_face[static_cast<size_t>(i) + dims.nx * (j + dims.ny * k)];
+                    const double w_bottom = (k == 0)
+                        ? snap.w_star[idx]
+                        : w_face[static_cast<size_t>(i) + dims.nx * (j + dims.ny * (k - 1))];
+
+                    // Audit 4: Compute spatial derivative finite differences
+                    const double dudx = (u_east - u_west) / dims.dx;
+                    const double dvdy = (v_north - v_south) / dims.dy;
+                    const double dwdz = (w_top - w_bottom) / dims.dz;
+
+                    // Audit 5: Calculate expected mathematical source term: RHS = (rho / dt) * div(u*)
+                    const double expected_rhs = scale * (dudx + dvdy + dwdz);
+
+                    // Audit 6: Assert exact equality between snapshot RHS and calculated RHS
+                    ASSERT_NEAR(snap.rhs[idx], expected_rhs, 1e-12)
+                        << "RHS assembly divergence discrepancy at index [" << i << ", " << j << ", " << k << "]";
+                }
+            }
+        }
+    }
 
     // // ============================================================================
     // // SECTION 9 — Verify Stage 4 Snapshot: Corrector
