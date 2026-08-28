@@ -37,6 +37,8 @@
  * - Transient Residue Tracking: Monitors inter-step RMS changes to detect numerical spikes.
  * 
  * CODE AUDIT & CORRECTIONS APPLIED:
+ * - Cross-Test Isolation: Enforced explicit OpenMP thread pool binding and floating-point 
+ *   exception flag clearing in fixture `SetUp()` to prevent state pollution when run in test suites.
  * - Spanwise Boundary Conditions: Fully configured z_min and z_max as no-slip walls to ensure
  *   complete 3D computational domain enclosure.
  * - Literate Documentation: Expanded code comments with explicit formulas, physical units, 
@@ -51,6 +53,7 @@
 #include <iostream>
 #include <limits>
 #include <thread>
+#include <cfenv>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -70,6 +73,12 @@ using namespace navier_stokes_solver;
 class CanonicalFlowsTest : public ::testing::Test {
 protected:
     void SetUp() override {
+#ifdef _OPENMP
+        // Enforce deterministic thread pool configuration across sequential test cases
+        omp_set_num_threads(std::min(4, omp_get_max_threads()));
+#endif
+        // Clear floating-point exception flags to prevent cross-test status leakage
+        std::feclearexcept(FE_ALL_EXCEPT);
         VerifyAndReportThreadingConfig();
     }
 
@@ -164,7 +173,7 @@ protected:
      * 
      * @details
      * Mathematical Formula:
-     *       R^{n} = sqrt( (1 / N) * sum_{m=1}^{N} [ (u_m^{n} - u_m^{n-1})^2 + (v_m^{n} - v_m^{n-1})^2 ] )
+     *        R^{n} = sqrt( (1 / N) * sum_{m=1}^{N} [ (u_m^{n} - u_m^{n-1})^2 + (v_m^{n} - v_m^{n-1})^2 ] )
      * 
      * Physical Purpose:
      *   Monitors numerical temporal decay towards steady state and flags non-physical velocity 
@@ -255,7 +264,7 @@ TEST_F(CanonicalFlowsTest, LidDrivenCavityRe100) {
     // -----------------------------------------------------------------------------
     const int nx = 16;
     const int ny = 16;
-    const int nz = 3;            // Minimal depth slice for 2D flow simulation
+    const int nz = 3;             // Minimal depth slice for 2D flow simulation
     const double dx = 1.0 / nx; // dx = 0.0625 m
     const double dy = 1.0 / ny; // dy = 0.0625 m
     const double dz = 0.03125;  // dz = 0.03125 m
@@ -265,7 +274,7 @@ TEST_F(CanonicalFlowsTest, LidDrivenCavityRe100) {
 
     // Configure pressure Poisson iterative solver convergence limits.
     SolverConfig config;
-    config.density = 1.0;                 // Fluid density rho = 1.0 kg/m^3
+    config.density = 1.0;                   // Fluid density rho = 1.0 kg/m^3
     config.max_poisson_iterations = 25; 
     config.poisson_tolerance = 1e-4;     
 
@@ -323,7 +332,7 @@ TEST_F(CanonicalFlowsTest, LidDrivenCavityRe100) {
 
         // Transient Ramp Formulation:
         // Smoothly accelerate lid velocity over the first 50 steps to prevent impulsive startup pressure shocks:
-        //     u_lid(t) = min(1.0, step / 50.0)
+        //      u_lid(t) = min(1.0, step / 50.0)
         double current_lid_u = std::min(1.0, static_cast<double>(step) / 50.0);
         bc_lid.u_val = current_lid_u;
         bc_lid.values.u = current_lid_u;
@@ -406,14 +415,14 @@ TEST_F(CanonicalFlowsTest, PlanePoiseuilleFlowRe10) {
     size_t total_cells = static_cast<size_t>(nx) * ny * nz;
 
     SolverConfig config;
-    config.density = 1.0;                   // Density rho = 1.0 kg/m^3
+    config.density = 1.0;                     // Density rho = 1.0 kg/m^3
     config.max_poisson_iterations = 25;
     config.poisson_tolerance = 1e-4;
 
     NavierStokesOrchestrator orchestrator(dims, config);
 
-    const double mu = 0.001;                // Dynamic viscosity mu = 1e-3 Pa*s
-    const double u_max = 0.1;               // Peak centerline velocity scale u_max = 0.1 m/s
+    const double mu = 0.001;                  // Dynamic viscosity mu = 1e-3 Pa*s
+    const double u_max = 0.1;                 // Peak centerline velocity scale u_max = 0.1 m/s
     const std::vector<double> gravity = {0.0, 0.0, 0.0};
 
     std::vector<int> mask(total_cells, 1);
@@ -476,7 +485,7 @@ TEST_F(CanonicalFlowsTest, PlanePoiseuilleFlowRe10) {
 
     // Initial Velocity Field Setup:
     // Initialize u-velocity using exact parabolic analytical Poiseuille solution across height H:
-    //     u(y) = 4 * u_max * (y / H) * (1.0 - (y / H))
+    //      u(y) = 4 * u_max * (y / H) * (1.0 - (y / H))
     for (int k = 0; k < nz; ++k) {
         for (int j = 0; j < ny; ++j) {
             double y_pos = (j + 0.5) * dy;
@@ -558,12 +567,12 @@ TEST_F(CanonicalFlowsTest, PlanePoiseuilleFlowRe10) {
     }
 
     // Relative L2 Error Norm Definition:
-    //     || u_computed - u_exact ||_2 / || u_exact ||_2
+    //       || u_computed - u_exact ||_2 / || u_exact ||_2
     double relative_l2_error = std::sqrt(diff_l2_sq / exact_l2_sq);
 
     // Compute theoretical spatial discretization error bound based on 2nd derivative:
-    //     d^2 u / dy^2 = -8 * u_max / H^2
-    //     tau_y = (dy^2 / 12) * |d^2 u / dy^2|
+    //       d^2 u / dy^2 = -8 * u_max / H^2
+    //       tau_y = (dy^2 / 12) * |d^2 u / dy^2|
     double d2u_dy2 = -8.0 * u_max / (H * H);
     double truncation_error_estimate = (dy * dy / 12.0) * std::abs(d2u_dy2);
     
