@@ -94,6 +94,7 @@ private:
     GridDimensions dims_;
     SolverConfig config_;
     size_t total_cells_;
+    bool cold_start_;
 
     // Internal persistent working buffers
     std::vector<double> u_star_;

@@ -49,10 +49,10 @@ void execute_pre_step(
     std::vector<double>& p,
     const std::vector<int>& mask,
     const std::vector<BoundaryCondition>& bc_list,
-    int nx, int ny, int nz
+    int nx, int ny, int nz,
+    bool cold_start
 );
 
 } // namespace navier_stokes_solver
 
 #endif // SIMULATION_PRESTEP_HPP
-

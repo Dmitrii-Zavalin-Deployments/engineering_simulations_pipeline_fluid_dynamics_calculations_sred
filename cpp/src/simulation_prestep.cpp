@@ -38,7 +38,8 @@ void execute_pre_step(
     std::vector<double>& p,
     const std::vector<int>& mask,
     const std::vector<BoundaryCondition>& bc_list,
-    int nx, int ny, int nz
+    int nx, int ny, int nz,
+    bool cold_start
 ) {
     if (nx < 3 || ny < 3 || nz < 3) {
         throw std::invalid_argument("GEOMETRY ERROR: Grid dimensions must be at least 3x3x3 in execute_pre_step.");
@@ -58,7 +59,41 @@ void execute_pre_step(
 
     std::cout << "[THREAD_TRACE] File: simulation_prestep.cpp | Operations (Cells): " << total_cells 
               << " | Grid: " << nx << "x" << ny << "x" << nz 
-              << " | Active Threads: " << active_threads << "\n";
+              << " | Active Threads: " << active_threads 
+              << " | Cold Start: " << (cold_start ? "true" : "false") << "\n";
+
+    // Uniform free-stream initialization extracted dynamically from inflow boundary conditions on cold start
+    if (cold_start) {
+        double init_u = 0.0;
+        double init_v = 0.0;
+        double init_w = 0.0;
+        double init_p = 0.0;
+
+        for (const auto& bc : bc_list) {
+            if (bc.type == "inflow") {
+                init_u = bc.values.u;
+                init_v = bc.values.v;
+                init_w = bc.values.w;
+                init_p = bc.values.p;
+                break;
+            }
+        }
+
+        #pragma omp parallel for collapse(3) schedule(static)
+        for (int k = 0; k < nz; ++k) {
+            for (int j = 0; j < ny; ++j) {
+                for (int i = 0; i < nx; ++i) {
+                    size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
+                    if (mask[idx] == 1) {
+                        u[idx] = init_u;
+                        v[idx] = init_v;
+                        w[idx] = init_w;
+                        p[idx] = init_p;
+                    }
+                }
+            }
+        }
+    }
 
     std::vector<BoundaryCondition> wall_bc_list;
     std::vector<BoundaryCondition> face_bc_list;
@@ -92,7 +127,6 @@ void execute_pre_step(
             double v_new = v[idx];
             double w_new = w[idx];
 
-            // Normal components: zero; tangential: zero-gradient or prescribed
             if (i == 0 || i == nx - 1) {
                 u_new = 0.0;
             } else {
@@ -133,7 +167,7 @@ void execute_pre_step(
         }
     };
 
-    // Pass 1: wall BCs only on explicit wall cells (mask == -1)
+    // Pass 1: wall BCs only on explicit wall cells (mask == -1 or 0)
     for (const auto& bc : wall_bc_list) {
         #pragma omp parallel for collapse(3) schedule(static)
         for (int k = 0; k < nz; ++k) {
@@ -159,7 +193,6 @@ void execute_pre_step(
                     }
                     size_t idx = static_cast<size_t>(get_flat_index(i, j, k, nx, ny));
                     if (mask[idx] == -1 || mask[idx] == 0) {
-                        // keep wall BC from first pass
                         continue;
                     }
                     apply_bc(bc, i, j, k, idx);
@@ -170,4 +203,3 @@ void execute_pre_step(
 }
 
 } // namespace navier_stokes_solver
-
