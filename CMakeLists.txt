@@ -128,6 +128,132 @@ target_link_libraries(test_plane_poiseuille_flow
 )
 add_test(NAME PlanePoiseuilleFlowTest COMMAND test_plane_poiseuille_flow)
 
+# CFL & Stability Integration Test
+add_executable(test_cfl_and_stability
+    cpp/cpp_integration_tests/test_cfl_and_stability.cpp
+)
+target_link_libraries(test_cfl_and_stability
+    PRIVATE
+        GTest::gtest_main
+        navier_stokes_core
+        nlohmann_json::nlohmann_json
+        OpenMP::OpenMP_CXX
+        Threads::Threads
+)
+add_test(NAME CflAndStabilityTest COMMAND test_cfl_and_stability)
+
+# Free-Slip Symmetry Plane Boundary Verification Test
+add_executable(test_free_slip_symmetry
+    cpp/cpp_integration_tests/test_free_slip_symmetry.cpp
+)
+target_link_libraries(test_free_slip_symmetry
+    PRIVATE
+        GTest::gtest_main
+        navier_stokes_core
+        nlohmann_json::nlohmann_json
+        OpenMP::OpenMP_CXX
+        Threads::Threads
+)
+add_test(NAME FreeSlipSymmetryTest COMMAND test_free_slip_symmetry)
+
+# No-Penetration Clamping Integration Test
+add_executable(test_no_penetration_clamping
+    cpp/cpp_integration_tests/test_no_penetration_clamping.cpp
+)
+target_link_libraries(test_no_penetration_clamping
+    PRIVATE
+        GTest::gtest_main
+        navier_stokes_core
+        nlohmann_json::nlohmann_json
+        OpenMP::OpenMP_CXX
+        Threads::Threads
+)
+add_test(NAME NoPenetrationClampingTest COMMAND test_no_penetration_clamping)
+
+# No-Slip Wall Shear Integration Test
+add_executable(test_no_slip_wall_shear
+    cpp/cpp_integration_tests/test_no_slip_wall_shear.cpp
+)
+target_link_libraries(test_no_slip_wall_shear
+    PRIVATE
+        GTest::gtest_main
+        navier_stokes_core
+        nlohmann_json::nlohmann_json
+        OpenMP::OpenMP_CXX
+        Threads::Threads
+)
+add_test(NAME NoSlipWallShearTest COMMAND test_no_slip_wall_shear)
+
+# Pressure-Driven Channel Flow Integration Test
+add_executable(test_pressure_driven_channel
+    cpp/cpp_integration_tests/test_pressure_driven_channel.cpp
+)
+target_link_libraries(test_pressure_driven_channel
+    PRIVATE
+        GTest::gtest_main
+        navier_stokes_core
+        nlohmann_json::nlohmann_json
+        OpenMP::OpenMP_CXX
+        Threads::Threads
+)
+add_test(NAME PressureDrivenChannelTest COMMAND test_pressure_driven_channel)
+
+# Internal Solid Object Masking Integration Test
+add_executable(test_solid_masking
+    cpp/cpp_integration_tests/test_solid_masking.cpp
+)
+target_link_libraries(test_solid_masking
+    PRIVATE
+        GTest::gtest_main
+        navier_stokes_core
+        nlohmann_json::nlohmann_json
+        OpenMP::OpenMP_CXX
+        Threads::Threads
+)
+add_test(NAME SolidMaskingTest COMMAND test_solid_masking)
+
+# Static Pool Equilibrium & Spurious Current Suppression Integration Test
+add_executable(test_static_pool_equilibrium
+    cpp/cpp_integration_tests/test_static_pool_equilibrium.cpp
+)
+target_link_libraries(test_static_pool_equilibrium
+    PRIVATE
+        GTest::gtest_main
+        navier_stokes_core
+        nlohmann_json::nlohmann_json
+        OpenMP::OpenMP_CXX
+        Threads::Threads
+)
+add_test(NAME StaticPoolEquilibriumTest COMMAND test_static_pool_equilibrium)
+
+# Velocity Inlet / Pressure Outlet Integration Test
+add_executable(test_velocity_inlet_outlet
+    cpp/cpp_integration_tests/test_velocity_inlet_outlet.cpp
+)
+target_link_libraries(test_velocity_inlet_outlet
+    PRIVATE
+        GTest::gtest_main
+        navier_stokes_core
+        nlohmann_json::nlohmann_json
+        OpenMP::OpenMP_CXX
+        Threads::Threads
+)
+add_test(NAME VelocityInletOutletTest COMMAND test_velocity_inlet_outlet)
+
+# Waterfall Inflow Dynamics Integration Test
+add_executable(test_waterfall_inflow
+    cpp/cpp_integration_tests/test_waterfall_inflow.cpp
+)
+target_link_libraries(test_waterfall_inflow
+    PRIVATE
+        GTest::gtest_main
+        navier_stokes_core
+        nlohmann_json::nlohmann_json
+        OpenMP::OpenMP_CXX
+        Threads::Threads
+)
+add_test(NAME WaterfallInflowTest COMMAND test_waterfall_inflow)
+
 # ---------------------------------------------------------------------------
 # 4. Python Pybind11 Extension Module Target (`navier_stokes_cpp`)
 # ---------------------------------------------------------------------------
