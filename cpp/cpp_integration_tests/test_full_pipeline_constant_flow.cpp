@@ -733,10 +733,10 @@ TEST(FullPipelineConstantFlowTest, StepByStepMicroManaged) {
     // ============================================================================
     {
         // 1. Trigger the step up to snapshot population
-        orchestrator->step(dt, mu, gravity, fx, fy, fz, mask, bc_list, u, v, w, p);
+        orchestrator.step(dt, mu, gravity, fx, fy, fz, mask, bc_list, u, v, w, p);
 
         // 2. Retrieve the target debug snapshot for the rhs_assembly stage
-        const auto& snapshots = orchestrator->get_debug_snapshots();
+        const auto& snapshots = orchestrator.get_debug_snapshots();
         auto snap_it = std::find_if(snapshots.begin(), snapshots.end(),
             [](const auto& s) { return s.stage_name == "rhs_assembly"; });
         
