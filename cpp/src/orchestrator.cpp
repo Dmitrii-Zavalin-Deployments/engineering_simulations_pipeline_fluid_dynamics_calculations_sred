@@ -187,28 +187,33 @@ void NavierStokesOrchestrator::step(
                     double dvdy = 0.0;
                     double dwdz = 0.0;
 
-                    if (i == 0) {
-                        const size_t idx_e_face = i + (dims_.nx - 1) * (j + dims_.ny * k);
-                        dudx = u_face[idx_e_face] / dims_.dx;
-                    } else if (i == dims_.nx - 1) {
+                    // Use one-sided face differences for boundary/near-boundary fluid cells
+                    // combined with masked face-velocities to eliminate spurious contamination.
+                    if (i > 0 && i < dims_.nx) {
                         const size_t idx_w_face = (i - 1) + (dims_.nx - 1) * (j + dims_.ny * k);
                         dudx = -u_face[idx_w_face] / dims_.dx;
                     }
+                    if (i >= 0 && i < dims_.nx - 1) {
+                        const size_t idx_e_face = i + (dims_.nx - 1) * (j + dims_.ny * k);
+                        dudx = u_face[idx_e_face] / dims_.dx;
+                    }
 
-                    if (j == 0) {
-                        const size_t idx_n_face = i + dims_.nx * (j + (dims_.ny - 1) * k);
-                        dvdy = v_face[idx_n_face] / dims_.dy;
-                    } else if (j == dims_.ny - 1) {
+                    if (j > 0 && j < dims_.ny) {
                         const size_t idx_s_face = i + dims_.nx * ((j - 1) + (dims_.ny - 1) * k);
                         dvdy = -v_face[idx_s_face] / dims_.dy;
                     }
+                    if (j >= 0 && j < dims_.ny - 1) {
+                        const size_t idx_n_face = i + dims_.nx * (j + (dims_.ny - 1) * k);
+                        dvdy = v_face[idx_n_face] / dims_.dy;
+                    }
 
-                    if (k == 0) {
-                        const size_t idx_t_face = i + dims_.nx * (j + dims_.ny * k);
-                        dwdz = w_face[idx_t_face] / dims_.dz;
-                    } else if (k == dims_.nz - 1) {
+                    if (k > 0 && k < dims_.nz) {
                         const size_t idx_b_face = i + dims_.nx * (j + dims_.ny * (k - 1));
                         dwdz = -w_face[idx_b_face] / dims_.dz;
+                    }
+                    if (k >= 0 && k < dims_.nz - 1) {
+                        const size_t idx_t_face = i + dims_.nx * (j + dims_.ny * k);
+                        dwdz = w_face[idx_t_face] / dims_.dz;
                     }
 
                     rhs_[idx] = scale * (dudx + dvdy + dwdz);

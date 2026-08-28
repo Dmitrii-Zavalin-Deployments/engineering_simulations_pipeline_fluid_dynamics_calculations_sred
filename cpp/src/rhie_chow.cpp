@@ -1,7 +1,7 @@
 /**
  * @file rhie_chow.cpp
  * @brief Implementation of Rhie-Chow collocated grid velocity interpolation with 
- *        mask-aware cell-centered pressure gradients to suppress checkerboard decoupling and boundary pollution.
+ *        mask-aware cell-centered pressure gradients and zero-flux boundary conditioning.
  */
 
 #include "rhie_chow.hpp"
@@ -54,6 +54,12 @@ void RhieChowInterpolator::interpolateFaceVelocities(
                 size_t idx_E = get_idx(i + 1, j, k);
                 size_t face_idx = static_cast<size_t>(i + (nx - 1) * (j + ny * k));
 
+                // Enforce zero normal flux across solid (mask == 0) and wall (mask == -1) boundaries
+                if (!mask.empty() && (mask[idx_P] != 1 || mask[idx_E] != 1)) {
+                    u_face[face_idx] = 0.0;
+                    continue;
+                }
+
                 // Linear interpolation of velocity to face
                 double u_lin = 0.5 * (u[idx_P] + u[idx_E]);
 
@@ -102,6 +108,12 @@ void RhieChowInterpolator::interpolateFaceVelocities(
                 size_t idx_N = get_idx(i, j + 1, k);
                 size_t face_idx = static_cast<size_t>(i + nx * (j + (ny - 1) * k));
 
+                // Enforce zero normal flux across solid/wall boundaries
+                if (!mask.empty() && (mask[idx_P] != 1 || mask[idx_N] != 1)) {
+                    v_face[face_idx] = 0.0;
+                    continue;
+                }
+
                 double v_lin = 0.5 * (v[idx_P] + v[idx_N]);
                 double ap_face = 0.5 * (a_p[idx_P] + a_p[idx_N]);
                 double d_face = (ap_face > 0.0) ? (1.0 / ap_face) : 0.0;
@@ -143,6 +155,12 @@ void RhieChowInterpolator::interpolateFaceVelocities(
                 size_t idx_P = get_idx(i, j, k);
                 size_t idx_T = get_idx(i, j, k + 1);
                 size_t face_idx = static_cast<size_t>(i + nx * (j + ny * k));
+
+                // Enforce zero normal flux across solid/wall boundaries
+                if (!mask.empty() && (mask[idx_P] != 1 || mask[idx_T] != 1)) {
+                    w_face[face_idx] = 0.0;
+                    continue;
+                }
 
                 double w_lin = 0.5 * (w[idx_P] + w[idx_T]);
                 double ap_face = 0.5 * (a_p[idx_P] + a_p[idx_T]);
