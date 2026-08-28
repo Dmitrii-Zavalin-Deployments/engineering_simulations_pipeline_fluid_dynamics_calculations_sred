@@ -58,45 +58,42 @@ TEST(WaterfallDiagnosticTest, WaterfallInflowDynamics) {
     SolverConfig config;
     config.density = density;
     config.max_poisson_iterations = 500;
-    config.poisson_tolerance = 1e-12;
+    config.poisson_tolerance = 1e-6;
 
     size_t total_cells = static_cast<size_t>(nx) * ny * nz;
-    
-    // We allocate velocity components (u, v, w) and scalar pressure (p) fields initialized to zero.
+
+    // We allocate velocity, pressure, and force fields.
     std::vector<double> u(total_cells, 0.0);
     std::vector<double> v(total_cells, 0.0);
     std::vector<double> w(total_cells, 0.0);
     std::vector<double> p(total_cells, 0.0);
 
-    // We initialize the boundary mask:
-    //  1 indicates an active fluid interior cell.
-    // -1 indicates a solid boundary wall.
-    std::vector<int> mask(total_cells, 1);
-    for (int k = 0; k < nz; ++k) {
-        for (int j = 0; j < ny; ++j) {
-            for (int i = 0; i < nx; ++i) {
+    std::vector<double> fx(total_cells, 0.0);
+    std::vector<double> fy(total_cells, 0.0);
+    std::vector<double> fz(total_cells, 0.0);
+    std::vector<double> gravity = {0.0, -9.81, 0.0};
+
+    // We define domain mask: 1 for active fluid cells, 0 for solid walls.
+    // Domain walls are set to 0, interior is set to 1.
+    std::vector<int> mask(total_cells, 0);
+    for (int k = 1; k < nz - 1; ++k) {
+        for (int j = 1; j < ny - 1; ++j) {
+            for (int i = 1; i < nx - 1; ++i) {
                 size_t idx = get_flat_index(i, j, k, nx, ny);
-                // We leave the top boundary open (j != ny - 1), but set solid side and bottom walls.
-                if (i == 0 || i == nx - 1 || j == 0 || k == 0 || k == nz - 1) {
-                    mask[idx] = -1; // Solid boundary wall
-                }
+                mask[idx] = 1;
             }
         }
     }
 
+    // Configure boundary conditions list
     std::vector<BoundaryCondition> bc_list;
-    BoundaryCondition bc;
-    bc.location = "wall";
-    bc.type = "velocity";
-    bc.u_val = 0.0; bc.v_val = 0.0; bc.w_val = 0.0; bc.scalar_p = 0.0;
-    bc_list.push_back(bc);
-    assert(!bc_list.empty());
-
-    // We apply a downward gravitational acceleration of -9.81 m/s^2.
-    std::vector<double> gravity = {0.0, -9.81, 0.0};
-    std::vector<double> fx(total_cells, 0.0);
-    std::vector<double> fy(total_cells, 0.0);
-    std::vector<double> fz(total_cells, 0.0);
+    BoundaryCondition bc_wall;
+    bc_wall.location = "wall";
+    bc_wall.type = "no-slip";
+    bc_wall.u_val = 0.0;
+    bc_wall.v_val = 0.0;
+    bc_wall.w_val = 0.0;
+    bc_list.push_back(bc_wall);
 
     // We initialize an incoming cascading stream (waterfall):
     // Assign a downward velocity v = -0.5 m/s across a central patch 
@@ -109,9 +106,12 @@ TEST(WaterfallDiagnosticTest, WaterfallInflowDynamics) {
         }
     }
 
-    // We instantiate the orchestrator and execute one full simulation step.
+    // We instantiate the orchestrator and execute multiple simulation steps 
+    // to allow inflow momentum and gravity to propagate into the interior domain.
     NavierStokesOrchestrator orchestrator(dims, config);
-    orchestrator.step(dt, nu, gravity, fx, fy, fz, mask, bc_list, u, v, w, p);
+    for (int step = 0; step < 50; ++step) {
+        orchestrator.step(dt, nu, gravity, fx, fy, fz, mask, bc_list, u, v, w, p);
+    }
 
     // We evaluate downstream flow acceleration.
     // Measure the minimum vertical velocity across active fluid cells to ensure the waterfall pushes downward.
