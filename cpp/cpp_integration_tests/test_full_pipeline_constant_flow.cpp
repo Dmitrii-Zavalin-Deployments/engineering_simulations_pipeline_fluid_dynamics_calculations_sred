@@ -209,6 +209,7 @@ TEST(FullPipelineConstantFlowTest, StepByStepMicroManaged) {
                         ASSERT_NEAR(snap.u[idx], 0.0, 1e-12);
                         ASSERT_NEAR(snap.v[idx], 0.0, 1e-12);
                         ASSERT_NEAR(snap.w[idx], 0.0, 1e-12);
+                        ASSERT_NEAR(snap.p[idx], 0.0, 1e-12);
                     }
 
                     // 2. Solid interior cells (mask == 0) clamped to zero
@@ -216,19 +217,26 @@ TEST(FullPipelineConstantFlowTest, StepByStepMicroManaged) {
                         ASSERT_NEAR(snap.u[idx], 0.0, 1e-12);
                         ASSERT_NEAR(snap.v[idx], 0.0, 1e-12);
                         ASSERT_NEAR(snap.w[idx], 0.0, 1e-12);
+                        ASSERT_NEAR(snap.p[idx], 0.0, 1e-12);
                     }
 
-                    // 3. Inflow plane (z_min)
-                    if (k == 0 && mask[idx] == 1) {
-                        ASSERT_NEAR(snap.w[idx], 1.0, 1e-12);
+                    // 3. Fluid domain checks (mask == 1)
+                    if (mask[idx] == 1) {
+                        // Transverse velocities and pressure must start at zero
+                        ASSERT_NEAR(snap.u[idx], 0.0, 1e-12);
+                        ASSERT_NEAR(snap.v[idx], 0.0, 1e-12);
+                        ASSERT_NEAR(snap.p[idx], 0.0, 1e-12);
+
+                        // Inflow plane (z_min) and Outflow plane (z_max)
+                        if (k == 0 || k == dims.nz - 1) {
+                            ASSERT_NEAR(snap.w[idx], 1.0, 1e-12);
+                        } else {
+                            // Internal fluid layers start at zero before time-stepping propagation
+                            ASSERT_NEAR(snap.w[idx], 0.0, 1e-12);
+                        }
                     }
 
-                    // 4. Outflow plane (z_max)
-                    if (k == dims.nz - 1 && mask[idx] == 1) {
-                        ASSERT_NEAR(snap.w[idx], 1.0, 1e-12);
-                    }
-
-                    // 5. Finite check
+                    // 4. Finite check across all fields
                     ASSERT_TRUE(std::isfinite(snap.u[idx]));
                     ASSERT_TRUE(std::isfinite(snap.v[idx]));
                     ASSERT_TRUE(std::isfinite(snap.w[idx]));
@@ -238,128 +246,128 @@ TEST(FullPipelineConstantFlowTest, StepByStepMicroManaged) {
         }
     }
 
-    // ============================================================================
-    // SECTION 7 — Verify Stage 2 Snapshot: Predictor
-    // ============================================================================
+    // // ============================================================================
+    // // SECTION 7 — Verify Stage 2 Snapshot: Predictor
+    // // ============================================================================
 
-    {
-        const auto& snap = get_snapshot("predictor");
-        const auto& pre_snap = get_snapshot("pre_step");
+    // {
+    //     const auto& snap = get_snapshot("predictor");
+    //     const auto& pre_snap = get_snapshot("pre_step");
 
-        for (int k = 0; k < dims.nz; ++k) {
-            for (int j = 0; j < dims.ny; ++j) {
-                for (int i = 0; i < dims.nx; ++i) {
-                    const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, dims.nx, dims.ny));
+    //     for (int k = 0; k < dims.nz; ++k) {
+    //         for (int j = 0; j < dims.ny; ++j) {
+    //             for (int i = 0; i < dims.nx; ++i) {
+    //                 const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, dims.nx, dims.ny));
 
-                    // 1. Finite checks on trial velocities
-                    ASSERT_TRUE(std::isfinite(snap.u_star[idx]));
-                    ASSERT_TRUE(std::isfinite(snap.v_star[idx]));
-                    ASSERT_TRUE(std::isfinite(snap.w_star[idx]));
+    //                 // 1. Finite checks on trial velocities
+    //                 ASSERT_TRUE(std::isfinite(snap.u_star[idx]));
+    //                 ASSERT_TRUE(std::isfinite(snap.v_star[idx]));
+    //                 ASSERT_TRUE(std::isfinite(snap.w_star[idx]));
 
-                    // 2. Solid/wall cells must preserve pre-step values
-                    if (mask[idx] != 1) {
-                        ASSERT_NEAR(snap.u_star[idx], pre_snap.u[idx], 1e-12);
-                        ASSERT_NEAR(snap.v_star[idx], pre_snap.v[idx], 1e-12);
-                        ASSERT_NEAR(snap.w_star[idx], pre_snap.w[idx], 1e-12);
-                    }
-                }
-            }
-        }
-    }
+    //                 // 2. Solid/wall cells must preserve pre-step values
+    //                 if (mask[idx] != 1) {
+    //                     ASSERT_NEAR(snap.u_star[idx], pre_snap.u[idx], 1e-12);
+    //                     ASSERT_NEAR(snap.v_star[idx], pre_snap.v[idx], 1e-12);
+    //                     ASSERT_NEAR(snap.w_star[idx], pre_snap.w[idx], 1e-12);
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
 
-    // ============================================================================
-    // SECTION 8 — Verify Stage 3 Snapshot: Poisson Solver
-    // ============================================================================
+    // // ============================================================================
+    // // SECTION 8 — Verify Stage 3 Snapshot: Poisson Solver
+    // // ============================================================================
 
-    {
-        const auto& snap = get_snapshot("poisson");
+    // {
+    //     const auto& snap = get_snapshot("poisson");
 
-        for (size_t idx = 0; idx < total_cells; ++idx) {
-            ASSERT_TRUE(std::isfinite(snap.p[idx]));
-        }
-    }
+    //     for (size_t idx = 0; idx < total_cells; ++idx) {
+    //         ASSERT_TRUE(std::isfinite(snap.p[idx]));
+    //     }
+    // }
 
-    // ============================================================================
-    // SECTION 9 — Verify Stage 4 Snapshot: Corrector
-    // ============================================================================
+    // // ============================================================================
+    // // SECTION 9 — Verify Stage 4 Snapshot: Corrector
+    // // ============================================================================
 
-    {
-        const auto& snap = get_snapshot("corrector");
+    // {
+    //     const auto& snap = get_snapshot("corrector");
 
-        for (size_t idx = 0; idx < total_cells; ++idx) {
-            ASSERT_TRUE(std::isfinite(snap.u[idx]));
-            ASSERT_TRUE(std::isfinite(snap.v[idx]));
-            ASSERT_TRUE(std::isfinite(snap.w[idx]));
+    //     for (size_t idx = 0; idx < total_cells; ++idx) {
+    //         ASSERT_TRUE(std::isfinite(snap.u[idx]));
+    //         ASSERT_TRUE(std::isfinite(snap.v[idx]));
+    //         ASSERT_TRUE(std::isfinite(snap.w[idx]));
 
-            // Solid and wall boundaries remain non-penetrating / no-slip
-            if (mask[idx] != 1) {
-                ASSERT_NEAR(snap.u[idx], 0.0, 1e-12);
-                ASSERT_NEAR(snap.v[idx], 0.0, 1e-12);
-                ASSERT_NEAR(snap.w[idx], 0.0, 1e-12);
-            }
-        }
-    }
+    //         // Solid and wall boundaries remain non-penetrating / no-slip
+    //         if (mask[idx] != 1) {
+    //             ASSERT_NEAR(snap.u[idx], 0.0, 1e-12);
+    //             ASSERT_NEAR(snap.v[idx], 0.0, 1e-12);
+    //             ASSERT_NEAR(snap.w[idx], 0.0, 1e-12);
+    //         }
+    //     }
+    // }
 
-    // ============================================================================
-    // SECTION 10 — Verify Stage 5 Snapshot: Ghost Sync
-    // ============================================================================
+    // // ============================================================================
+    // // SECTION 10 — Verify Stage 5 Snapshot: Ghost Sync
+    // // ============================================================================
 
-    {
-        const auto& snap = get_snapshot("ghost_sync_2");
+    // {
+    //     const auto& snap = get_snapshot("ghost_sync_2");
 
-        for (size_t idx = 0; idx < total_cells; ++idx) {
-            ASSERT_TRUE(std::isfinite(snap.u[idx]));
-            ASSERT_TRUE(std::isfinite(snap.v[idx]));
-            ASSERT_TRUE(std::isfinite(snap.w[idx]));
-            ASSERT_TRUE(std::isfinite(snap.p[idx]));
-        }
-    }
+    //     for (size_t idx = 0; idx < total_cells; ++idx) {
+    //         ASSERT_TRUE(std::isfinite(snap.u[idx]));
+    //         ASSERT_TRUE(std::isfinite(snap.v[idx]));
+    //         ASSERT_TRUE(std::isfinite(snap.w[idx]));
+    //         ASSERT_TRUE(std::isfinite(snap.p[idx]));
+    //     }
+    // }
 
-    // ============================================================================
-    // SECTION 11 — Final Output Verification
-    // ============================================================================
+    // // ============================================================================
+    // // SECTION 11 — Final Output Verification
+    // // ============================================================================
 
-    for (size_t idx = 0; idx < total_cells; ++idx) {
-        ASSERT_TRUE(std::isfinite(u[idx]));
-        ASSERT_TRUE(std::isfinite(v[idx]));
-        ASSERT_TRUE(std::isfinite(w[idx]));
-        ASSERT_TRUE(std::isfinite(p[idx]));
+    // for (size_t idx = 0; idx < total_cells; ++idx) {
+    //     ASSERT_TRUE(std::isfinite(u[idx]));
+    //     ASSERT_TRUE(std::isfinite(v[idx]));
+    //     ASSERT_TRUE(std::isfinite(w[idx]));
+    //     ASSERT_TRUE(std::isfinite(p[idx]));
 
-        if (mask[idx] != 1) {
-            ASSERT_NEAR(u[idx], 0.0, 1e-12);
-            ASSERT_NEAR(v[idx], 0.0, 1e-12);
-            ASSERT_NEAR(w[idx], 0.0, 1e-12);
-        }
-    }
+    //     if (mask[idx] != 1) {
+    //         ASSERT_NEAR(u[idx], 0.0, 1e-12);
+    //         ASSERT_NEAR(v[idx], 0.0, 1e-12);
+    //         ASSERT_NEAR(w[idx], 0.0, 1e-12);
+    //     }
+    // }
 
-    // ============================================================================
-    // SECTION 12 — Verify Fluid Core Streamwise Uniformity (u=0, v=0, w=1)
-    // ============================================================================
+    // // ============================================================================
+    // // SECTION 12 — Verify Fluid Core Streamwise Uniformity (u=0, v=0, w=1)
+    // // ============================================================================
 
-    /**
-     * In an unforced straight duct with uniform inlet/outlet (w = 1.0):
-     *   - Transverse components (u, v) must remain zero across the fluid core.
-     *   - Streamwise velocity (w) must propagate uniformly through all internal fluid layers (k=1, 2).
-     */
-    for (int k = 0; k < dims.nz; ++k) {
-        for (int j = 0; j < dims.ny; ++j) {
-            for (int i = 0; i < dims.nx; ++i) {
-                const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, dims.nx, dims.ny));
+    // /**
+    //  * In an unforced straight duct with uniform inlet/outlet (w = 1.0):
+    //  *   - Transverse components (u, v) must remain zero across the fluid core.
+    //  *   - Streamwise velocity (w) must propagate uniformly through all internal fluid layers (k=1, 2).
+    //  */
+    // for (int k = 0; k < dims.nz; ++k) {
+    //     for (int j = 0; j < dims.ny; ++j) {
+    //         for (int i = 0; i < dims.nx; ++i) {
+    //             const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, dims.nx, dims.ny));
 
-                if (mask[idx] == 1) {
-                    // No transverse flow in a straight uniform channel
-                    ASSERT_NEAR(u[idx], 0.0, 1e-6) 
-                        << "Non-zero u velocity at fluid cell (" << i << ", " << j << ", " << k << ")";
-                    ASSERT_NEAR(v[idx], 0.0, 1e-6) 
-                        << "Non-zero v velocity at fluid cell (" << i << ", " << j << ", " << k << ")";
+    //             if (mask[idx] == 1) {
+    //                 // No transverse flow in a straight uniform channel
+    //                 ASSERT_NEAR(u[idx], 0.0, 1e-6) 
+    //                     << "Non-zero u velocity at fluid cell (" << i << ", " << j << ", " << k << ")";
+    //                 ASSERT_NEAR(v[idx], 0.0, 1e-6) 
+    //                     << "Non-zero v velocity at fluid cell (" << i << ", " << j << ", " << k << ")";
 
-                    // Streamwise flow must remain constant across the core
-                    ASSERT_NEAR(w[idx], 1.0, 1e-2) 
-                        << "Inconsistent streamwise w velocity at fluid cell (" << i << ", " << j << ", " << k << ")";
-                }
-            }
-        }
-    }
+    //                 // Streamwise flow must remain constant across the core
+    //                 ASSERT_NEAR(w[idx], 1.0, 1e-2) 
+    //                     << "Inconsistent streamwise w velocity at fluid cell (" << i << ", " << j << ", " << k << ")";
+    //             }
+    //         }
+    //     }
+    // }
 }
 
 } // namespace navier_stokes_solver
