@@ -330,88 +330,87 @@ TEST(FullPipelineConstantFlowTest, StepByStepMicroManaged) {
         }
     }
 
-    // // ============================================================================
-    // // SECTION 7 — Verify Stage 2 Snapshot: Predictor (Literate Verification)
-    // // ============================================================================
-    // // Mathematical Formulation:
-    // //   u* = u^n + dt * (- (u^n . grad) u^n + nu * laplacian(u^n) + fx/rho + gx)
-    // //   v* = v^n + dt * (- (u^n . grad) v^n + nu * laplacian(v^n) + fy/rho + gy)
-    // //   w* = w^n + dt * (- (u^n . grad) w^n + nu * laplacian(w^n) + fz/rho + gz)
-    // //
-    // // Initial Pre-Step Fluid Domain State (mask == 1):
-    // //   u^n = 0.0, v^n = 0.0, w^n = 1.0, fx = fy = fz = 0, gx = gy = gz = 0
-    // //
-    // // Term Evaluation for Uniform Flow:
-    // //   - Advection: -(u^n . grad) w^n = - (0*dw/dx + 0*dw/dy + 1*dw/dz) = 0
-    // //   - Viscous Diffusion: nu * grad^2(w^n) = 0
-    // //   - External Body / Gravity Forces: 0
-    // //
-    // // Predicted Trial Velocity Values:
-    // //   u* = 0.0 + dt * (0) = 0.0
-    // //   v* = 0.0 + dt * (0) = 0.0
-    // //   w* = 1.0 + dt * (0) = 1.0
-    // // ============================================================================
+    // ============================================================================
+    // SECTION 8 — Verify Stage 2 Snapshot: Predictor (Literate Verification)
+    // ============================================================================
+    // Mathematical Formulation (Forward-Euler Predictor Step):
+    //   u* = u^n + dt * (- (u^n . grad) u^n + nu * laplacian(u^n) + fx/rho + gx)
+    //   v* = v^n + dt * (- (u^n . grad) v^n + nu * laplacian(v^n) + fy/rho + gy)
+    //   w* = w^n + dt * (- (u^n . grad) w^n + nu * laplacian(w^n) + fz/rho + gz)
+    //
+    // Initial Pre-Step Fluid Domain State (mask == 1):
+    //   u^n = 0.0, v^n = 0.0, w^n = 1.0, fx = fy = fz = 0, gx = gy = gz = 0
+    //
+    // Core Interior Stencil Behavior (Mask == 1 across 6-point stencil):
+    //   - Advection: -(u^n . grad) w^n = - (0*dw/dx + 0*dw/dy + 1*dw/dz) = 0.0
+    //   - Viscous Diffusion: nu * laplacian(w^n) = 0.0
+    //   - Expected w* = 1.0 + dt * (0) = 1.0  (Strict tolerance: 1e-12)
+    //
+    // Boundary-Adjacent Stencil Behavior (At least one neighbor mask != 1):
+    //   - Wall boundaries enforce w_wall = 0.0.
+    //   - Central 2nd-order Laplacian stencil picks up velocity gradient across boundary:
+    //     laplacian(w) ~ (w_e + w_w + w_n + w_s + w_t + w_b - 6*w_p) / h^2 != 0.0
+    //   - Expected w* deviates slightly due to numerical diffusion across boundary layer.
+    //     (Relaxed tolerance: 0.01)
+    // ============================================================================
 
-    // {
-    //     const auto& snap = get_snapshot("predictor");
-    //     const auto& pre_snap = get_snapshot("pre_step");
+    {
+        const auto& snap = get_snapshot("predictor");
+        const auto& pre_snap = get_snapshot("pre_step");
 
-    //     for (int k = 0; k < dims.nz; ++k) {
-    //         for (int j = 0; j < dims.ny; ++j) {
-    //             for (int i = 0; i < dims.nx; ++i) {
-    //                 const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, dims.nx, dims.ny));
+        for (int k = 0; k < dims.nz; ++k) {
+            for (int j = 0; j < dims.ny; ++j) {
+                for (int i = 0; i < dims.nx; ++i) {
+                    const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, dims.nx, dims.ny));
 
-    //                 // 1. Finite check on trial velocity field components
-    //                 ASSERT_TRUE(std::isfinite(snap.u_star[idx]));
-    //                 ASSERT_TRUE(std::isfinite(snap.v_star[idx]));
-    //                 ASSERT_TRUE(std::isfinite(snap.w_star[idx]));
+                    // 1. Finite check on trial velocity field components
+                    ASSERT_TRUE(std::isfinite(snap.u_star[idx]));
+                    ASSERT_TRUE(std::isfinite(snap.v_star[idx]));
+                    ASSERT_TRUE(std::isfinite(snap.w_star[idx]));
 
-    //                 // 2. Non-fluid cells (mask != 1) preserve pre-step baseline
-    //                 if (mask[idx] != 1) {
-    //                     ASSERT_NEAR(snap.u_star[idx], pre_snap.u[idx], 1e-12);
-    //                     ASSERT_NEAR(snap.v_star[idx], pre_snap.v[idx], 1e-12);
-    //                     ASSERT_NEAR(snap.w_star[idx], pre_snap.w[idx], 1e-12);
-    //                 }
+                    // 2. Non-fluid cells (mask != 1) preserve pre-step baseline
+                    if (mask[idx] != 1) {
+                        ASSERT_NEAR(snap.u_star[idx], pre_snap.u[idx], 1e-12);
+                        ASSERT_NEAR(snap.v_star[idx], pre_snap.v[idx], 1e-12);
+                        ASSERT_NEAR(snap.w_star[idx], pre_snap.w[idx], 1e-12);
+                        continue;
+                    }
 
-    //                 // 3. Active fluid cells (mask == 1) evaluated against Forward-Euler prediction
-    //                 if (mask[idx] == 1) {
-    //                     // ====================================================================
-    //                     // RATIONALE FOR CORE VS. BOUNDARY-ADJACENT STENCIL TOLERANCE SPLIT:
-    //                     // 
-    //                     // Central-difference spatial operators (advection and Laplacian) 
-    //                     // evaluate stencils using adjacent grid nodes. For fluid cells 
-    //                     // immediately bordering fixed walls, inlet/outlet ghost nodes, or 
-    //                     // solid boundaries, the stencil spans across heterogeneous boundary 
-    //                     // states. 
-    //                     // 
-    //                     // This boundary interaction introduces a small second-order truncation 
-    //                     // artifact (approx. 0.008 numerical diffusion drop) into the outer 
-    //                     // layer of active fluid cells. 
-    //                     // 
-    //                     // To prevent brittle test failures while maintaining mathematical 
-    //                     // rigor, we split the validation:
-    //                     //   - Core interior cells (fully insulated from boundary stencils) 
-    //                     //     must satisfy strict machine precision (1e-12).
-    //                     //   - Immediate boundary-adjacent fluid cells accommodate the stencil 
-    //                     //     truncation drop via a relaxed tolerance (0.01).
-    //                     // ====================================================================
-    //                     bool is_core_interior = (i > 1 && i < dims.nx - 2 && 
-    //                                             j > 1 && j < dims.ny - 2 && 
-    //                                             k > 1 && k < dims.nz - 2);
-                        
-    //                     double current_tolerance = is_core_interior ? 1e-12 : 0.01;
+                    // 3. Active fluid cells (mask == 1)
+                    // Dynamically evaluate 6-point stencil footprint for boundary adjacency
+                    bool is_core_interior = true;
 
-    //                     // Transverse trial velocities maintain zero state: u* = 0.0, v* = 0.0
-    //                     ASSERT_NEAR(snap.u_star[idx], 0.0, current_tolerance);
-    //                     ASSERT_NEAR(snap.v_star[idx], 0.0, current_tolerance);
+                    if (i == 0 || i == dims.nx - 1 ||
+                        j == 0 || j == dims.ny - 1 ||
+                        k == 0 || k == dims.nz - 1) {
+                        is_core_interior = false;
+                    } else {
+                        const size_t e = static_cast<size_t>(get_flat_index(i + 1, j, k, dims.nx, dims.ny));
+                        const size_t w = static_cast<size_t>(get_flat_index(i - 1, j, k, dims.nx, dims.ny));
+                        const size_t n = static_cast<size_t>(get_flat_index(i, j + 1, k, dims.nx, dims.ny));
+                        const size_t s = static_cast<size_t>(get_flat_index(i, j - 1, k, dims.nx, dims.ny));
+                        const size_t t = static_cast<size_t>(get_flat_index(i, j, k + 1, dims.nx, dims.ny));
+                        const size_t b = static_cast<size_t>(get_flat_index(i, j, k - 1, dims.nx, dims.ny));
 
-    //                     // Primary stream trial velocity maintains uniform inflow state: w* = 1.0
-    //                     ASSERT_NEAR(snap.w_star[idx], 1.0, current_tolerance);
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
+                        if (mask[e] != 1 || mask[w] != 1 || 
+                            mask[n] != 1 || mask[s] != 1 || 
+                            mask[t] != 1 || mask[b] != 1) {
+                            is_core_interior = false;
+                        }
+                    }
+
+                    const double tolerance = is_core_interior ? 1e-12 : 0.01;
+
+                    // Transverse trial velocities maintain zero state: u* = 0.0, v* = 0.0
+                    ASSERT_NEAR(snap.u_star[idx], 0.0, tolerance);
+                    ASSERT_NEAR(snap.v_star[idx], 0.0, tolerance);
+
+                    // Primary stream trial velocity maintains uniform inflow state: w* = 1.0
+                    ASSERT_NEAR(snap.w_star[idx], 1.0, tolerance);
+                }
+            }
+        }
+    }
 
     // // ============================================================================
     // // SECTION 8 — Verify Stage Snapshot: RHS Assembly Divergence (Literate Verification)
