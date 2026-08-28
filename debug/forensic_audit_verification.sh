@@ -8,29 +8,29 @@ set -euo pipefail
 
 echo "=== [1] Log Diagnostics & Root Cause Analysis ==="
 if [ -f "test_detail.log" ]; then
-    echo "Searching test logs for assertion failures and numerical discrepancies:"
     grep -n -C 5 "ASSERT_" test_detail.log || true
     grep -n -C 5 "EXPECT_" test_detail.log || true
     grep -n -C 5 "FAILED" test_detail.log || true
+elif [ -f "build/Testing/Temporary/LastTest.log" ]; then
+    echo "Found CTest LastTest.log. Scanning for test failures and assertions:"
+    grep -n -C 5 "FAIL" build/Testing/Temporary/LastTest.log || true
+    grep -n -C 5 "Error" build/Testing/Temporary/LastTest.log || true
 else
-    echo "test_detail.log not found. Scanning available workspace logs and test artifacts..."
-    find . -name "*.log" -o -name "LastTest.log" -exec grep -n -C 3 "FAIL\|ERROR\|ASSERT" {} + || true
+    echo "Scanning all available log artifacts across workspace and build directories:"
+    find . -name "*.log" -o -name "LastTest.log" -exec grep -n -C 3 "FAIL\|ERROR\|ASSERT\|Exception" {} + || true
 fi
 
 echo -e "\n=== [2] Smoking-Gun Source Audit (cat -n) ==="
-# Dynamically locate source or test files containing the target keyword within the cpp layout
-TARGET_FILE=$(find cpp -type f \( -name "*.cpp" -o -name "*.hpp" \) -exec grep -l "rhie_chow_interpolation" {} + | head -n 1)
-
-if [ -n "${TARGET_FILE:-}" ] && [ -f "$TARGET_FILE" ]; then
-    echo "Inspecting source code around Rhie_Chow verification in $TARGET_FILE:"
-    cat -n "$TARGET_FILE" | grep -C 20 "rhie_chow_interpolation" || cat -n "$TARGET_FILE" | head -n 120
+TARGET_FILE="cpp/src/orchestrator.cpp"
+if [ -f "$TARGET_FILE" ]; then
+    echo "Inspecting source code around Rhie-Chow execution and boundary logic in $TARGET_FILE:"
+    cat -n "$TARGET_FILE" | sed -n '130,185p'
 else
-    echo "Target file not found. Listing files under cpp/ directory:"
     find cpp -maxdepth 3 -type f
 fi
 
 echo -e "\n=== [3] Automated Repair Staging (Sed Injections) ==="
-# Uncomment the appropriate sed command below once target paths are verified:
-# sed -i 's/ASSERT_NEAR(u_face\[face_idx\], u_expected, 1e-12);/ASSERT_NEAR(u_face[face_idx], u_expected, 1e-10);/g' cpp/cpp_unit_tests/...
+# Uncomment to apply automated fixes if boundary index handling or scaling needs adjustment:
+# sed -i 's/const double u_east = /const double u_east = /g' cpp/src/orchestrator.cpp
 
 echo "=== Forensic Audit Executed Successfully ==="
