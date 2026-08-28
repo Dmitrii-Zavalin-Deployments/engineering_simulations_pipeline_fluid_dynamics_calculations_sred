@@ -9,17 +9,17 @@
  * outlet boundary conditions in the Navier-Stokes orchestrator.
  * 
  * Grid spacing increments are defined as:
- *     dx = (x_max - x_min) / nx
- *     dy = (y_max - y_min) / ny
- *     dz = (z_max - z_min) / nz
+ *      dx = (x_max - x_min) / nx
+ *      dy = (y_max - y_min) / ny
+ *      dz = (z_max - z_min) / nz
  * 
  * Mass conservation across inlet and outlet faces requires:
- *     m_dot_inlet  = sum(rho * u_inlet * dy * dz)
- *     m_dot_outlet = sum(rho * u_outlet * dy * dz)
- *     m_dot_inlet == m_dot_outlet
+ *      m_dot_inlet  = sum(rho * u_inlet * dy * dz)
+ *      m_dot_outlet = sum(rho * u_outlet * dy * dz)
+ *      m_dot_inlet == m_dot_outlet
  * 
  * Divergence constraint:
- *     div(u) = du/dx + dv/dy + dw/dz == 0
+ *      div(u) = du/dx + dv/dy + dw/dz == 0
  * ---------------------------------------------------------------------------------
  */
 
@@ -34,12 +34,11 @@
 #include "orchestrator.hpp"
 #include "grid_math.hpp"
 #include "boundary_condition.hpp"
-#include "test_boundary_common.hpp"
 
 using namespace navier_stokes_solver;
 
 // We define a helper function to compute the maximum velocity divergence across the interior cells:
-//     div = |du/dx + dv/dy + dw/dz|
+//      div = |du/dx + dv/dy + dw/dz|
 static double ComputeMaxDivergence(
     const std::vector<double>& u,
     const std::vector<double>& v,
@@ -163,7 +162,7 @@ TEST(BoundaryConditionsTest, VelocityInletPressureOutlet) {
     }
 
     // We compute total mass flow rates at the inlet and outlet faces:
-    //     m_dot = sum(rho * u * dy * dz)
+    //      m_dot = sum(rho * u * dy * dz)
     double inlet_mass_flow = 0.0;
     double outlet_mass_flow = 0.0;
     double face_area = dy * dz;
