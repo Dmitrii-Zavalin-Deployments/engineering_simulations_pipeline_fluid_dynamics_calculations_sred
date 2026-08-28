@@ -165,29 +165,31 @@ void NavierStokesOrchestrator::step(
                     continue;
                 }
 
-                // Robust clamped face indices ensure zero-gradient (Neumann) boundary consistency
-                // so that uniform velocity fields produce identically zero divergence.
-                const int i_e = std::min(std::max(i, 0), dims_.nx - 2);
-                const int i_w = std::min(std::max(i - 1, 0), dims_.nx - 2);
-                
-                const int j_n = std::min(std::max(j, 0), dims_.ny - 2);
-                const int j_s = std::min(std::max(j - 1, 0), dims_.ny - 2);
-                
-                const int k_t = std::min(std::max(k, 0), dims_.nz - 2);
-                const int k_b = std::min(std::max(k - 1, 0), dims_.nz - 2);
+                // Explicit domain boundary face handling prevents boundary stencil truncation errors
+                const double u_east = (i == dims_.nx - 1)
+                    ? u_star_[idx]
+                    : u_face[static_cast<size_t>(i) + (dims_.nx - 1) * (j + dims_.ny * k)];
+                const double u_west = (i == 0)
+                    ? u_star_[idx]
+                    : u_face[static_cast<size_t>(i - 1) + (dims_.nx - 1) * (j + dims_.ny * k)];
 
-                const size_t idx_e_face = i_e + (dims_.nx - 1) * (j + dims_.ny * k);
-                const size_t idx_w_face = i_w + (dims_.nx - 1) * (j + dims_.ny * k);
-                
-                const size_t idx_n_face = i + dims_.nx * (j_n + (dims_.ny - 1) * k);
-                const size_t idx_s_face = i + dims_.nx * (j_s + (dims_.ny - 1) * k);
-                
-                const size_t idx_t_face = i + dims_.nx * (j + dims_.ny * k_t);
-                const size_t idx_b_face = i + dims_.nx * (j + dims_.ny * k_b);
+                const double v_north = (j == dims_.ny - 1)
+                    ? v_star_[idx]
+                    : v_face[static_cast<size_t>(i) + dims_.nx * (j + (dims_.ny - 1) * k)];
+                const double v_south = (j == 0)
+                    ? v_star_[idx]
+                    : v_face[static_cast<size_t>(i) + dims_.nx * ((j - 1) + (dims_.ny - 1) * k)];
 
-                const double dudx = (u_face[idx_e_face] - u_face[idx_w_face]) / dims_.dx;
-                const double dvdy = (v_face[idx_n_face] - v_face[idx_s_face]) / dims_.dy;
-                const double dwdz = (w_face[idx_t_face] - w_face[idx_b_face]) / dims_.dz;
+                const double w_top = (k == dims_.nz - 1)
+                    ? w_star_[idx]
+                    : w_face[static_cast<size_t>(i) + dims_.nx * (j + dims_.ny * k)];
+                const double w_bottom = (k == 0)
+                    ? w_star_[idx]
+                    : w_face[static_cast<size_t>(i) + dims_.nx * (j + dims_.ny * (k - 1))];
+
+                const double dudx = (u_east - u_west) / dims_.dx;
+                const double dvdy = (v_north - v_south) / dims_.dy;
+                const double dwdz = (w_top - w_bottom) / dims_.dz;
 
                 rhs_[idx] = scale * (dudx + dvdy + dwdz);
             }
