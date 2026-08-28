@@ -16,21 +16,25 @@ elif [ -f "build/Testing/Temporary/LastTest.log" ]; then
     grep -n -C 5 "FAIL" build/Testing/Temporary/LastTest.log || true
     grep -n -C 5 "Error" build/Testing/Temporary/LastTest.log || true
 else
-    echo "Scanning all available log artifacts across workspace and build directories:"
-    find . -name "*.log" -o -name "LastTest.log" -exec grep -n -C 3 "FAIL\|ERROR\|ASSERT\|Exception" {} + || true
+    echo "No log files found. Capturing recent test output via ctest search:"
+    if command -v ctest &> /dev/null; then
+        cd build && ctest --output-on-failure --rerun-failed || true
+    else
+        find . -name "*.log" -o -name "LastTest.log" -exec grep -n -C 3 "FAIL\|ERROR\|ASSERT" {} + || true
+    fi
 fi
 
 echo -e "\n=== [2] Smoking-Gun Source Audit (cat -n) ==="
 TARGET_FILE="cpp/src/orchestrator.cpp"
 if [ -f "$TARGET_FILE" ]; then
     echo "Inspecting source code around Rhie-Chow execution and boundary logic in $TARGET_FILE:"
-    cat -n "$TARGET_FILE" | sed -n '130,185p'
+    cat -n "$TARGET_FILE" | sed -n '130,195p'
 else
     find cpp -maxdepth 3 -type f
 fi
 
 echo -e "\n=== [3] Automated Repair Staging (Sed Injections) ==="
-# Uncomment to apply automated fixes if boundary index handling or scaling needs adjustment:
+# Uncomment to apply automated fixes if boundary index handling or face mapping requires adjustment:
 # sed -i 's/const double u_east = /const double u_east = /g' cpp/src/orchestrator.cpp
 
 echo "=== Forensic Audit Executed Successfully ==="
