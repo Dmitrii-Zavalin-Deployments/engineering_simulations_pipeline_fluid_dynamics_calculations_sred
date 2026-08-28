@@ -1461,51 +1461,73 @@ TEST(FullPipelineConstantFlowTest, StepByStepMicroManaged) {
         }
     }
 
-    // // ============================================================================
-    // // SECTION 11 — Final Output Verification
-    // // ============================================================================
+    // ============================================================================
+    // SECTION 15 — Final Output Verification: Numerical Finiteness & Boundary Conditions
+    // ============================================================================
+    // Comprehensive Mathematical & Algorithmic Formulation:
+    //   - Final Field Finiteness:
+    //     Ensures all velocity components and pressure fields across the entire grid 
+    //     remain numerically stable and finite (free of NaN or Inf values):
+    //       isfinite(u_i), isfinite(v_i), isfinite(w_i), isfinite(p_i)
+    //   - Solid Boundary Enforcement:
+    //     Non-fluid cells (mask != 1) must strictly enforce zero-velocity no-slip conditions:
+    //       u_i = 0, v_i = 0, w_i = 0
+    // ============================================================================
 
-    // for (size_t idx = 0; idx < total_cells; ++idx) {
-    //     ASSERT_TRUE(std::isfinite(u[idx]));
-    //     ASSERT_TRUE(std::isfinite(v[idx]));
-    //     ASSERT_TRUE(std::isfinite(w[idx]));
-    //     ASSERT_TRUE(std::isfinite(p[idx]));
+    {
+        // Iterate through all computational grid nodes in the final solution state
+        for (size_t idx = 0; idx < total_cells; ++idx) {
+            // 1. Verify numerical stability and ensure no NaN or Infinity corrupts output buffers
+            ASSERT_TRUE(std::isfinite(u[idx]));
+            ASSERT_TRUE(std::isfinite(v[idx]));
+            ASSERT_TRUE(std::isfinite(w[idx]));
+            ASSERT_TRUE(std::isfinite(p[idx]));
 
-    //     if (mask[idx] != 1) {
-    //         ASSERT_NEAR(u[idx], 0.0, 1e-12);
-    //         ASSERT_NEAR(v[idx], 0.0, 1e-12);
-    //         ASSERT_NEAR(w[idx], 0.0, 1e-12);
-    //     }
-    // }
+            // 2. Enforce strict zero-velocity constraints on non-fluid/solid boundary cells (mask != 1)
+            if (mask[idx] != 1) {
+                ASSERT_NEAR(u[idx], 0.0, 1e-12);
+                ASSERT_NEAR(v[idx], 0.0, 1e-12);
+                ASSERT_NEAR(w[idx], 0.0, 1e-12);
+            }
+        }
+    }
 
-    // // ============================================================================
-    // // SECTION 12 — Verify Fluid Core Streamwise Uniformity (u=0, v=0, w=1)
-    // // ============================================================================
+    // ============================================================================
+    // SECTION 16 — Verify Fluid Core Streamwise Uniformity (u=0, v=0, w=1)
+    // ============================================================================
+    // Comprehensive Mathematical & Algorithmic Formulation:
+    //   - Straight Duct Flow Invariant:
+    //     In an unforced straight duct with uniform inlet/outlet boundary conditions (w = 1.0):
+    //       - Transverse velocity components (u, v) must vanish across the fluid core:
+    //           u = 0, v = 0
+    //       - Streamwise velocity (w) must maintain spatial uniformity across internal layers:
+    //           w = 1.0
+    // ============================================================================
 
-    // /**
-    //  * In an unforced straight duct with uniform inlet/outlet (w = 1.0):
-    //  *   - Transverse components (u, v) must remain zero across the fluid core.
-    //  *   - Streamwise velocity (w) must propagate uniformly through all internal fluid layers (k=1, 2).
-    //  */
-    // for (int k = 0; k < dims.nz; ++k) {
-    //     for (int j = 0; j < dims.ny; ++j) {
-    //         for (int i = 0; i < dims.nx; ++i) {
-    //             const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, dims.nx, dims.ny));
+    {
+        // Iterate through all computational grid nodes using 3D logical coordinates (i, j, k)
+        for (int k = 0; k < dims.nz; ++k) {
+            for (int j = 0; j < dims.ny; ++j) {
+                for (int i = 0; i < dims.nx; ++i) {
+                    // Compute flat 1D array index from 3D coordinates
+                    const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, dims.nx, dims.ny));
 
-    //             if (mask[idx] == 1) {
-    //                 // No transverse flow in a straight uniform channel
-    //                 ASSERT_NEAR(u[idx], 0.0, 1e-6) 
-    //                     << "Non-zero u velocity at fluid cell (" << i << ", " << j << ", " << k << ")";
-    //                 ASSERT_NEAR(v[idx], 0.0, 1e-6) 
-    //                     << "Non-zero v velocity at fluid cell (" << i << ", " << j << ", " << k << ")";
+                    // Evaluate only active internal fluid cells (mask == 1)
+                    if (mask[idx] == 1) {
+                        // Verify absence of transverse flow components in a straight uniform channel
+                        ASSERT_NEAR(u[idx], 0.0, 1e-6) 
+                            << "Non-zero u velocity at fluid cell (" << i << ", " << j << ", " << k << ")";
+                        ASSERT_NEAR(v[idx], 0.0, 1e-6) 
+                            << "Non-zero v velocity at fluid cell (" << i << ", " << j << ", " << k << ")";
 
-    //                 // Streamwise flow must remain constant across the core
-    //                 ASSERT_NEAR(w[idx], 1.0, 1e-2) 
-    //                     << "Inconsistent streamwise w velocity at fluid cell (" << i << ", " << j << ", " << k << ")";
-    //             }
-    //         }
-    //     }
-    // }
+                        // Verify that streamwise velocity propagation remains uniform across the core
+                        ASSERT_NEAR(w[idx], 1.0, 1e-2) 
+                            << "Inconsistent streamwise w velocity at fluid cell (" << i << ", " << j << ", " << k << ")";
+                    }
+                }
+            }
+        }
+    }
 }
 
 } // namespace navier_stokes_solver
