@@ -227,13 +227,8 @@ TEST(FullPipelineConstantFlowTest, StepByStepMicroManaged) {
                         ASSERT_NEAR(snap.v[idx], 0.0, 1e-12);
                         ASSERT_NEAR(snap.p[idx], 0.0, 1e-12);
 
-                        // Inflow plane (z_min) and Outflow plane (z_max)
-                        if (k == 0 || k == dims.nz - 1) {
-                            ASSERT_NEAR(snap.w[idx], 1.0, 1e-12);
-                        } else {
-                            // Internal fluid layers start at zero before time-stepping propagation
-                            ASSERT_NEAR(snap.w[idx], 0.0, 1e-12);
-                        }
+                        // Cold start populates the entire fluid domain with the inflow value (1.0)
+                        ASSERT_NEAR(snap.w[idx], 1.0, 1e-12);
                     }
 
                     // 4. Finite check across all fields
