@@ -216,6 +216,8 @@ void NavierStokesOrchestrator::step(
         u_star_, v_star_, w_star_, p, a_p, mask, rc_config, u_face, v_face, w_face
     );
 
+    capture_debug_snapshot("rhie_chow_post_poisson", u, v, w, p);
+
     auto dur_poisson = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::high_resolution_clock::now() - t_poisson
     ).count();
