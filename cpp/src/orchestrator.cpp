@@ -43,7 +43,6 @@ void NavierStokesOrchestrator::capture_debug_snapshot(
 
     debug_snapshots_.push_back(snap);
 
-    // Safe stack-smash-free console output using std::ostringstream
     std::ostringstream oss;
     oss << "[DEBUG_DUMP] Snapshot captured: " << stage_name 
         << " (cells=" << total_cells_ << ", u_size=" << u.size() << ")\n";
@@ -57,7 +56,8 @@ NavierStokesOrchestrator::NavierStokesOrchestrator(const GridDimensions& dims, c
       u_star_(total_cells_, 0.0),
       v_star_(total_cells_, 0.0),
       w_star_(total_cells_, 0.0),
-      rhs_(total_cells_, 0.0) {
+      rhs_(total_cells_, 0.0),
+      cold_start_(true) {
     if (total_cells_ == 0) {
         throw std::invalid_argument("GridDimensions result in zero total cells.");
     }
@@ -89,13 +89,12 @@ void NavierStokesOrchestrator::step(
               << " | Grid: " << dims_.nx << "x" << dims_.ny << "x" << dims_.nz 
               << " | Active Threads: " << active_threads << "\n";
 
-    // Initialize timers for profiling
     auto wall_start = std::chrono::high_resolution_clock::now();
     std::clock_t cpu_start = std::clock();
 
     // 1. PRE-STEP / BOUNDARY CONDITIONS
     auto t_pre = std::chrono::high_resolution_clock::now();
-    execute_pre_step(u, v, w, p, mask, bc_list, dims_.nx, dims_.ny, dims_.nz);
+    execute_pre_step(u, v, w, p, mask, bc_list, dims_.nx, dims_.ny, dims_.nz, cold_start_);
     auto dur_pre = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::high_resolution_clock::now() - t_pre
     ).count();
@@ -165,7 +164,6 @@ void NavierStokesOrchestrator::step(
                     continue;
                 }
 
-                // Interior cells: central differences
                 if (i > 0 && i < dims_.nx - 1 &&
                     j > 0 && j < dims_.ny - 1 &&
                     k > 0 && k < dims_.nz - 1) {
@@ -184,9 +182,7 @@ void NavierStokesOrchestrator::step(
                     const double dwdz = (w_face[idx_t_face] - w_face[idx_b_face]) / dims_.dz;
 
                     rhs_[idx] = scale * (dudx + dvdy + dwdz);
-                }
-                // Boundary fluid cells: simple one-sided approximations
-                else {
+                } else {
                     double dudx = 0.0;
                     double dvdy = 0.0;
                     double dwdz = 0.0;
@@ -271,6 +267,9 @@ void NavierStokesOrchestrator::step(
     ).count();
 
     capture_debug_snapshot("ghost_sync_2", u, v, w, p);
+
+    // Disable cold start after the first successful step execution
+    cold_start_ = false;
 
     auto wall_end = std::chrono::high_resolution_clock::now();
     std::clock_t cpu_end = std::clock();
