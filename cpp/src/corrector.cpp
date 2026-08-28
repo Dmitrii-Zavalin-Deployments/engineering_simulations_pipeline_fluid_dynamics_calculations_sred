@@ -105,9 +105,9 @@ void solve_corrector_parallel(
                 if (mask[idx_east] == 1 && mask[idx_west] == 1) {
                     dp_dx = (p_east - p_west) * idx_2inv; // 2nd-order interior central difference
                 } else if ((mask[idx_east] == 0 || mask[idx_east] == -1) && mask[idx_west] == 1) {
-                    dp_dx = (p_center - p_west) * id_inv; // backward difference adjacent to east wall
+                    dp_dx = (p_east - p_center) * id_inv; // forward difference adjacent to east wall
                 } else if (mask[idx_east] == 1 && (mask[idx_west] == 0 || mask[idx_west] == -1)) {
-                    dp_dx = (p_east - p_center) * id_inv; // forward difference adjacent to west wall
+                    dp_dx = (p_center - p_west) * id_inv; // backward difference adjacent to west wall
                 } else {
                     dp_dx = 0.0;
                 }
@@ -117,9 +117,9 @@ void solve_corrector_parallel(
                 if (mask[idx_north] == 1 && mask[idx_south] == 1) {
                     dp_dy = (p_north - p_south) * idy_2inv; // 2nd-order interior central difference
                 } else if ((mask[idx_north] == 0 || mask[idx_north] == -1) && mask[idx_south] == 1) {
-                    dp_dy = (p_center - p_south) * idy_inv; // backward difference adjacent to north wall
+                    dp_dy = (p_north - p_center) * idy_inv; // forward difference adjacent to north wall
                 } else if (mask[idx_north] == 1 && (mask[idx_south] == 0 || mask[idx_south] == -1)) {
-                    dp_dy = (p_north - p_center) * idy_inv; // forward difference adjacent to south wall
+                    dp_dy = (p_center - p_south) * idy_inv; // backward difference adjacent to south wall
                 } else {
                     dp_dy = 0.0;
                 }
@@ -129,9 +129,9 @@ void solve_corrector_parallel(
                 if (mask[idx_up] == 1 && mask[idx_down] == 1) {
                     dp_dz = (p_up - p_down) * idz_2inv; // 2nd-order interior central difference
                 } else if ((mask[idx_up] == 0 || mask[idx_up] == -1) && mask[idx_down] == 1) {
-                    dp_dz = (p_center - p_down) * idz_inv; // backward difference adjacent to top wall
+                    dp_dz = (p_up - p_center) * idz_inv; // forward difference adjacent to top wall
                 } else if (mask[idx_up] == 1 && (mask[idx_down] == 0 || mask[idx_down] == -1)) {
-                    dp_dz = (p_up - p_center) * idz_inv; // forward difference adjacent to bottom wall
+                    dp_dz = (p_center - p_down) * idz_inv; // backward difference adjacent to bottom wall
                 } else {
                     dp_dz = 0.0;
                 }
