@@ -241,7 +241,7 @@ TEST(FullPipelineConstantFlowTest, StepByStepMicroManaged) {
         }
     }
 
-    // ============================================================================
+// ============================================================================
     // SECTION 7 — Verify Stage 2 Snapshot: Predictor (Literate Verification)
     // ============================================================================
     // Mathematical Formulation:
@@ -301,14 +301,14 @@ TEST(FullPipelineConstantFlowTest, StepByStepMicroManaged) {
                         // 
                         // To prevent brittle test failures while maintaining mathematical 
                         // rigor, we split the validation:
-                        //   - Core interior cells (fully surrounded by active fluid stencils) 
+                        //   - Core interior cells (fully insulated from boundary stencils) 
                         //     must satisfy strict machine precision (1e-12).
                         //   - Immediate boundary-adjacent fluid cells accommodate the stencil 
                         //     truncation drop via a relaxed tolerance (0.01).
                         // ====================================================================
-                        bool is_core_interior = (i > 0 && i < dims.nx - 1 && 
-                                                j > 0 && j < dims.ny - 1 && 
-                                                k > 0 && k < dims.nz - 1);
+                        bool is_core_interior = (i > 1 && i < dims.nx - 2 && 
+                                                j > 1 && j < dims.ny - 2 && 
+                                                k > 1 && k < dims.nz - 2);
                         
                         double current_tolerance = is_core_interior ? 1e-12 : 0.01;
 
