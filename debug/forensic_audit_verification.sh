@@ -1,39 +1,46 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -eu0px
 
-BUILD_DIR="build"
-TARGET_I=2
-TARGET_J=2
-TARGET_K=1
-NX=8
-NY=8
-FLAT_IDX=$(( TARGET_I + NX * (TARGET_J + NY * TARGET_K) ))
+# Patch test_full_pipeline_constant_flow.cpp to dump detailed vector values around index 81/82 at failure
+TEST_FILE="cpp/cpp_integration_tests/test_full_pipeline_constant_flow.cpp"
 
-LOG_PATH="${BUILD_DIR}/pipeline_debug_run.log"
-
-if [ ! -f "$LOG_PATH" ]; then
-    echo "Error: ${LOG_PATH} not found. Run the test first."
+if [ ! -f "$TEST_FILE" ]; then
+    echo "Error: ${TEST_FILE} not found from current directory."
     exit 1
-}
+fi
 
-echo "=== DETAILED TRACE FOR CELL ${FLAT_IDX} (i=${TARGET_I}, j=${TARGET_J}, k=${TARGET_K}) ==="
+echo "Injecting detailed diagnostic print into ${TEST_FILE}..."
+
 python3 -c "
-import os
-
-flat_idx = ${FLAT_IDX}
-log_path = '${LOG_PATH}'
-
-with open(log_path, 'r') as f:
+file_path = '${TEST_FILE}'
+with open(file_path, 'r') as f:
     content = f.read()
 
-print('Searching log for snapshot dumps and vector states...')
-# Let's inspect all lines containing snapshot or array data around cell ${FLAT_IDX}
-lines = content.split('\n')
-for i, line in enumerate(lines):
-    if 'DEBUG_DUMP' in line or 'Snapshot' in line or 'u[' in line or 'p[' in line:
-        print(line)
-        # Print surrounding lines if any vector values are printed
-        for j in range(max(0, i-2), min(len(lines), i+3)):
-            if j != i and ('[' in lines[j] or 'val' in lines[j] or 'cell' in lines[j]):
-                print(f'   {lines[j]}')
+# Target the assertion block where u[idx] failure occurs
+target_snippet = '''    EXPECT_NEAR(u[idx], 0.0, 1e-6)'''
+
+replacement_snippet = '''    if (std::abs(u[idx]) > 1e-6) {
+        std::fprintf(stderr, \"[DETAILED_DUMP] Failure at idx=%zu (i=%d, j=%d, k=%d): u=%g\\n\", idx, 2, 2, 1, u[idx]);
+        // Print neighborhood u values
+        for (int di = -1; di <= 1; ++di) {
+            for (int dj = -1; dj <= 1; ++dj) {
+                size_t n_idx = (2 + di) + 8 * ((2 + dj) + 8 * 1);
+                std::fprintf(stderr, \"  Neighbor u[%zu] = %g\\n\", n_idx, u[n_idx]);
+            }
+        }
+    }
+    EXPECT_NEAR(u[idx], 0.0, 1e-6)'''
+
+if target_snippet in content and '[DETAILED_DUMP]' not in content:
+    content = content.replace(target_snippet, replacement_snippet, 1)
+    with open(file_path, 'w') as f:
+        f.write(content)
+    print('Successfully patched test file with neighborhood vector inspection.')
+else:
+    print('Target snippet not found or already patched.')
 "
+
+echo "Rebuilding and running test..."
+cd build
+cmake --build . --target test_full_pipeline_constant_flow -j$(nproc)
+ctest -R test_full_pipeline_constant_flow --output-on-failure
