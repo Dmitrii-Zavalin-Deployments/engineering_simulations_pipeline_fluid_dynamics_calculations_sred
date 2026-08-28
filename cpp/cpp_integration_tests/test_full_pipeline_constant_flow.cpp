@@ -198,7 +198,7 @@ TEST(FullPipelineConstantFlowTest, StepByStepMicroManaged) {
     // ============================================================================
     // Algorithmic Formulation:
     //   - execute_pre_step applies initial conditions and boundary conditions 
-    //     based on collocated cell masks and boundary condition lists[cite: 3, 4].
+    //     based on collocated cell masks and boundary condition lists.
     //   - Cold-Start Inflow Initialization (mask == 1):
     //     Populates the active fluid domain with free-stream inflow values 
     //     extracted dynamically from boundary definitions (e.g., w = 1.0, u = v = p = 0.0).
@@ -248,7 +248,7 @@ TEST(FullPipelineConstantFlowTest, StepByStepMicroManaged) {
                         // 
                         // During initial system startup (cold_start_ = true), execute_pre_step 
                         // queries the boundary condition list to extract free-stream inflow 
-                        // parameters[cite: 3, 4]. For standard test configurations, the primary 
+                        // parameters. For standard test configurations, the primary 
                         // stream velocity w is initialized to 1.0 across all active fluid cells 
                         // (mask == 1), while transverse velocity components (u, v) and pressure 
                         // (p) start at zero.
@@ -1274,7 +1274,7 @@ TEST(FullPipelineConstantFlowTest, StepByStepMicroManaged) {
     //   - Corrector Velocity Projection:
     //     Following the pressure Poisson solution, trial velocities (u*, v*, w*) are 
     //     projected onto a divergence-free velocity subspace using robust mask-aware 
-    //     pressure gradients[cite: 3]:
+    //     pressure gradients:
     //       u = u* - (dt / rho) * (dp/dx)
     //       v = v* - (dt / rho) * (dp/dy)
     //       w = w* - (dt / rho) * (dp/dz)
@@ -1351,7 +1351,7 @@ TEST(FullPipelineConstantFlowTest, StepByStepMicroManaged) {
                         return static_cast<size_t>(navier_stokes_solver::get_flat_index(ni, nj, nk, dims.nx, dims.ny));
                     };
 
-                    // Verify interior active cells against explicit corrector projection equations[cite: 3]
+                    // Verify interior active cells against explicit corrector projection equations
                     if (i > 0 && i < dims.nx - 1 && j > 0 && j < dims.ny - 1 && k > 0 && k < dims.nz - 1) {
                         const size_t idx_west  = get_idx(i - 1, j, k);
                         const size_t idx_east  = get_idx(i + 1, j, k);
@@ -1368,7 +1368,7 @@ TEST(FullPipelineConstantFlowTest, StepByStepMicroManaged) {
                         const double p_down  = snap.p[idx_down];
                         const double p_up    = snap.p[idx_up];
 
-                        // Robust mask-aware pressure gradients matching corrector.cpp implementation[cite: 3]
+                        // Robust mask-aware pressure gradients matching corrector.cpp implementation
                         double dp_dx = 0.0;
                         if (mask[idx_east] == 1 && mask[idx_west] == 1) {
                             dp_dx = (p_east - p_west) * (0.5 / dims.dx);
@@ -1401,7 +1401,7 @@ TEST(FullPipelineConstantFlowTest, StepByStepMicroManaged) {
                         const double expected_v = snap.v_star[idx] - coeff * dp_dy;
                         const double expected_w = snap.w_star[idx] - coeff * dp_dz;
 
-                        // Assert projected velocities match expected analytical formulation[cite: 3]
+                        // Assert projected velocities match expected analytical formulation
                         ASSERT_NEAR(snap.u[idx], expected_u, tolerance);
                         ASSERT_NEAR(snap.v[idx], expected_v, tolerance);
                         ASSERT_NEAR(snap.w[idx], expected_w, tolerance);
@@ -1411,20 +1411,55 @@ TEST(FullPipelineConstantFlowTest, StepByStepMicroManaged) {
         }
     }
 
-    // // ============================================================================
-    // // SECTION 10 — Verify Stage 5 Snapshot: Ghost Sync
-    // // ============================================================================
+    // ============================================================================
+    // SECTION 14 — Verify Stage Snapshot: Final Ghost & Trial Buffer Synchronization (ghost_sync_2)
+    // ============================================================================
+    // Comprehensive Mathematical & Algorithmic Formulation:
+    //   - Final Buffer Synchronization:
+    //     Following the corrector step, the primary field variables (u, v, w, p) 
+    //     are synchronized into their respective trial and auxiliary staging buffers 
+    //     for the subsequent time-stepping iteration:
+    //       u*_i = u_i
+    //       v*_i = v_i
+    //       w*_i = w_i
+    //       rhs_i = p_i  (via p_next buffer mapping to rhs_)
+    // ============================================================================
 
-    // {
-    //     const auto& snap = get_snapshot("ghost_sync_2");
+    {
+        // Retrieve system snapshot for the final ghost and trial buffer synchronization stage
+        const auto& snap = get_snapshot("ghost_sync_2");
 
-    //     for (size_t idx = 0; idx < total_cells; ++idx) {
-    //         ASSERT_TRUE(std::isfinite(snap.u[idx]));
-    //         ASSERT_TRUE(std::isfinite(snap.v[idx]));
-    //         ASSERT_TRUE(std::isfinite(snap.w[idx]));
-    //         ASSERT_TRUE(std::isfinite(snap.p[idx]));
-    //     }
-    // }
+        // ------------------------------------------------------------------------
+        // Part 1: Cell-Centered State Validation Loop
+        // ------------------------------------------------------------------------
+        // Iterate through all computational grid nodes in 3D space (dimensions nx, ny, nz)
+        for (int k = 0; k < dims.nz; ++k) {
+            for (int j = 0; j < dims.ny; ++j) {
+                for (int i = 0; i < dims.nx; ++i) {
+                    // Compute flat 1D array index from 3D logical coordinates (i, j, k)
+                    const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, dims.nx, dims.ny));
+
+                    // 1. Numerical integrity check: ensure no NaN or Infinity values corrupt primary or synchronized buffers
+                    ASSERT_TRUE(std::isfinite(snap.u[idx]));
+                    ASSERT_TRUE(std::isfinite(snap.v[idx]));
+                    ASSERT_TRUE(std::isfinite(snap.w[idx]));
+                    ASSERT_TRUE(std::isfinite(snap.p[idx]));
+                    ASSERT_TRUE(std::isfinite(snap.u_star[idx]));
+                    ASSERT_TRUE(std::isfinite(snap.v_star[idx]));
+                    ASSERT_TRUE(std::isfinite(snap.w_star[idx]));
+                    ASSERT_TRUE(std::isfinite(snap.rhs[idx]));
+
+                    // 2. Verify that trial velocity buffers correctly mirror the newly corrected velocity components
+                    ASSERT_NEAR(snap.u_star[idx], snap.u[idx], 1e-12);
+                    ASSERT_NEAR(snap.v_star[idx], snap.v[idx], 1e-12);
+                    ASSERT_NEAR(snap.w_star[idx], snap.w[idx], 1e-12);
+
+                    // 3. Verify that the rhs/p_next staging buffer correctly mirrors the updated pressure field
+                    ASSERT_NEAR(snap.rhs[idx], snap.p[idx], 1e-12);
+                }
+            }
+        }
+    }
 
     // // ============================================================================
     // // SECTION 11 — Final Output Verification
