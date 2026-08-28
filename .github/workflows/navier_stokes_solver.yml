@@ -81,7 +81,7 @@ jobs:
           echo "🔬 [PHASE 1/4] Preloading libasan and executing CanonicalFlowsTest via CTest (Debug & Memory Audit Run)..."
           export LD_PRELOAD=$(g++ -print-file-name=libasan.so)
           cd build
-          ctest -R SolidMaskingTest --output-on-failure -V 2>&1 | tee ../test_detail.log
+          ctest -R WaterfallInflowTest --output-on-failure -V | tee ../test_detail.log
           cd ..
           unset LD_PRELOAD
 
