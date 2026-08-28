@@ -165,10 +165,11 @@ void solve_corrector_parallel(
     }
 
     // --- SOLID & BOUNDARY VELOCITY CLAMPING PASS ---
-    // Enforce strict zero-velocity (no-penetration/no-slip) across all non-fluid cells
+    // Enforce strict zero-velocity (no-penetration/no-slip) across wall boundaries (mask == -1)
+    // while preserving internal solid sentinel values (mask == 0).
     #pragma omp parallel for schedule(static) if(total_cells > 1000)
     for (int64_t idx = 0; idx < static_cast<int64_t>(total_cells); ++idx) {
-        if (mask[idx] != 1) {
+        if (mask[idx] == -1) {
             u[idx] = 0.0;
             v[idx] = 0.0;
             w[idx] = 0.0;
