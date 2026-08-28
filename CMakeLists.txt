@@ -71,13 +71,12 @@ add_test(NAME UnitTests COMMAND unit_tests)
 # 3. C++ Integration Tests Targets
 # ---------------------------------------------------------------------------
 # Copy input data required by integration tests into the build tree
-file(COPY cpp/cpp_integration_tests/data DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
 # Full Pipeline Literate Test
-add_executable(test_full_pipeline_literate
-    cpp/cpp_integration_tests/test_full_pipeline_literate.cpp
+add_executable(test_full_pipeline_constant_flow
+    cpp/cpp_integration_tests/test_full_pipeline_constant_flow.cpp
 )
-target_link_libraries(test_full_pipeline_literate
+target_link_libraries(test_full_pipeline_constant_flow
     PRIVATE
         GTest::gtest_main
         navier_stokes_core
@@ -85,7 +84,7 @@ target_link_libraries(test_full_pipeline_literate
         OpenMP::OpenMP_CXX
         Threads::Threads
 )
-add_test(NAME FullPipelineLiterateTest COMMAND test_full_pipeline_literate)
+add_test(NAME FullPipelineLiterateTest COMMAND test_full_pipeline_constant_flow)
 
 # Mass Continuity & Divergence Test
 add_executable(test_mass_continuity
