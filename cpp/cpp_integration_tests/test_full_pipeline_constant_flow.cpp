@@ -184,7 +184,7 @@ TEST(FullPipelineConstantFlowTest, StepByStepMicroManaged) {
     // Helper lambda to fetch a snapshot by stage name from vector
     auto get_snapshot = [&](const std::string& stage_name) -> const OrchestratorDebugSnapshot& {
         for (const auto& snap : snapshots) {
-            if (snap.stage == stage_name) {
+            if (snap.stage_name == stage_name) {
                 return snap;
             }
         }
