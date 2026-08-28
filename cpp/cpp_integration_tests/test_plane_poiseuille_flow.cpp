@@ -5,17 +5,18 @@
  *
  * ## Physical Background & Governing Equations
  * Plane Poiseuille flow describes the motion of an incompressible viscous fluid driven by a pressure 
- * gradient between two infinite stationary parallel plates separated by height $H$. 
+ * gradient or body force between two infinite stationary parallel plates separated by height $H$. 
  * 
  * Under steady, fully developed conditions, the Navier-Stokes momentum equations reduce to the 
- * exact balance between viscous diffusion and the driving pressure gradient:
- * $$ \mu \frac{d^2 u}{dy^2} = \frac{dp}{dx} $$
+ * exact balance between viscous diffusion and the driving force:
+ * $$ \nu \frac{d^2 u}{dy^2} + f_x = 0 $$
  * 
  * The exact analytical velocity profile $u(y)$ across the channel coordinate $y \in [0, H]$ is given by:
  * $$ u(y) = 4 u_{\text{max}} \frac{y}{H} \left(1 - \frac{y}{H}\right) $$
  * where $u_{\text{max}}$ is the centerline velocity. This test initializes the fluid domain with this 
- * exact parabolic profile and verifies that the numerical orchestrator maintains stability, mass 
- * continuity, and accuracy within dynamic truncation bounds over transient solver steps.
+ * exact parabolic profile, applies the matching analytical driving body force $f_x$, and verifies 
+ * that the numerical orchestrator maintains stability, mass continuity, and accuracy within dynamic 
+ * truncation bounds over transient solver steps.
  */
 
 #include <gtest/gtest.h>
@@ -52,7 +53,7 @@ protected:
 
     /* 
      * To verify mass conservation at every grid node, we compute the discrete velocity divergence:
-     *     \nabla \cdot \mathbf{u} = \frac{\partial u}{\partial x} + \frac{\partial v}{\partial y} + \frac{\partial w}{\partial z}
+     *      \nabla \cdot \mathbf{u} = \frac{\partial u}{\partial x} + \frac{\partial v}{\partial y} + \frac{\partial w}{\partial z}
      * Using second-order central differences across interior cells, we extract the maximum divergence magnitude.
      */
     double ComputeMaxDivergence(
@@ -116,8 +117,8 @@ protected:
 
 /* 
  * The integration test configures a 3D channel domain, initializes the exact parabolic profile,
- * runs the time-marching orchestrator steps, and validates that the computed velocity matches 
- * analytical expectations within rigorous L2 norm bounds.
+ * applies the sustaining body force, runs the time-marching orchestrator steps, and validates 
+ * that the computed velocity matches analytical expectations within rigorous L2 norm bounds.
  */
 TEST_F(PlanePoiseuilleTest, PlanePoiseuilleFlowRe10) {
     const int nx = 16;
@@ -138,12 +139,17 @@ TEST_F(PlanePoiseuilleTest, PlanePoiseuilleFlowRe10) {
 
     NavierStokesOrchestrator orchestrator(dims, config);
 
-    const double mu = 0.001;
+    const double mu = 0.001; // Kinematic viscosity nu
     const double u_max = 0.1;
     const std::vector<double> gravity = {0.0, 0.0, 0.0};
 
     std::vector<int> mask(total_cells, 1);
-    std::vector<double> fx(total_cells, 0.0), fy(total_cells, 0.0), fz(total_cells, 0.0);
+    
+    // We apply the exact analytical body force fx = (8 * nu * u_max) / H^2 to sustain Poiseuille flow
+    const double fx_driving = 8.0 * mu * u_max / (H * H);
+    std::vector<double> fx(total_cells, fx_driving);
+    std::vector<double> fy(total_cells, 0.0);
+    std::vector<double> fz(total_cells, 0.0);
 
     std::vector<BoundaryCondition> bc_list;
 
@@ -202,7 +208,7 @@ TEST_F(PlanePoiseuilleTest, PlanePoiseuilleFlowRe10) {
 
     /* 
      * We initialize the velocity field directly with the exact parabolic Poiseuille profile:
-     *     u(y) = 4 u_{\text{max}} \frac{y}{H} \left(1 - \frac{y}{H}\right)
+     *      u(y) = 4 u_{\text{max}} \frac{y}{H} \left(1 - \frac{y}{H}\right)
      */
     for (int k = 0; k < nz; ++k) {
         for (int j = 0; j < ny; ++j) {
@@ -216,7 +222,7 @@ TEST_F(PlanePoiseuilleTest, PlanePoiseuilleFlowRe10) {
     }
 
     const double dt = 0.0005;
-    const int max_steps = 10; // Shortened to eliminate accumulated drift
+    const int max_steps = 15;
 
     for (int step = 0; step < max_steps; ++step) {
         std::vector<double> u_old = u;
