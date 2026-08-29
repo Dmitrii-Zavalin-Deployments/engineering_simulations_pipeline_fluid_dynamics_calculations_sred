@@ -1,254 +1,190 @@
 /**
- * @file test_lid_driven_cavity.cpp
- * @brief Literate integration test suite validating the NavierStokesOrchestrator fluid solver 
- *        against 2D Lid-Driven Cavity Flow at Reynolds number Re = 100.
+ * ============================================================================================
+ * TEST SUITE: LidDrivenCavityTest
+ * TEST CASE:  CavityFlowRe400
+ * ============================================================================================
  *
- * ## Physical Background & Governing Equations
- * Lid-driven cavity flow is a foundational benchmark for incompressible viscous fluid dynamics. 
- * It models a fluid contained within a square cavity where the top boundary (lid) moves tangentially 
- * at a constant velocity $U_{\text{lid}}$, while the remaining three walls are stationary (no-slip).
- * 
- * The flow dynamics are governed by the incompressible Navier-Stokes equations characterized by 
- * the Reynolds number:
- * $$ \text{Re} = \frac{U_{\text{lid}} L}{\nu} = 100 $$
- * where $L$ is the characteristic cavity width and $\nu$ is the kinematic viscosity. The flow 
- * develops a prominent primary vortex whose core position and vorticity distribution provide a 
- * rigorous check for advective-diffusive solver accuracy, boundary condition enforcement, and 
- * mass conservation stability.
+ * WHAT THIS TEST VERIFIES:
+ * 1. Hydrodynamic stability and primary recirculation vortex formation in a 3D enclosed 
+ *    lid-driven cavity at Reynolds number Re = 400.
+ * 2. Non-linear convective flux evaluations and high-shear momentum transport routines 
+ *    within `cpp/src/predictor.cpp`.
+ * 3. Boundary shear stress adjustments and velocity field updates in `cpp/src/corrector.cpp`.
+ * 4. Convergence of the pressure Poisson solver (`cpp/src/pressure_poisson_solver.cpp`) 
+ *    under enclosed wall-bounded boundary conditions with moving lid driving forces.
+ *
+ * HOW IT IS TESTED:
+ * - A 3D computational domain of size L x H x W = 1.0 x 1.0 x 0.1 is discretized into a 
+ *   32 x 32 x 3 staggered grid.
+ * - Non-slip wall boundary conditions are applied on x_min, x_max, y_min, z_min, and z_max.
+ * - A tangential moving lid boundary condition with velocity U_lid = 1.0 m/s is imposed 
+ *   at the top boundary (y_max).
+ * - The fluid dynamic viscosity is set to mu = 0.0025 Pa·s to maintain Re = 400 given 
+ *   rho = 1.0 kg/m^3 and L = 1.0 m.
+ * - The fractional-step solver advances the state over 100 time steps (dt = 0.001 s).
+ * - In-flight assertions verify velocity boundedness and divergence limits.
+ * - Final physical verification checks that the top shear layer drives positive x-momentum 
+ *   near the lid while generating a negative return-flow core at the cavity mid-height.
+ *
+ * WHY THIS IS CRITICAL FOR CODE COVERAGE:
+ * - Tests non-zero tangential velocity wall boundary condition pathways across predictor 
+ *   and corrector stages.
+ * - Triggers high-gradient limiter and convection flux calculation branches in predictor.cpp.
+ * - Verifies robust pressure Poisson matrix inversion under zero-net-flux Neumann constraints.
+ * ============================================================================================
  */
 
 #include <gtest/gtest.h>
 #include <vector>
 #include <cmath>
 #include <algorithm>
-#include <iostream>
-#include <limits>
-#include <thread>
-#include <cfenv>
+#include <string>
 
-#ifdef _OPENMP
-#include <omp.h>
-#endif
+#include "orchestrator.h"
+#include "ops/divergence.h"
+#include "ops/forces.h"
 
-#include "orchestrator.hpp"
-#include "grid_math.hpp"
-#include "boundary_condition.hpp"
-
-using namespace navier_stokes_solver;
-
-/* 
- * We configure the test fixture class to manage parallel execution thread caps, clear floating-point 
- * exception registers, and supply numerical diagnostics for divergence, transient residues, and vortex tracking.
- */
-class LidDrivenCavityTest : public ::testing::Test {
-protected:
-    void SetUp() override {
-#ifdef _OPENMP
-        omp_set_num_threads(std::min(4, omp_get_max_threads()));
-#endif
-        std::feclearexcept(FE_ALL_EXCEPT);
-    }
-
-    /* 
-     * To monitor mass conservation compliance, we compute the maximum velocity divergence magnitude 
-     * across internal grid nodes using second-order central finite differences:
-     *     \nabla \cdot \mathbf{u} = \frac{\partial u}{\partial x} + \frac{\partial v}{\partial y} + \frac{\partial w}{\partial z}
-     */
-    double ComputeMaxDivergence(
-        const std::vector<double>& u,
-        const std::vector<double>& v,
-        const std::vector<double>& w,
-        int nx, int ny, int nz,
-        double dx, double dy, double dz
-    ) const {
-        double max_div = 0.0;
-        int k_min = (nz > 2) ? 1 : 0;
-        int k_max = (nz > 2) ? nz - 1 : 1;
-
-#pragma omp parallel for reduction(max:max_div) collapse(2) schedule(static) if(nz > 1)
-        for (int k = k_min; k < k_max; ++k) {
-            for (int j = 1; j < ny - 1; ++j) {
-                for (int i = 1; i < nx - 1; ++i) {
-                    size_t idx_px = (i + 1) + static_cast<size_t>(nx) * (j + ny * k);
-                    size_t idx_nx = (i - 1) + static_cast<size_t>(nx) * (j + ny * k);
-                    size_t idx_py = i + static_cast<size_t>(nx) * ((j + 1) + ny * k);
-                    size_t idx_ny = i + static_cast<size_t>(nx) * ((j - 1) + ny * k);
-
-                    double du_dx = (u[idx_px] - u[idx_nx]) / (2.0 * dx);
-                    double dv_dy = (v[idx_py] - v[idx_ny]) / (2.0 * dy);
-                    
-                    double dw_dz = 0.0;
-                    if (nz > 2) {
-                        size_t idx_pz = i + static_cast<size_t>(nx) * (j + ny * (k + 1));
-                        size_t idx_nz = i + static_cast<size_t>(nx) * (j + ny * (k - 1));
-                        dw_dz = (w[idx_pz] - w[idx_nz]) / (2.0 * dz);
-                    }
-
-                    double div = std::abs(du_dx + dv_dy + dw_dz);
-                    max_div = std::max(max_div, div);
-                }
-            }
-        }
-        return max_div;
-    }
-
-    /* 
-     * We measure temporal relaxation progress by calculating the root-mean-square (RMS) velocity 
-     * difference vector between successive time steps across all cells.
-     */
-    double ComputeTransientResidue(
-        const std::vector<double>& u_new, const std::vector<double>& u_old,
-        const std::vector<double>& v_new, const std::vector<double>& v_old,
-        size_t total_cells
-    ) const {
-        double sum_sq = 0.0;
-
-#pragma omp parallel for reduction(+:sum_sq) schedule(static)
-        for (size_t i = 0; i < total_cells; ++i) {
-            double du = u_new[i] - u_old[i];
-            double dv = v_new[i] - v_old[i];
-            sum_sq += (du * du + dv * dv);
-        }
-        return std::sqrt(sum_sq / static_cast<double>(total_cells));
-    }
-
-    /* 
-     * We locate the primary recirculation vortex center by identifying the spatial location 
-     * of minimum spanwise vorticity:
-     *     \omega_z = \frac{\partial v}{\partial x} - \frac{\partial u}{\partial y}
-     */
-    std::pair<double, double> LocatePrimaryVortexCenter(
-        const std::vector<double>& u, const std::vector<double>& v,
-        int nx, int ny, int k_plane, double dx, double dy
-    ) const {
-        double min_vorticity = std::numeric_limits<double>::max();
-        int best_i = nx / 2;
-        int best_j = ny / 2;
-
-        for (int j = 1; j < ny - 1; ++j) {
-            for (int i = 1; i < nx - 1; ++i) {
-                size_t idx_px = (i + 1) + static_cast<size_t>(nx) * (j + ny * k_plane);
-                size_t idx_nx = (i - 1) + static_cast<size_t>(nx) * (j + ny * k_plane);
-                size_t idx_py = i + static_cast<size_t>(nx) * ((j + 1) + ny * k_plane);
-                size_t idx_ny = i + static_cast<size_t>(nx) * ((j - 1) + ny * k_plane);
-
-                double dv_dx = (v[idx_px] - v[idx_nx]) / (2.0 * dx);
-                double du_dy = (u[idx_py] - u[idx_ny]) / (2.0 * dy);
-                double vorticity = dv_dx - du_dy;
-
-                if (vorticity < min_vorticity) {
-                    min_vorticity = vorticity;
-                    best_i = i;
-                    best_j = j;
-                }
-            }
-        }
-        return {(best_i + 0.5) * dx, (best_j + 0.5) * dy};
-    }
-};
-
-/* 
- * The integration test sets up a 3D cavity domain with a sliding top lid, smoothly ramps the lid velocity 
- * to prevent initial pressure shocks, marches the flow to near steady-state over 400 steps, and asserts 
- * that the primary vortex center falls within valid physical bounds.
- */
-TEST_F(LidDrivenCavityTest, LidDrivenCavityRe100) {
-    const int nx = 16;
-    const int ny = 16;
+TEST(LidDrivenCavityTest, CavityFlowRe400) {
+    // We define a 3D rectangular domain Omega = [0, L] x [0, H] x [0, W]
+    // discretized using a staggered finite-volume grid of dimensions 32 x 32 x 3 cells.
+    const int nx = 32;
+    const int ny = 32;
     const int nz = 3;
-    const double dx = 1.0 / nx;
-    const double dy = 1.0 / ny;
-    const double dz = 0.03125;
 
-    GridDimensions dims{nx, ny, nz, dx, dy, dz};
-    size_t total_cells = static_cast<size_t>(nx) * ny * nz;
+    const double L = 1.0;
+    const double H = 1.0;
+    const double W = 0.1;
 
-    SolverConfig config;
-    config.density = 1.0;
-    config.max_poisson_iterations = 25;
-    config.poisson_tolerance = 1e-4;
+    // The grid spacing in each spatial coordinate direction is calculated as:
+    //     dx = L / nx,  dy = H / ny,  dz = W / nz
+    const double dx = L / nx;
+    const double dy = H / ny;
+    const double dz = W / nz;
+    const size_t total_cells = static_cast<size_t>(nx) * ny * nz;
 
-    NavierStokesOrchestrator orchestrator(dims, config);
+    // We set the characteristic dimensionless parameter (Reynolds number):
+    //     Re = (U_lid * L) / nu = 400
+    // For a unit lid velocity U_lid = 1.0 m/s and length scale L = 1.0 m, 
+    // the dynamic viscosity is computed directly as:
+    //     mu = (U_lid * L) / Re = 1.0 / 400 = 0.0025 Pa·s
+    const double u_lid = 1.0;
+    const double Re = 400.0;
+    const double mu = (u_lid * L) / Re;
+    const double gravity[3] = {0.0, 0.0, 0.0};
 
-    const double nu = 0.01;
-    const double mu = config.density * nu;
-    const std::vector<double> gravity = {0.0, 0.0, 0.0};
-
-    std::vector<int> mask(total_cells, 1);
-    std::vector<double> fx(total_cells, 0.0), fy(total_cells, 0.0), fz(total_cells, 0.0);
-    std::vector<BoundaryCondition> bc_list;
-    
-    /* 
-     * We enforce no-slip stationary walls across the left, right, bottom, and spanwise boundaries.
-     */
-    for (const std::string& loc : {"x_min", "x_max", "y_min", "z_min", "z_max"}) {
-        BoundaryCondition bc_wall;
-        bc_wall.location = loc;
-        bc_wall.type = "no-slip";
-        bc_wall.u_val = 0.0; bc_wall.v_val = 0.0; bc_wall.w_val = 0.0;
-        bc_wall.values.has_u = true; bc_wall.values.u = 0.0;
-        bc_wall.values.has_v = true; bc_wall.values.v = 0.0;
-        bc_wall.values.has_w = true; bc_wall.values.w = 0.0;
-        bc_list.push_back(bc_wall);
-    }
-
-    /* 
-     * The top boundary (y_max) represents the moving lid initialized with dynamic velocity parameters.
-     */
-    BoundaryCondition bc_lid;
-    bc_lid.location = "y_max";
-    bc_lid.type = "inflow";
-    bc_lid.u_val = 0.0; bc_lid.v_val = 0.0; bc_lid.w_val = 0.0;
-    bc_lid.values.has_u = true; bc_lid.values.u = 0.0;
-    bc_lid.values.has_v = true; bc_lid.values.v = 0.0;
-    bc_lid.values.has_w = true; bc_lid.values.w = 0.0;
-    bc_list.push_back(bc_lid);
-
+    // We allocate flat 1D state vectors representing cell-centered and face-staggered
+    // field variables (u, v, w, p) along with domain cell masks and external body force vectors.
     std::vector<double> u(total_cells, 0.0);
     std::vector<double> v(total_cells, 0.0);
     std::vector<double> w(total_cells, 0.0);
     std::vector<double> p(total_cells, 0.0);
+    std::vector<int> mask(total_cells, 0); // 0 indicates fluid domain
 
+    std::vector<double> fx(total_cells, 0.0);
+    std::vector<double> fy(total_cells, 0.0);
+    std::vector<double> fz(total_cells, 0.0);
+
+    // We construct the boundary condition list enforcing a moving lid on y_max and 
+    // stationary no-slip conditions on all other domain boundaries.
+    std::vector<BoundaryCondition> bc_list;
+
+    // Top Boundary (y = H, "y_max"): Imposes moving lid velocity U = (1.0, 0.0, 0.0) m/s.
+    BoundaryCondition bc_top;
+    bc_top.location = "y_max";
+    bc_top.type = "wall";
+    bc_top.u_val = u_lid; bc_top.v_val = 0.0; bc_top.w_val = 0.0;
+    bc_top.values.has_u = true; bc_top.values.u = u_lid;
+    bc_top.values.has_v = true; bc_top.values.v = 0.0;
+    bc_top.values.has_w = true; bc_top.values.w = 0.0;
+    bc_list.push_back(bc_top);
+
+    // Bottom Boundary (y = 0, "y_min"): Imposes zero velocity U = (0.0, 0.0, 0.0) m/s.
+    BoundaryCondition bc_bottom;
+    bc_bottom.location = "y_min";
+    bc_bottom.type = "wall";
+    bc_bottom.u_val = 0.0; bc_bottom.v_val = 0.0; bc_bottom.w_val = 0.0;
+    bc_bottom.values.has_u = true; bc_bottom.values.u = 0.0;
+    bc_bottom.values.has_v = true; bc_bottom.values.v = 0.0;
+    bc_bottom.values.has_w = true; bc_bottom.values.w = 0.0;
+    bc_list.push_back(bc_bottom);
+
+    // Left Boundary (x = 0, "x_min"): Imposes zero velocity U = (0.0, 0.0, 0.0) m/s.
+    BoundaryCondition bc_left;
+    bc_left.location = "x_min";
+    bc_left.type = "wall";
+    bc_left.u_val = 0.0; bc_left.v_val = 0.0; bc_left.w_val = 0.0;
+    bc_left.values.has_u = true; bc_left.values.u = 0.0;
+    bc_left.values.has_v = true; bc_left.values.v = 0.0;
+    bc_left.values.has_w = true; bc_left.values.w = 0.0;
+    bc_list.push_back(bc_left);
+
+    // Right Boundary (x = L, "x_max"): Imposes zero velocity U = (0.0, 0.0, 0.0) m/s.
+    BoundaryCondition bc_right;
+    bc_right.location = "x_max";
+    bc_right.type = "wall";
+    bc_right.u_val = 0.0; bc_right.v_val = 0.0; bc_right.w_val = 0.0;
+    bc_right.values.has_u = true; bc_right.values.u = 0.0;
+    bc_right.values.has_v = true; bc_right.values.v = 0.0;
+    bc_right.values.has_w = true; bc_right.values.w = 0.0;
+    bc_list.push_back(bc_right);
+
+    // Front & Back Boundaries (z = 0, z = W): Impose zero velocity U = (0.0, 0.0, 0.0) m/s.
+    for (const std::string& loc : {"z_min", "z_max"}) {
+        BoundaryCondition bc_z;
+        bc_z.location = loc;
+        bc_z.type = "wall";
+        bc_z.u_val = 0.0; bc_z.v_val = 0.0; bc_z.w_val = 0.0;
+        bc_z.values.has_u = true; bc_z.values.u = 0.0;
+        bc_z.values.has_v = true; bc_z.values.v = 0.0;
+        bc_z.values.has_w = true; bc_z.values.w = 0.0;
+        bc_list.push_back(bc_z);
+    }
+
+    // We instantiate the orchestrator solver with spatial discretization metadata
+    // and configure fixed explicit time integration parameters dt = 0.001 s, max_steps = 100.
+    Orchestrator orchestrator(nx, ny, nz, dx, dy, dz);
     const double dt = 0.001;
-    const int total_steps = 400;
+    const int max_steps = 100;
 
-    for (int step = 0; step < total_steps; ++step) {
-        std::vector<double> u_old = u;
-        std::vector<double> v_old = v;
-
-        /* 
-         * We smoothly ramp up the lid velocity over the initial transient steps to avoid artificial pressure spikes.
-         */
-        double current_lid_u = std::min(1.0, static_cast<double>(step) / 50.0);
-        bc_lid.u_val = current_lid_u;
-        bc_lid.values.u = current_lid_u;
-        bc_list.back() = bc_lid;
-
+    // We execute the fractional-step time integration loop. For each step:
+    //     1. Compute intermediate velocity prediction (predictor.cpp)
+    //     2. Solve pressure Poisson system (pressure_poisson_solver.cpp)
+    //     3. Correct velocity field to enforce incompressibility (corrector.cpp)
+    for (int step = 0; step < max_steps; ++step) {
         orchestrator.step(dt, mu, gravity, fx, fy, fz, mask, bc_list, u, v, w, p);
 
+        // We compute the maximum residual velocity divergence across the domain:
+        //     div_max = max | (u_{i+1/2} - u_{i-1/2})/dx + (v_{j+1/2} - v_{j-1/2})/dy + (w_{k+1/2} - w_{k-1/2})/dz |
+        // We assert that the velocity divergence remains finite and strictly bounded by 5.0 s^-1.
         double current_div = ComputeMaxDivergence(u, v, w, nx, ny, nz, dx, dy, dz);
         ASSERT_TRUE(std::isfinite(current_div));
-        ASSERT_LT(current_div, 10.0);
+        ASSERT_LT(current_div, 5.0);
 
-        double max_vel = 0.0;
+        // We verify numerical stability by asserting that maximum field velocities do not exceed
+        // 1.5 times the driving lid speed (U_max <= 1.5 * U_lid).
+        double max_u = 0.0;
         for (size_t i = 0; i < total_cells; ++i) {
             ASSERT_TRUE(std::isfinite(u[i]));
             ASSERT_TRUE(std::isfinite(v[i]));
-            max_vel = std::max({max_vel, std::abs(u[i]), std::abs(v[i])});
+            max_u = std::max(max_u, std::abs(u[i]));
         }
-        ASSERT_LT(max_vel, 10.0);
-
-        double residue = ComputeTransientResidue(u, u_old, v, v_old, total_cells);
-        double allowed_residue = (step <= 60) ? 0.40 : 0.15;
-        ASSERT_LT(residue, allowed_residue);
+        ASSERT_LE(max_u, u_lid * 1.5);
     }
 
-    /* 
-     * Finally, we locate the primary vortex center and verify that it remains within physical domain bounds.
-     */
-    auto [x_vortex, y_vortex] = LocatePrimaryVortexCenter(u, v, nx, ny, 1, dx, dy);
-    ASSERT_GE(x_vortex, 0.0);
-    ASSERT_LE(x_vortex, 1.0);
-    ASSERT_GE(y_vortex, 0.0);
-    ASSERT_LE(y_vortex, 1.0);
+    // We validate the physical structure of the developing primary recirculation vortex.
+    // In lid-driven cavity flow:
+    //     - Upper fluid cells near the top lid (y -> H) acquire momentum in the positive x-direction (u > 0).
+    //     - Lower fluid cells along the vertical mid-plane (y ~ H/4) form the recirculation return flow (u < 0).
+    const int k_plane = 1;
+    const int mid_x = nx / 2;
+
+    // We check the upper cavity region (y_index = ny - 3):
+    // Expected physical state: u_computed > 0.0 m/s
+    const size_t idx_upper = mid_x + static_cast<size_t>(nx) * ((ny - 3) + ny * k_plane);
+    EXPECT_GT(u[idx_upper], 0.0);
+
+    // We check the lower return flow region (y_index = ny / 4):
+    // Expected physical state: u_computed < 0.0 m/s
+    const size_t idx_lower = mid_x + static_cast<size_t>(nx) * (ny / 4 + ny * k_plane);
+    EXPECT_LT(u[idx_lower], 0.0);
 }
