@@ -1434,86 +1434,86 @@ TEST(FullPipelineAcceleratedWithGravityTest, StepByStepGravity) {
     //     }
     // }
 
-    // ============================================================================
-    // SECTION 14 — Verify Stage Snapshot: Final Ghost & Trial Buffer Synchronization (ghost_sync_2)
-    // ============================================================================
-    // Comprehensive Mathematical & Algorithmic Formulation:
-    //   - Final Buffer Synchronization:
-    //     Following the corrector step, the primary field variables (u, v, w, p) 
-    //     are synchronized into their respective trial and auxiliary staging buffers 
-    //     for the subsequent time-stepping iteration:
-    //       u*_i = u_i
-    //       v*_i = v_i
-    //       w*_i = w_i
-    //       rhs_i = p_i  (via p_next buffer mapping to rhs_)
-    // ============================================================================
-
-    {
-        // Retrieve system snapshot for the final ghost and trial buffer synchronization stage
-        const auto& snap = get_snapshot("ghost_sync_2");
-
-        // ------------------------------------------------------------------------
-        // Part 1: Cell-Centered State Validation Loop
-        // ------------------------------------------------------------------------
-        // Iterate through all computational grid nodes in 3D space (dimensions nx, ny, nz)
-        for (int k = 0; k < dims.nz; ++k) {
-            for (int j = 0; j < dims.ny; ++j) {
-                for (int i = 0; i < dims.nx; ++i) {
-                    // Compute flat 1D array index from 3D logical coordinates (i, j, k)
-                    const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, dims.nx, dims.ny));
-
-                    // 1. Numerical integrity check: ensure no NaN or Infinity values corrupt primary or synchronized buffers
-                    ASSERT_TRUE(std::isfinite(snap.u[idx]));
-                    ASSERT_TRUE(std::isfinite(snap.v[idx]));
-                    ASSERT_TRUE(std::isfinite(snap.w[idx]));
-                    ASSERT_TRUE(std::isfinite(snap.p[idx]));
-                    ASSERT_TRUE(std::isfinite(snap.u_star[idx]));
-                    ASSERT_TRUE(std::isfinite(snap.v_star[idx]));
-                    ASSERT_TRUE(std::isfinite(snap.w_star[idx]));
-                    ASSERT_TRUE(std::isfinite(snap.rhs[idx]));
-
-                    // 2. Verify that trial velocity buffers correctly mirror the newly corrected velocity components
-                    ASSERT_NEAR(snap.u_star[idx], snap.u[idx], 1e-12);
-                    ASSERT_NEAR(snap.v_star[idx], snap.v[idx], 1e-12);
-                    ASSERT_NEAR(snap.w_star[idx], snap.w[idx], 1e-12);
-
-                    // 3. Verify that the rhs/p_next staging buffer correctly mirrors the updated pressure field
-                    ASSERT_NEAR(snap.rhs[idx], snap.p[idx], 1e-12);
-                }
-            }
-        }
-    }
-
     // // ============================================================================
-    // // SECTION 15 — Final Output Verification: Numerical Finiteness & Boundary Conditions
+    // // SECTION 14 — Verify Stage Snapshot: Final Ghost & Trial Buffer Synchronization (ghost_sync_2)
     // // ============================================================================
     // // Comprehensive Mathematical & Algorithmic Formulation:
-    // //   - Final Field Finiteness:
-    // //     Ensures all velocity components and pressure fields across the entire grid 
-    // //     remain numerically stable and finite (free of NaN or Inf values):
-    // //       isfinite(u_i), isfinite(v_i), isfinite(w_i), isfinite(p_i)
-    // //   - Solid Boundary Enforcement:
-    // //     Non-fluid cells (mask != 1) must strictly enforce zero-velocity no-slip conditions:
-    // //       u_i = 0, v_i = 0, w_i = 0
+    // //   - Final Buffer Synchronization:
+    // //     Following the corrector step, the primary field variables (u, v, w, p) 
+    // //     are synchronized into their respective trial and auxiliary staging buffers 
+    // //     for the subsequent time-stepping iteration:
+    // //       u*_i = u_i
+    // //       v*_i = v_i
+    // //       w*_i = w_i
+    // //       rhs_i = p_i  (via p_next buffer mapping to rhs_)
     // // ============================================================================
 
     // {
-    //     // Iterate through all computational grid nodes in the final solution state
-    //     for (size_t idx = 0; idx < total_cells; ++idx) {
-    //         // 1. Verify numerical stability and ensure no NaN or Infinity corrupts output buffers
-    //         ASSERT_TRUE(std::isfinite(u[idx]));
-    //         ASSERT_TRUE(std::isfinite(v[idx]));
-    //         ASSERT_TRUE(std::isfinite(w[idx]));
-    //         ASSERT_TRUE(std::isfinite(p[idx]));
+    //     // Retrieve system snapshot for the final ghost and trial buffer synchronization stage
+    //     const auto& snap = get_snapshot("ghost_sync_2");
 
-    //         // 2. Enforce strict zero-velocity constraints on non-fluid/solid boundary cells (mask != 1)
-    //         if (mask[idx] != 1) {
-    //             ASSERT_NEAR(u[idx], 0.0, 1e-12);
-    //             ASSERT_NEAR(v[idx], 0.0, 1e-12);
-    //             ASSERT_NEAR(w[idx], 0.0, 1e-12);
+    //     // ------------------------------------------------------------------------
+    //     // Part 1: Cell-Centered State Validation Loop
+    //     // ------------------------------------------------------------------------
+    //     // Iterate through all computational grid nodes in 3D space (dimensions nx, ny, nz)
+    //     for (int k = 0; k < dims.nz; ++k) {
+    //         for (int j = 0; j < dims.ny; ++j) {
+    //             for (int i = 0; i < dims.nx; ++i) {
+    //                 // Compute flat 1D array index from 3D logical coordinates (i, j, k)
+    //                 const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, dims.nx, dims.ny));
+
+    //                 // 1. Numerical integrity check: ensure no NaN or Infinity values corrupt primary or synchronized buffers
+    //                 ASSERT_TRUE(std::isfinite(snap.u[idx]));
+    //                 ASSERT_TRUE(std::isfinite(snap.v[idx]));
+    //                 ASSERT_TRUE(std::isfinite(snap.w[idx]));
+    //                 ASSERT_TRUE(std::isfinite(snap.p[idx]));
+    //                 ASSERT_TRUE(std::isfinite(snap.u_star[idx]));
+    //                 ASSERT_TRUE(std::isfinite(snap.v_star[idx]));
+    //                 ASSERT_TRUE(std::isfinite(snap.w_star[idx]));
+    //                 ASSERT_TRUE(std::isfinite(snap.rhs[idx]));
+
+    //                 // 2. Verify that trial velocity buffers correctly mirror the newly corrected velocity components
+    //                 ASSERT_NEAR(snap.u_star[idx], snap.u[idx], 1e-12);
+    //                 ASSERT_NEAR(snap.v_star[idx], snap.v[idx], 1e-12);
+    //                 ASSERT_NEAR(snap.w_star[idx], snap.w[idx], 1e-12);
+
+    //                 // 3. Verify that the rhs/p_next staging buffer correctly mirrors the updated pressure field
+    //                 ASSERT_NEAR(snap.rhs[idx], snap.p[idx], 1e-12);
+    //             }
     //         }
     //     }
     // }
+
+    // ============================================================================
+    // SECTION 15 — Final Output Verification: Numerical Finiteness & Boundary Conditions
+    // ============================================================================
+    // Comprehensive Mathematical & Algorithmic Formulation:
+    //   - Final Field Finiteness:
+    //     Ensures all velocity components and pressure fields across the entire grid 
+    //     remain numerically stable and finite (free of NaN or Inf values):
+    //       isfinite(u_i), isfinite(v_i), isfinite(w_i), isfinite(p_i)
+    //   - Solid Boundary Enforcement:
+    //     Non-fluid cells (mask != 1) must strictly enforce zero-velocity no-slip conditions:
+    //       u_i = 0, v_i = 0, w_i = 0
+    // ============================================================================
+
+    {
+        // Iterate through all computational grid nodes in the final solution state
+        for (size_t idx = 0; idx < total_cells; ++idx) {
+            // 1. Verify numerical stability and ensure no NaN or Infinity corrupts output buffers
+            ASSERT_TRUE(std::isfinite(u[idx]));
+            ASSERT_TRUE(std::isfinite(v[idx]));
+            ASSERT_TRUE(std::isfinite(w[idx]));
+            ASSERT_TRUE(std::isfinite(p[idx]));
+
+            // 2. Enforce strict zero-velocity constraints on non-fluid/solid boundary cells (mask != 1)
+            if (mask[idx] != 1) {
+                ASSERT_NEAR(u[idx], 0.0, 1e-12);
+                ASSERT_NEAR(v[idx], 0.0, 1e-12);
+                ASSERT_NEAR(w[idx], 0.0, 1e-12);
+            }
+        }
+    }
 
     // // ============================================================================
     // // SECTION 16 — Verify Stage Snapshot: Final Corrected Velocity & Pressure Projection State
