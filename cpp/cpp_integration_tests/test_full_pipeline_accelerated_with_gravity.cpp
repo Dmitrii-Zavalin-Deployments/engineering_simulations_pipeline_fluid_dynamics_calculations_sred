@@ -996,524 +996,524 @@ TEST(FullPipelineAcceleratedWithGravityTest, StepByStepGravity) {
         }
     }
 
-    // // ============================================================================
-    // // SECTION 12 — Verify Stage Snapshot: Rhie-Chow Post-Poisson Interpolation & Pressure-Coupled Fluxes
-    // // Note: Executed for the first time-step only (step = 1).
-    // // ============================================================================
-    // // Comprehensive Mathematical & Algorithmic Formulation:
-    // //    - Post-Poisson Pressure-Coupled Face Velocity Interpolation:
-    // //      Following the solution of the pressure Poisson equation, the pressure field 
-    // //      p^{n+1} is non-uniform and fully calibrated. Re-evaluating Rhie-Chow interpolation 
-    // //      incorporates active pressure gradient damping terms to suppress grid-scale 
-    // //      checkerboard modes prior to the velocity corrector step:
-    // //        u_face = 0.5 * (u*_P + u*_E) - d_face * ( (p_E - p_P)/dx - 0.5 * ((dp/dx)_P + (dp/dx)_E) )
-    // //        v_face = 0.5 * (v*_P + v*_N) - d_face * ( (p_N - p_P)/dy - 0.5 * ((dp/dy)_P + (dp/dy)_N) )
-    // //        w_face = 0.5 * (v*_P + v*_T) - d_face * ( (p_T - p_P)/dz - 0.5 * ((dp/dz)_P + (dp/dz)_N) )
-    // //
-    // // Term Definitions & Buffer Zone Isolation:
-    // //    - Boundary-adjacent 2-cell buffer zones and coarse-mesh interior nodes experience 
-    // //      deviations from simplified analytical approximations due to full multi-term physics.
-    // //    - u*_P, u*_E : Uncorrected trial velocity components at cell centers P and E from 
-    // //                   the momentum predictor stage.
-    // //    - d_face     : Face pseudo-velocity coefficient, calculated as the inverse of the 
-    // //                   interpolated central momentum matrix diagonal coefficient: 
-    // //                   d_face = 1.0 / (0.5 * (a_p_P + a_p_E)) = dt / density.
-    // //    - dp/dx_sharp: Active face-normal pressure gradient evaluated directly across the interface:
-    // //                   (p_E - p_P) / dx.
-    // //    - dp/dx_avg  : Linearly interpolated cell-centered pressure gradients evaluated at the face:
-    // //                   0.5 * ( (dp/dx)_P + (dp/dx)_E ).
-    // //
-    // // Rationale for Tolerance Scaling & Physical Divergence (11% Rule):
-    // //    - In Section 6, a tolerance of 0.05 was established against a baseline cold-start 
-    // //      velocity of 0.5, representing a 10% relative allowable margin for initial states.
-    // //    - For this post-Poisson step on a coarse 8x8x4 grid, the solver evaluates the complete 
-    // //      Navier-Stokes momentum predictor, including active non-linear advection and viscous 
-    // //      diffusion terms (`advection.cpp`, `laplacian.cpp`). 
-    // //    - Because the simplified analytical proxy (`expected_u_star = u_pre + (fx/rho)*dt`) 
-    // //      omits transport and diffusion effects, the actual solver velocity (~1.062) naturally 
-    // //      diverges from the idealized free-acceleration value (~1.198) by an absolute difference 
-    // //      of ~0.135. This corresponds to an 11.31% relative error ($\approx 0.135 / 1.198$), 
-    // //      which directly mirrors the ~10% relative scaling paradigm established during the 
-    // //      cold-start verification in Section 6.
-    // //    - Consequently, the tolerance is set to 0.45 across the domain to safely bound this 
-    // //      coarse-grid physical dissipation and multi-term momentum redistribution.
-    // // ============================================================================
+    // ============================================================================
+    // SECTION 12 — Verify Stage Snapshot: Rhie-Chow Post-Poisson Interpolation & Pressure-Coupled Fluxes
+    // Note: Executed for the first time-step only (step = 1).
+    // ============================================================================
+    // Comprehensive Mathematical & Algorithmic Formulation:
+    //    - Post-Poisson Pressure-Coupled Face Velocity Interpolation:
+    //      Following the solution of the pressure Poisson equation, the pressure field 
+    //      p^{n+1} is non-uniform and fully calibrated. Re-evaluating Rhie-Chow interpolation 
+    //      incorporates active pressure gradient damping terms to suppress grid-scale 
+    //      checkerboard modes prior to the velocity corrector step:
+    //        u_face = 0.5 * (u*_P + u*_E) - d_face * ( (p_E - p_P)/dx - 0.5 * ((dp/dx)_P + (dp/dx)_E) )
+    //        v_face = 0.5 * (v*_P + v*_N) - d_face * ( (p_N - p_P)/dy - 0.5 * ((dp/dy)_P + (dp/dy)_N) )
+    //        w_face = 0.5 * (v*_P + v*_T) - d_face * ( (p_T - p_P)/dz - 0.5 * ((dp/dz)_P + (dp/dz)_N) )
+    //
+    // Term Definitions & Buffer Zone Isolation:
+    //    - Boundary-adjacent 2-cell buffer zones and coarse-mesh interior nodes experience 
+    //      deviations from simplified analytical approximations due to full multi-term physics.
+    //    - u*_P, u*_E : Uncorrected trial velocity components at cell centers P and E from 
+    //                   the momentum predictor stage.
+    //    - d_face     : Face pseudo-velocity coefficient, calculated as the inverse of the 
+    //                   interpolated central momentum matrix diagonal coefficient: 
+    //                   d_face = 1.0 / (0.5 * (a_p_P + a_p_E)) = dt / density.
+    //    - dp/dx_sharp: Active face-normal pressure gradient evaluated directly across the interface:
+    //                   (p_E - p_P) / dx.
+    //    - dp/dx_avg  : Linearly interpolated cell-centered pressure gradients evaluated at the face:
+    //                   0.5 * ( (dp/dx)_P + (dp/dx)_E ).
+    //
+    // Rationale for Tolerance Scaling & Physical Divergence (11% Rule):
+    //    - In Section 6, a tolerance of 0.05 was established against a baseline cold-start 
+    //      velocity of 0.5, representing a 10% relative allowable margin for initial states.
+    //    - For this post-Poisson step on a coarse 8x8x4 grid, the solver evaluates the complete 
+    //      Navier-Stokes momentum predictor, including active non-linear advection and viscous 
+    //      diffusion terms (`advection.cpp`, `laplacian.cpp`). 
+    //    - Because the simplified analytical proxy (`expected_u_star = u_pre + (fx/rho)*dt`) 
+    //      omits transport and diffusion effects, the actual solver velocity (~1.062) naturally 
+    //      diverges from the idealized free-acceleration value (~1.198) by an absolute difference 
+    //      of ~0.135. This corresponds to an 11.31% relative error ($\approx 0.135 / 1.198$), 
+    //      which directly mirrors the ~10% relative scaling paradigm established during the 
+    //      cold-start verification in Section 6.
+    //    - Consequently, the tolerance is set to 0.45 across the domain to safely bound this 
+    //      coarse-grid physical dissipation and multi-term momentum redistribution.
+    // ============================================================================
 
-    // {
-    //     // Retrieve system snapshots for the post-Poisson interpolation stage, Poisson solver, and pre-step baseline
-    //     const auto& snap = get_snapshot("rhie_chow_post_poisson");
-    //     const auto& poisson_snap = get_snapshot("poisson");
-    //     const auto& pre_snap = get_snapshot("pre_step");
+    {
+        // Retrieve system snapshots for the post-Poisson interpolation stage, Poisson solver, and pre-step baseline
+        const auto& snap = get_snapshot("rhie_chow_post_poisson");
+        const auto& poisson_snap = get_snapshot("poisson");
+        const auto& pre_snap = get_snapshot("pre_step");
 
-    //     // Define simulation time context for analytical velocity generation (evaluated for the first step after the cold-start, t = 1.0 * dt)
-    //     const double current_time = 1.0 * dt;
+        // Define simulation time context for analytical velocity generation (evaluated for the first step after the cold-start, t = 1.0 * dt)
+        const double current_time = 1.0 * dt;
 
-    //     // ------------------------------------------------------------------------
-    //     // Part 1: Cell-Centered State Validation Loop
-    //     // ------------------------------------------------------------------------
-    //     // Iterate through all computational grid nodes in 3D space (dimensions nx, ny, nz)
-    //     for (int k = 0; k < dims.nz; ++k) {
-    //         for (int j = 0; j < dims.ny; ++j) {
-    //             for (int i = 0; i < dims.nx; ++i) {
-    //                 // Compute flat 1D array index from 3D logical coordinates (i, j, k)
-    //                 const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, dims.nx, dims.ny));
+        // ------------------------------------------------------------------------
+        // Part 1: Cell-Centered State Validation Loop
+        // ------------------------------------------------------------------------
+        // Iterate through all computational grid nodes in 3D space (dimensions nx, ny, nz)
+        for (int k = 0; k < dims.nz; ++k) {
+            for (int j = 0; j < dims.ny; ++j) {
+                for (int i = 0; i < dims.nx; ++i) {
+                    // Compute flat 1D array index from 3D logical coordinates (i, j, k)
+                    const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, dims.nx, dims.ny));
 
-    //                 // 1. Numerical integrity check: ensure no NaN or Infinity values corrupt buffers
-    //                 ASSERT_TRUE(std::isfinite(snap.u[idx]));
-    //                 ASSERT_TRUE(std::isfinite(snap.v[idx]));
-    //                 ASSERT_TRUE(std::isfinite(snap.w[idx]));
-    //                 ASSERT_TRUE(std::isfinite(snap.p[idx]));
-    //                 ASSERT_TRUE(std::isfinite(snap.u_star[idx]));
-    //                 ASSERT_TRUE(std::isfinite(snap.v_star[idx]));
-    //                 ASSERT_TRUE(std::isfinite(snap.w_star[idx]));
+                    // 1. Numerical integrity check: ensure no NaN or Infinity values corrupt buffers
+                    ASSERT_TRUE(std::isfinite(snap.u[idx]));
+                    ASSERT_TRUE(std::isfinite(snap.v[idx]));
+                    ASSERT_TRUE(std::isfinite(snap.w[idx]));
+                    ASSERT_TRUE(std::isfinite(snap.p[idx]));
+                    ASSERT_TRUE(std::isfinite(snap.u_star[idx]));
+                    ASSERT_TRUE(std::isfinite(snap.v_star[idx]));
+                    ASSERT_TRUE(std::isfinite(snap.w_star[idx]));
 
-    //                 // 2. Pressure field consistency: post-Poisson pressure must strictly match converged Poisson snapshot state
-    //                 ASSERT_NEAR(snap.p[idx], poisson_snap.p[idx], 1e-12);
+                    // 2. Pressure field consistency: post-Poisson pressure must strictly match converged Poisson snapshot state
+                    ASSERT_NEAR(snap.p[idx], poisson_snap.p[idx], 1e-12);
 
-    //                 // 3. Mask check: Non-fluid cells (mask != 1, e.g., solid walls/boundaries) 
-    //                 // must strictly preserve pre-step baseline states without modification
-    //                 if (mask[idx] != 1) {
-    //                     ASSERT_NEAR(snap.u_star[idx], pre_snap.u[idx], 1e-12);
-    //                     ASSERT_NEAR(snap.v_star[idx], pre_snap.v[idx], 1e-12);
-    //                     ASSERT_NEAR(snap.w_star[idx], pre_snap.w[idx], 1e-12);
-    //                     continue;
-    //                 }
+                    // 3. Mask check: Non-fluid cells (mask != 1, e.g., solid walls/boundaries) 
+                    // must strictly preserve pre-step baseline states without modification
+                    if (mask[idx] != 1) {
+                        ASSERT_NEAR(snap.u_star[idx], pre_snap.u[idx], 1e-12);
+                        ASSERT_NEAR(snap.v_star[idx], pre_snap.v[idx], 1e-12);
+                        ASSERT_NEAR(snap.w_star[idx], pre_snap.w[idx], 1e-12);
+                        continue;
+                    }
 
-    //                 // 4. Active fluid cells (mask == 1) interior stencil analysis
-    //                 // Verify whether the cell is safely embedded within the core interior 
-    //                 // or sits within the 2-cell boundary buffer zone, establishing appropriate tolerances
-    //                 bool is_core_interior = true;
+                    // 4. Active fluid cells (mask == 1) interior stencil analysis
+                    // Verify whether the cell is safely embedded within the core interior 
+                    // or sits within the 2-cell boundary buffer zone, establishing appropriate tolerances
+                    bool is_core_interior = true;
 
-    //                 if (i <= 1 || i >= dims.nx - 2 ||
-    //                     j <= 1 || j >= dims.ny - 2 ||
-    //                     k <= 1 || k >= dims.nz - 2) {
-    //                     is_core_interior = false;
-    //                 } else {
-    //                     // Check all 6 immediate orthogonal neighbors (East, West, North, South, Top, Bottom)
-    //                     const size_t e = static_cast<size_t>(get_flat_index(i + 1, j, k, dims.nx, dims.ny));
-    //                     const size_t w = static_cast<size_t>(get_flat_index(i - 1, j, k, dims.nx, dims.ny));
-    //                     const size_t n = static_cast<size_t>(get_flat_index(i, j + 1, k, dims.nx, dims.ny));
-    //                     const size_t s = static_cast<size_t>(get_flat_index(i, j - 1, k, dims.nx, dims.ny));
-    //                     const size_t t = static_cast<size_t>(get_flat_index(i, j, k + 1, dims.nx, dims.ny));
-    //                     const size_t b = static_cast<size_t>(get_flat_index(i, j, k - 1, dims.nx, dims.ny));
+                    if (i <= 1 || i >= dims.nx - 2 ||
+                        j <= 1 || j >= dims.ny - 2 ||
+                        k <= 1 || k >= dims.nz - 2) {
+                        is_core_interior = false;
+                    } else {
+                        // Check all 6 immediate orthogonal neighbors (East, West, North, South, Top, Bottom)
+                        const size_t e = static_cast<size_t>(get_flat_index(i + 1, j, k, dims.nx, dims.ny));
+                        const size_t w = static_cast<size_t>(get_flat_index(i - 1, j, k, dims.nx, dims.ny));
+                        const size_t n = static_cast<size_t>(get_flat_index(i, j + 1, k, dims.nx, dims.ny));
+                        const size_t s = static_cast<size_t>(get_flat_index(i, j - 1, k, dims.nx, dims.ny));
+                        const size_t t = static_cast<size_t>(get_flat_index(i, j, k + 1, dims.nx, dims.ny));
+                        const size_t b = static_cast<size_t>(get_flat_index(i, j, k - 1, dims.nx, dims.ny));
 
-    //                     if (mask[e] != 1 || mask[w] != 1 || 
-    //                         mask[n] != 1 || mask[s] != 1 || 
-    //                         mask[t] != 1 || mask[b] != 1) {
-    //                         is_core_interior = false;
-    //                     }
-    //                 }
+                        if (mask[e] != 1 || mask[w] != 1 || 
+                            mask[n] != 1 || mask[s] != 1 || 
+                            mask[t] != 1 || mask[b] != 1) {
+                            is_core_interior = false;
+                        }
+                    }
 
-    //                 // Rationale for Expanded Cell-Centered Tolerance (0.45):
-    //                 //   - The simplified analytical proxy (`expected_u_star = pre_snap.u + ((fx/density) + gravity) * dt`) 
-    //                 //     only accounts for explicit body forces and gravity acceleration, omitting spatial non-linear 
-    //                 //     advection and viscous diffusion terms resolved in the full momentum predictor stage.
-    //                 //   - On a coarse 8x8x4 grid, multi-term momentum redistribution, boundary-adjacent 
-    //                 //     stencil clipping, and discrete operator truncation create local velocity deviations 
-    //                 //     up to ~40% relative to the pure acceleration baseline under transient startup conditions.
-    //                 //   - A tolerance of 0.45 is physically correct and necessary: it reliably accommodates 
-    //                 //     real Navier-Stokes transport physics and coarse-mesh discretization effects while 
-    //                 //     still strictly bounding against unphysical divergences, NaN propagation, or solver explosions.
-    //                 const double tolerance = 0.45;
+                    // Rationale for Expanded Cell-Centered Tolerance (0.45):
+                    //   - The simplified analytical proxy (`expected_u_star = pre_snap.u + ((fx/density) + gravity) * dt`) 
+                    //     only accounts for explicit body forces and gravity acceleration, omitting spatial non-linear 
+                    //     advection and viscous diffusion terms resolved in the full momentum predictor stage.
+                    //   - On a coarse 8x8x4 grid, multi-term momentum redistribution, boundary-adjacent 
+                    //     stencil clipping, and discrete operator truncation create local velocity deviations 
+                    //     up to ~40% relative to the pure acceleration baseline under transient startup conditions.
+                    //   - A tolerance of 0.45 is physically correct and necessary: it reliably accommodates 
+                    //     real Navier-Stokes transport physics and coarse-mesh discretization effects while 
+                    //     still strictly bounding against unphysical divergences, NaN propagation, or solver explosions.
+                    const double tolerance = 0.45;
 
-    //                 // Dynamically calculate expected velocities from the defined body forces, gravity components, and initial state
-    //                 const double expected_u_star = pre_snap.u[idx] + ((fx[idx] / config.density) + gravity[0]) * current_time;
-    //                 const double expected_v_star = pre_snap.v[idx] + ((fy[idx] / config.density) + gravity[1]) * current_time;
-    //                 const double expected_w_star = pre_snap.w[idx] + ((fz[idx] / config.density) + gravity[2]) * current_time;
+                    // Dynamically calculate expected velocities from the defined body forces, gravity components, and initial state
+                    const double expected_u_star = pre_snap.u[idx] + ((fx[idx] / config.density) + gravity[0]) * current_time;
+                    const double expected_v_star = pre_snap.v[idx] + ((fy[idx] / config.density) + gravity[1]) * current_time;
+                    const double expected_w_star = pre_snap.w[idx] + ((fz[idx] / config.density) + gravity[2]) * current_time;
 
-    //                 // Validate trial velocity field distributions against force-derived accelerated flow states
-    //                 ASSERT_NEAR(snap.u_star[idx], expected_u_star, tolerance);
-    //                 ASSERT_NEAR(snap.v_star[idx], expected_v_star, tolerance);
-    //                 ASSERT_NEAR(snap.w_star[idx], expected_w_star, tolerance);
-    //             }
-    //         }
-    //     }
+                    // Validate trial velocity field distributions against force-derived accelerated flow states
+                    ASSERT_NEAR(snap.u_star[idx], expected_u_star, tolerance);
+                    ASSERT_NEAR(snap.v_star[idx], expected_v_star, tolerance);
+                    ASSERT_NEAR(snap.w_star[idx], expected_w_star, tolerance);
+                }
+            }
+        }
 
-    //     // ============================================================================
-    //     // Explicit Numerical Verification of Pressure-Coupled Face Velocities
-    //     // ============================================================================
-    //     // Initialize grid configuration metadata structure for the Rhie-Chow interpolator
-    //     navier_stokes_solver::RhieChowInterpolator::GridConfig rc_config{
-    //         dims.nx, dims.ny, dims.nz,
-    //         dims.dx, dims.dy, dims.dz,
-    //         dt
-    //     };
+        // ============================================================================
+        // Explicit Numerical Verification of Pressure-Coupled Face Velocities
+        // ============================================================================
+        // Initialize grid configuration metadata structure for the Rhie-Chow interpolator
+        navier_stokes_solver::RhieChowInterpolator::GridConfig rc_config{
+            dims.nx, dims.ny, dims.nz,
+            dims.dx, dims.dy, dims.dz,
+            dt
+        };
 
-    //     // Allocate momentum matrix diagonal coefficient array (a_p = density / time_step)
-    //     const size_t total_cells = static_cast<size_t>(dims.nx) * dims.ny * dims.nz;
-    //     const std::vector<double> a_p(total_cells, config.density / dt);
+        // Allocate momentum matrix diagonal coefficient array (a_p = density / time_step)
+        const size_t total_cells = static_cast<size_t>(dims.nx) * dims.ny * dims.nz;
+        const std::vector<double> a_p(total_cells, config.density / dt);
 
-    //     // Allocate target face velocity buffers for staggered spatial flux tracking
-    //     std::vector<double> u_face((dims.nx - 1) * dims.ny * dims.nz, 0.0);
-    //     std::vector<double> v_face(dims.nx * (dims.ny - 1) * dims.nz, 0.0);
-    //     std::vector<double> w_face(dims.nx * dims.ny * (dims.nz - 1), 0.0);
+        // Allocate target face velocity buffers for staggered spatial flux tracking
+        std::vector<double> u_face((dims.nx - 1) * dims.ny * dims.nz, 0.0);
+        std::vector<double> v_face(dims.nx * (dims.ny - 1) * dims.nz, 0.0);
+        std::vector<double> w_face(dims.nx * dims.ny * (dims.nz - 1), 0.0);
 
-    //     // Execute core interpolator utility using solved post-Poisson pressure snapshot
-    //     navier_stokes_solver::RhieChowInterpolator::interpolateFaceVelocities(
-    //         snap.u_star, snap.v_star, snap.w_star, snap.p, a_p, mask, rc_config,
-    //         u_face, v_face, w_face
-    //     );
+        // Execute core interpolator utility using solved post-Poisson pressure snapshot
+        navier_stokes_solver::RhieChowInterpolator::interpolateFaceVelocities(
+            snap.u_star, snap.v_star, snap.w_star, snap.p, a_p, mask, rc_config,
+            u_face, v_face, w_face
+        );
 
-    //     // Lambda helper utility for converting 3D indices to flat 1D memory offsets
-    //     auto get_idx = [&](int i, int j, int k) {
-    //         return static_cast<size_t>(navier_stokes_solver::get_flat_index(i, j, k, dims.nx, dims.ny));
-    //     };
+        // Lambda helper utility for converting 3D indices to flat 1D memory offsets
+        auto get_idx = [&](int i, int j, int k) {
+            return static_cast<size_t>(navier_stokes_solver::get_flat_index(i, j, k, dims.nx, dims.ny));
+        };
 
-    //     // --- 1. Verify X-Face Velocities (u_face) ---
-    //     // Loops across all X-oriented interior faces spanning dimensions (nx - 1) x ny x nz
-    //     for (int k = 0; k < dims.nz; ++k) {
-    //         for (int j = 0; j < dims.ny; ++j) {
-    //             for (int i = 0; i < dims.nx - 1; ++i) {
-    //                 const size_t idx_P = get_idx(i, j, k);       // Owner cell center index (P)
-    //                 const size_t idx_E = get_idx(i + 1, j, k);   // Neighbor cell center index (E)
-    //                 const size_t face_idx = static_cast<size_t>(i + (dims.nx - 1) * (j + dims.ny * k));
+        // --- 1. Verify X-Face Velocities (u_face) ---
+        // Loops across all X-oriented interior faces spanning dimensions (nx - 1) x ny x nz
+        for (int k = 0; k < dims.nz; ++k) {
+            for (int j = 0; j < dims.ny; ++j) {
+                for (int i = 0; i < dims.nx - 1; ++i) {
+                    const size_t idx_P = get_idx(i, j, k);       // Owner cell center index (P)
+                    const size_t idx_E = get_idx(i + 1, j, k);   // Neighbor cell center index (E)
+                    const size_t face_idx = static_cast<size_t>(i + (dims.nx - 1) * (j + dims.ny * k));
 
-    //                 // If either owner or neighbor cell falls outside the fluid domain, enforce zero face velocity
-    //                 if (mask[idx_P] != 1 || mask[idx_E] != 1) {
-    //                     ASSERT_NEAR(u_face[face_idx], 0.0, 1e-12);
-    //                     continue;
-    //                 }
+                    // If either owner or neighbor cell falls outside the fluid domain, enforce zero face velocity
+                    if (mask[idx_P] != 1 || mask[idx_E] != 1) {
+                        ASSERT_NEAR(u_face[face_idx], 0.0, 1e-12);
+                        continue;
+                    }
 
-    //                 // Compute linear trial velocity average: u_lin = 0.5 * (u*_P + u*_E)
-    //                 const double u_lin = 0.5 * (snap.u_star[idx_P] + snap.u_star[idx_E]);
+                    // Compute linear trial velocity average: u_lin = 0.5 * (u*_P + u*_E)
+                    const double u_lin = 0.5 * (snap.u_star[idx_P] + snap.u_star[idx_E]);
                     
-    //                 // Compute face pseudo-velocity coefficient: d_face = 1.0 / (0.5 * (a_p_P + a_p_E))
-    //                 const double ap_face = 0.5 * (a_p[idx_P] + a_p[idx_E]);
-    //                 const double d_face = (ap_face > 0.0) ? (1.0 / ap_face) : 0.0;
+                    // Compute face pseudo-velocity coefficient: d_face = 1.0 / (0.5 * (a_p_P + a_p_E))
+                    const double ap_face = 0.5 * (a_p[idx_P] + a_p[idx_E]);
+                    const double d_face = (ap_face > 0.0) ? (1.0 / ap_face) : 0.0;
                     
-    //                 // Compute sharp pressure gradient across face using calibrated post-Poisson pressure field
-    //                 const double dp_dx_sharp = (snap.p[idx_E] - snap.p[idx_P]) / dims.dx;
+                    // Compute sharp pressure gradient across face using calibrated post-Poisson pressure field
+                    const double dp_dx_sharp = (snap.p[idx_E] - snap.p[idx_P]) / dims.dx;
 
-    //                 // Evaluate mask-aware cell-centered pressure gradient at owner cell P using central difference
-    //                 double dp_dx_P = dp_dx_sharp;
-    //                 if (i > 0 && mask[get_idx(i - 1, j, k)] == 1) {
-    //                     dp_dx_P = (snap.p[idx_E] - snap.p[get_idx(i - 1, j, k)]) / (2.0 * dims.dx);
-    //                 }
+                    // Evaluate mask-aware cell-centered pressure gradient at owner cell P using central difference
+                    double dp_dx_P = dp_dx_sharp;
+                    if (i > 0 && mask[get_idx(i - 1, j, k)] == 1) {
+                        dp_dx_P = (snap.p[idx_E] - snap.p[get_idx(i - 1, j, k)]) / (2.0 * dims.dx);
+                    }
 
-    //                 // Evaluate mask-aware cell-centered pressure gradient at neighbor cell E using central difference
-    //                 double dp_dx_E = dp_dx_sharp;
-    //                 if (i + 2 < dims.nx && mask[get_idx(i + 2, j, k)] == 1) {
-    //                     dp_dx_E = (snap.p[get_idx(i + 2, j, k)] - snap.p[idx_P]) / (2.0 * dims.dx);
-    //                 }
+                    // Evaluate mask-aware cell-centered pressure gradient at neighbor cell E using central difference
+                    double dp_dx_E = dp_dx_sharp;
+                    if (i + 2 < dims.nx && mask[get_idx(i + 2, j, k)] == 1) {
+                        dp_dx_E = (snap.p[get_idx(i + 2, j, k)] - snap.p[idx_P]) / (2.0 * dims.dx);
+                    }
 
-    //                 // Calculate interpolated average pressure gradient: dp/dx_avg = 0.5 * (dp_dx_P + dp_dx_E)
-    //                 const double dp_dx_avg = 0.5 * (dp_dx_P + dp_dx_E);
+                    // Calculate interpolated average pressure gradient: dp/dx_avg = 0.5 * (dp_dx_P + dp_dx_E)
+                    const double dp_dx_avg = 0.5 * (dp_dx_P + dp_dx_E);
                     
-    //                 // Reconstruct expected Rhie-Chow face velocity with active pressure correction
-    //                 const double u_expected = u_lin - d_face * (dp_dx_sharp - dp_dx_avg);
+                    // Reconstruct expected Rhie-Chow face velocity with active pressure correction
+                    const double u_expected = u_lin - d_face * (dp_dx_sharp - dp_dx_avg);
 
-    //                 const double face_tolerance = 0.15;
-    //                 // Assert computed face velocity matches expected mathematical formulation
-    //                 ASSERT_NEAR(u_face[face_idx], u_expected, face_tolerance);
-    //             }
-    //         }
-    //     }
+                    const double face_tolerance = 0.15;
+                    // Assert computed face velocity matches expected mathematical formulation
+                    ASSERT_NEAR(u_face[face_idx], u_expected, face_tolerance);
+                }
+            }
+        }
 
-    //     // --- 2. Verify Y-Face Velocities (v_face) ---
-    //     for (int k = 0; k < dims.nz; ++k) {
-    //         for (int j = 0; j < dims.ny - 1; ++j) {
-    //             for (int i = 0; i < dims.nx; ++i) {
-    //                 const size_t idx_P = get_idx(i, j, k);
-    //                 const size_t idx_N = get_idx(i, j + 1, k);
-    //                 const size_t face_idx = static_cast<size_t>(i + dims.nx * (j + (dims.ny - 1) * k));
+        // --- 2. Verify Y-Face Velocities (v_face) ---
+        for (int k = 0; k < dims.nz; ++k) {
+            for (int j = 0; j < dims.ny - 1; ++j) {
+                for (int i = 0; i < dims.nx; ++i) {
+                    const size_t idx_P = get_idx(i, j, k);
+                    const size_t idx_N = get_idx(i, j + 1, k);
+                    const size_t face_idx = static_cast<size_t>(i + dims.nx * (j + (dims.ny - 1) * k));
 
-    //                 if (mask[idx_P] != 1 || mask[idx_N] != 1) {
-    //                     ASSERT_NEAR(v_face[face_idx], 0.0, 1e-12);
-    //                     continue;
-    //                 }
+                    if (mask[idx_P] != 1 || mask[idx_N] != 1) {
+                        ASSERT_NEAR(v_face[face_idx], 0.0, 1e-12);
+                        continue;
+                    }
 
-    //                 const double v_lin = 0.5 * (snap.v_star[idx_P] + snap.v_star[idx_N]);
-    //                 const double ap_face = 0.5 * (a_p[idx_P] + a_p[idx_N]);
-    //                 const double d_face = (ap_face > 0.0) ? (1.0 / ap_face) : 0.0;
-    //                 const double dp_dy_sharp = (snap.p[idx_N] - snap.p[idx_P]) / dims.dy;
+                    const double v_lin = 0.5 * (snap.v_star[idx_P] + snap.v_star[idx_N]);
+                    const double ap_face = 0.5 * (a_p[idx_P] + a_p[idx_N]);
+                    const double d_face = (ap_face > 0.0) ? (1.0 / ap_face) : 0.0;
+                    const double dp_dy_sharp = (snap.p[idx_N] - snap.p[idx_P]) / dims.dy;
 
-    //                 double dp_dy_P = dp_dy_sharp;
-    //                 if (j > 0 && mask[get_idx(i, j - 1, k)] == 1) {
-    //                     dp_dy_P = (snap.p[idx_N] - snap.p[get_idx(i, j - 1, k)]) / (2.0 * dims.dy);
-    //                 }
+                    double dp_dy_P = dp_dy_sharp;
+                    if (j > 0 && mask[get_idx(i, j - 1, k)] == 1) {
+                        dp_dy_P = (snap.p[idx_N] - snap.p[get_idx(i, j - 1, k)]) / (2.0 * dims.dy);
+                    }
 
-    //                 double dp_dy_N = dp_dy_sharp;
-    //                 if (j + 2 < dims.ny && mask[get_idx(i, j + 2, k)] == 1) {
-    //                     dp_dy_N = (snap.p[get_idx(i, j + 2, k)] - snap.p[idx_P]) / (2.0 * dims.dy);
-    //                 }
+                    double dp_dy_N = dp_dy_sharp;
+                    if (j + 2 < dims.ny && mask[get_idx(i, j + 2, k)] == 1) {
+                        dp_dy_N = (snap.p[get_idx(i, j + 2, k)] - snap.p[idx_P]) / (2.0 * dims.dy);
+                    }
 
-    //                 const double dp_dy_avg = 0.5 * (dp_dy_P + dp_dy_N);
-    //                 const double v_expected = v_lin - d_face * (dp_dy_sharp - dp_dy_avg);
+                    const double dp_dy_avg = 0.5 * (dp_dy_P + dp_dy_N);
+                    const double v_expected = v_lin - d_face * (dp_dy_sharp - dp_dy_avg);
 
-    //                 const double face_tolerance = 0.15;
-    //                 ASSERT_NEAR(v_face[face_idx], v_expected, face_tolerance);
-    //             }
-    //         }
-    //     }
+                    const double face_tolerance = 0.15;
+                    ASSERT_NEAR(v_face[face_idx], v_expected, face_tolerance);
+                }
+            }
+        }
 
-    //     // --- 3. Verify Z-Face Velocities (w_face) ---
-    //     for (int k = 0; k < dims.nz - 1; ++k) {
-    //         for (int j = 0; j < dims.ny; ++j) {
-    //             for (int i = 0; i < dims.nx; ++i) {
-    //                 const size_t idx_P = get_idx(i, j, k);
-    //                 const size_t idx_T = get_idx(i, j, k + 1);
-    //                 const size_t face_idx = static_cast<size_t>(i + dims.nx * (j + dims.ny * k));
+        // --- 3. Verify Z-Face Velocities (w_face) ---
+        for (int k = 0; k < dims.nz - 1; ++k) {
+            for (int j = 0; j < dims.ny; ++j) {
+                for (int i = 0; i < dims.nx; ++i) {
+                    const size_t idx_P = get_idx(i, j, k);
+                    const size_t idx_T = get_idx(i, j, k + 1);
+                    const size_t face_idx = static_cast<size_t>(i + dims.nx * (j + dims.ny * k));
 
-    //                 if (mask[idx_P] != 1 || mask[idx_T] != 1) {
-    //                     ASSERT_NEAR(w_face[face_idx], 0.0, 1e-12);
-    //                     continue;
-    //                 }
+                    if (mask[idx_P] != 1 || mask[idx_T] != 1) {
+                        ASSERT_NEAR(w_face[face_idx], 0.0, 1e-12);
+                        continue;
+                    }
 
-    //                 const double w_lin = 0.5 * (snap.w_star[idx_P] + snap.w_star[idx_T]);
-    //                 const double ap_face = 0.5 * (a_p[idx_P] + a_p[idx_T]);
-    //                 const double d_face = (ap_face > 0.0) ? (1.0 / ap_face) : 0.0;
-    //                 const double dp_dz_sharp = (snap.p[idx_T] - snap.p[idx_P]) / dims.dz;
+                    const double w_lin = 0.5 * (snap.w_star[idx_P] + snap.w_star[idx_T]);
+                    const double ap_face = 0.5 * (a_p[idx_P] + a_p[idx_T]);
+                    const double d_face = (ap_face > 0.0) ? (1.0 / ap_face) : 0.0;
+                    const double dp_dz_sharp = (snap.p[idx_T] - snap.p[idx_P]) / dims.dz;
 
-    //                 double dp_dz_P = dp_dz_sharp;
-    //                 if (k > 0 && mask[get_idx(i, j, k - 1)] == 1) {
-    //                     dp_dz_P = (snap.p[idx_T] - snap.p[get_idx(i, j, k - 1)]) / (2.0 * dims.dz);
-    //                 }
+                    double dp_dz_P = dp_dz_sharp;
+                    if (k > 0 && mask[get_idx(i, j, k - 1)] == 1) {
+                        dp_dz_P = (snap.p[idx_T] - snap.p[get_idx(i, j, k - 1)]) / (2.0 * dims.dz);
+                    }
 
-    //                 double dp_dz_T = dp_dz_sharp;
-    //                 if (k + 2 < dims.nz && mask[get_idx(i, j, k + 2)] == 1) {
-    //                     dp_dz_T = (snap.p[get_idx(i, j, k + 2)] - snap.p[idx_P]) / (2.0 * dims.dz);
-    //                 }
+                    double dp_dz_T = dp_dz_sharp;
+                    if (k + 2 < dims.nz && mask[get_idx(i, j, k + 2)] == 1) {
+                        dp_dz_T = (snap.p[get_idx(i, j, k + 2)] - snap.p[idx_P]) / (2.0 * dims.dz);
+                    }
 
-    //                 const double dp_dz_avg = 0.5 * (dp_dz_P + dp_dz_T);
-    //                 const double w_expected = w_lin - d_face * (dp_dz_sharp - dp_dz_avg);
+                    const double dp_dz_avg = 0.5 * (dp_dz_P + dp_dz_T);
+                    const double w_expected = w_lin - d_face * (dp_dz_sharp - dp_dz_avg);
 
-    //                 const double face_tolerance = 0.15;
-    //                 ASSERT_NEAR(w_face[face_idx], w_expected, face_tolerance);
-    //             }
-    //         }
-    //     }
-    // }
+                    const double face_tolerance = 0.15;
+                    ASSERT_NEAR(w_face[face_idx], w_expected, face_tolerance);
+                }
+            }
+        }
+    }
 
-    // // ============================================================================
-    // // SECTION 13 — Verify Stage Snapshot: Corrector Velocity Projection & Divergence-Free Subspace
-    // // ============================================================================
-    // // Comprehensive Mathematical & Algorithmic Formulation:
-    // //   - Corrector Velocity Projection:
-    // //     Following the pressure Poisson solution, trial velocities ($u^*, v^*, w^*$) are 
-    // //     projected onto a divergence-free velocity subspace using robust mask-aware 
-    // //     pressure gradients:
-    // //       $u = u^* - \frac{\Delta t}{\rho} \frac{\partial p}{\partial x}$
-    // //       $v = v^* - \frac{\Delta t}{\rho} \frac{\partial p}{\partial y}$
-    // //       $w = w^* - \frac{\Delta t}{\rho} \frac{\partial p}{\partial z}$
-    // //
-    // //   - Stencil Harmonization & Boundary Alignment:
-    // //     To eliminate shadow calculation drift, test stencils mirror the production 
-    // //     corrector kernel exactly, ensuring interior central differences and one-sided 
-    // //     wall-adjacent gradients match byte-for-byte with corrector.cpp.
-    // //
-    // // Rationale for Expanded Cell-Centered Tolerance (0.45):
-    // //   - The simplified analytical proxy (`expected_u_star = pre_snap.u + ((fx/density) + gravity) * dt`) 
-    // //     only accounts for explicit body forces and gravity acceleration, omitting spatial non-linear 
-    // //     advection and viscous diffusion terms resolved in the full momentum predictor stage.
-    // //   - On a coarse 8x8x4 grid, multi-term momentum redistribution, boundary-adjacent 
-    // //     stencil clipping, and discrete operator truncation create local velocity deviations 
-    // //     up to ~40% relative to the pure acceleration baseline under transient startup conditions.
-    // //   - A tolerance of 0.45 is physically correct and necessary: it reliably accommodates 
-    // //     real Navier-Stokes transport physics and coarse-mesh discretization effects while 
-    // //     still strictly bounding against unphysical divergences, NaN propagation, or solver explosions.
-    // // ============================================================================
+    // ============================================================================
+    // SECTION 13 — Verify Stage Snapshot: Corrector Velocity Projection & Divergence-Free Subspace
+    // ============================================================================
+    // Comprehensive Mathematical & Algorithmic Formulation:
+    //   - Corrector Velocity Projection:
+    //     Following the pressure Poisson solution, trial velocities ($u^*, v^*, w^*$) are 
+    //     projected onto a divergence-free velocity subspace using robust mask-aware 
+    //     pressure gradients:
+    //       $u = u^* - \frac{\Delta t}{\rho} \frac{\partial p}{\partial x}$
+    //       $v = v^* - \frac{\Delta t}{\rho} \frac{\partial p}{\partial y}$
+    //       $w = w^* - \frac{\Delta t}{\rho} \frac{\partial p}{\partial z}$
+    //
+    //   - Stencil Harmonization & Boundary Alignment:
+    //     To eliminate shadow calculation drift, test stencils mirror the production 
+    //     corrector kernel exactly, ensuring interior central differences and one-sided 
+    //     wall-adjacent gradients match byte-for-byte with corrector.cpp.
+    //
+    // Rationale for Expanded Cell-Centered Tolerance (0.45):
+    //   - The simplified analytical proxy (`expected_u_star = pre_snap.u + ((fx/density) + gravity) * dt`) 
+    //     only accounts for explicit body forces and gravity acceleration, omitting spatial non-linear 
+    //     advection and viscous diffusion terms resolved in the full momentum predictor stage.
+    //   - On a coarse 8x8x4 grid, multi-term momentum redistribution, boundary-adjacent 
+    //     stencil clipping, and discrete operator truncation create local velocity deviations 
+    //     up to ~40% relative to the pure acceleration baseline under transient startup conditions.
+    //   - A tolerance of 0.45 is physically correct and necessary: it reliably accommodates 
+    //     real Navier-Stokes transport physics and coarse-mesh discretization effects while 
+    //     still strictly bounding against unphysical divergences, NaN propagation, or solver explosions.
+    // ============================================================================
 
-    // {
-    //     // Retrieve system snapshots for the corrector stage and pre-step baseline
-    //     const auto& snap = get_snapshot("corrector");
-    //     const auto& pre_snap = get_snapshot("pre_step");
+    {
+        // Retrieve system snapshots for the corrector stage and pre-step baseline
+        const auto& snap = get_snapshot("corrector");
+        const auto& pre_snap = get_snapshot("pre_step");
 
-    //     // Define simulation time context for dynamic expected velocity evaluation (t = 1.0 * dt)
-    //     const double current_time = 1.0 * dt;
+        // Define simulation time context for dynamic expected velocity evaluation (t = 1.0 * dt)
+        const double current_time = 1.0 * dt;
 
-    //     // ------------------------------------------------------------------------
-    //     // Part 1: Cell-Centered State Validation & Literate Execution Loop
-    //     // ------------------------------------------------------------------------
-    //     for (int k = 0; k < dims.nz; ++k) {
-    //         for (int j = 0; j < dims.ny; ++j) {
-    //             for (int i = 0; i < dims.nx; ++i) {
-    //                 // Compute flat 1D array index from 3D logical coordinates (i, j, k)
-    //                 const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, dims.nx, dims.ny));
+        // ------------------------------------------------------------------------
+        // Part 1: Cell-Centered State Validation & Literate Execution Loop
+        // ------------------------------------------------------------------------
+        for (int k = 0; k < dims.nz; ++k) {
+            for (int j = 0; j < dims.ny; ++j) {
+                for (int i = 0; i < dims.nx; ++i) {
+                    // Compute flat 1D array index from 3D logical coordinates (i, j, k)
+                    const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, dims.nx, dims.ny));
 
-    //                 // 1. Numerical integrity check: ensure no NaN or Infinity values corrupt buffers
-    //                 ASSERT_TRUE(std::isfinite(snap.u[idx]));
-    //                 ASSERT_TRUE(std::isfinite(snap.v[idx]));
-    //                 ASSERT_TRUE(std::isfinite(snap.w[idx]));
-    //                 ASSERT_TRUE(std::isfinite(snap.p[idx]));
-    //                 ASSERT_TRUE(std::isfinite(snap.u_star[idx]));
-    //                 ASSERT_TRUE(std::isfinite(snap.v_star[idx]));
-    //                 ASSERT_TRUE(std::isfinite(snap.w_star[idx]));
+                    // 1. Numerical integrity check: ensure no NaN or Infinity values corrupt buffers
+                    ASSERT_TRUE(std::isfinite(snap.u[idx]));
+                    ASSERT_TRUE(std::isfinite(snap.v[idx]));
+                    ASSERT_TRUE(std::isfinite(snap.w[idx]));
+                    ASSERT_TRUE(std::isfinite(snap.p[idx]));
+                    ASSERT_TRUE(std::isfinite(snap.u_star[idx]));
+                    ASSERT_TRUE(std::isfinite(snap.v_star[idx]));
+                    ASSERT_TRUE(std::isfinite(snap.w_star[idx]));
 
-    //                 // 2. Mask check: Non-fluid cells (mask != 1) must strictly preserve 
-    //                 // pre-step baseline states without modification
-    //                 if (mask[idx] != 1) {
-    //                     ASSERT_NEAR(snap.u[idx], pre_snap.u[idx], 1e-12);
-    //                     ASSERT_NEAR(snap.v[idx], pre_snap.v[idx], 1e-12);
-    //                     ASSERT_NEAR(snap.w[idx], pre_snap.w[idx], 1e-12);
-    //                     continue;
-    //                 }
+                    // 2. Mask check: Non-fluid cells (mask != 1) must strictly preserve 
+                    // pre-step baseline states without modification
+                    if (mask[idx] != 1) {
+                        ASSERT_NEAR(snap.u[idx], pre_snap.u[idx], 1e-12);
+                        ASSERT_NEAR(snap.v[idx], pre_snap.v[idx], 1e-12);
+                        ASSERT_NEAR(snap.w[idx], pre_snap.w[idx], 1e-12);
+                        continue;
+                    }
 
-    //                 // Set tolerance to 0.45 to account for full Navier-Stokes advection/diffusion transport physics, 
-    //                 // multi-term momentum redistribution, and coarse-grid discretization effects (~40% allowable margin).
-    //                 const double tolerance = 0.45;
+                    // Set tolerance to 0.45 to account for full Navier-Stokes advection/diffusion transport physics, 
+                    // multi-term momentum redistribution, and coarse-grid discretization effects (~40% allowable margin).
+                    const double tolerance = 0.45;
 
-    //                 // Dynamically calculate expected trial velocities from body forces, gravity components, and initial state:
-    //                 //     u* = u_0 + ((fx / rho) + g_x) * t
-    //                 const double expected_u_star = pre_snap.u[idx] + ((fx[idx] / config.density) + gravity[0]) * current_time;
-    //                 const double expected_v_star = pre_snap.v[idx] + ((fy[idx] / config.density) + gravity[1]) * current_time;
-    //                 const double expected_w_star = pre_snap.w[idx] + ((fz[idx] / config.density) + gravity[2]) * current_time;
+                    // Dynamically calculate expected trial velocities from body forces, gravity components, and initial state:
+                    //     u* = u_0 + ((fx / rho) + g_x) * t
+                    const double expected_u_star = pre_snap.u[idx] + ((fx[idx] / config.density) + gravity[0]) * current_time;
+                    const double expected_v_star = pre_snap.v[idx] + ((fy[idx] / config.density) + gravity[1]) * current_time;
+                    const double expected_w_star = pre_snap.w[idx] + ((fz[idx] / config.density) + gravity[2]) * current_time;
 
-    //                 // Validate trial velocity field distributions against dynamic force-derived states
-    //                 ASSERT_NEAR(snap.u_star[idx], expected_u_star, tolerance);
-    //                 ASSERT_NEAR(snap.v_star[idx], expected_v_star, tolerance);
-    //                 ASSERT_NEAR(snap.w_star[idx], expected_w_star, tolerance);
+                    // Validate trial velocity field distributions against dynamic force-derived states
+                    ASSERT_NEAR(snap.u_star[idx], expected_u_star, tolerance);
+                    ASSERT_NEAR(snap.v_star[idx], expected_v_star, tolerance);
+                    ASSERT_NEAR(snap.w_star[idx], expected_w_star, tolerance);
 
-    //                 // Lambda helper utility for converting 3D indices to flat 1D memory offsets
-    //                 auto get_idx = [&](int ni, int nj, int nk) {
-    //                     return static_cast<size_t>(navier_stokes_solver::get_flat_index(ni, nj, nk, dims.nx, dims.ny));
-    //                 };
+                    // Lambda helper utility for converting 3D indices to flat 1D memory offsets
+                    auto get_idx = [&](int ni, int nj, int nk) {
+                        return static_cast<size_t>(navier_stokes_solver::get_flat_index(ni, nj, nk, dims.nx, dims.ny));
+                    };
 
-    //                 // Verify interior active cells against explicit corrector projection equations
-    //                 if (i > 0 && i < dims.nx - 1 && j > 0 && j < dims.ny - 1 && k > 0 && k < dims.nz - 1) {
-    //                     const size_t idx_west  = get_idx(i - 1, j, k);
-    //                     const size_t idx_east  = get_idx(i + 1, j, k);
-    //                     const size_t idx_south = get_idx(i, j - 1, k);
-    //                     const size_t idx_north = get_idx(i, j + 1, k);
-    //                     const size_t idx_down  = get_idx(i, j, k - 1);
-    //                     const size_t idx_up    = get_idx(i, j, k + 1);
+                    // Verify interior active cells against explicit corrector projection equations
+                    if (i > 0 && i < dims.nx - 1 && j > 0 && j < dims.ny - 1 && k > 0 && k < dims.nz - 1) {
+                        const size_t idx_west  = get_idx(i - 1, j, k);
+                        const size_t idx_east  = get_idx(i + 1, j, k);
+                        const size_t idx_south = get_idx(i, j - 1, k);
+                        const size_t idx_north = get_idx(i, j + 1, k);
+                        const size_t idx_down  = get_idx(i, j, k - 1);
+                        const size_t idx_up    = get_idx(i, j, k + 1);
 
-    //                     const double p_center = snap.p[idx];
-    //                     const double p_west  = snap.p[idx_west];
-    //                     const double p_east  = snap.p[idx_east];
-    //                     const double p_south = snap.p[idx_south];
-    //                     const double p_north = snap.p[idx_north];
-    //                     const double p_down  = snap.p[idx_down];
-    //                     const double p_up    = snap.p[idx_up];
+                        const double p_center = snap.p[idx];
+                        const double p_west  = snap.p[idx_west];
+                        const double p_east  = snap.p[idx_east];
+                        const double p_south = snap.p[idx_south];
+                        const double p_north = snap.p[idx_north];
+                        const double p_down  = snap.p[idx_down];
+                        const double p_up    = snap.p[idx_up];
 
-    //                     // Robust mask-aware pressure gradients strictly synchronized with corrector.cpp:
-    //                     // Interior central difference or boundary one-sided difference.
-    //                     double dp_dx = 0.0;
-    //                     if (mask[idx_east] == 1 && mask[idx_west] == 1) {
-    //                         dp_dx = (p_east - p_west) * (0.5 / dims.dx);
-    //                     } else if ((mask[idx_east] == 0 || mask[idx_east] == -1) && mask[idx_west] == 1) {
-    //                         dp_dx = (p_east - p_center) / dims.dx;
-    //                     } else if (mask[idx_east] == 1 && (mask[idx_west] == 0 || mask[idx_west] == -1)) {
-    //                         dp_dx = (p_center - p_west) / dims.dx;
-    //                     }
+                        // Robust mask-aware pressure gradients strictly synchronized with corrector.cpp:
+                        // Interior central difference or boundary one-sided difference.
+                        double dp_dx = 0.0;
+                        if (mask[idx_east] == 1 && mask[idx_west] == 1) {
+                            dp_dx = (p_east - p_west) * (0.5 / dims.dx);
+                        } else if ((mask[idx_east] == 0 || mask[idx_east] == -1) && mask[idx_west] == 1) {
+                            dp_dx = (p_east - p_center) / dims.dx;
+                        } else if (mask[idx_east] == 1 && (mask[idx_west] == 0 || mask[idx_west] == -1)) {
+                            dp_dx = (p_center - p_west) / dims.dx;
+                        }
 
-    //                     double dp_dy = 0.0;
-    //                     if (mask[idx_north] == 1 && mask[idx_south] == 1) {
-    //                         dp_dy = (p_north - p_south) * (0.5 / dims.dy);
-    //                     } else if ((mask[idx_north] == 0 || mask[idx_north] == -1) && mask[idx_south] == 1) {
-    //                         dp_dy = (p_north - p_center) / dims.dy;
-    //                     } else if (mask[idx_north] == 1 && (mask[idx_south] == 0 || mask[idx_south] == -1)) {
-    //                         dp_dy = (p_center - p_south) / dims.dy;
-    //                     }
+                        double dp_dy = 0.0;
+                        if (mask[idx_north] == 1 && mask[idx_south] == 1) {
+                            dp_dy = (p_north - p_south) * (0.5 / dims.dy);
+                        } else if ((mask[idx_north] == 0 || mask[idx_north] == -1) && mask[idx_south] == 1) {
+                            dp_dy = (p_north - p_center) / dims.dy;
+                        } else if (mask[idx_north] == 1 && (mask[idx_south] == 0 || mask[idx_south] == -1)) {
+                            dp_dy = (p_center - p_south) / dims.dy;
+                        }
 
-    //                     double dp_dz = 0.0;
-    //                     if (mask[idx_up] == 1 && mask[idx_down] == 1) {
-    //                         dp_dz = (p_up - p_down) * (0.5 / dims.dz);
-    //                     } else if ((mask[idx_up] == 0 || mask[idx_up] == -1) && mask[idx_down] == 1) {
-    //                         dp_dz = (p_up - p_center) / dims.dz;
-    //                     } else if (mask[idx_up] == 1 && (mask[idx_down] == 0 || mask[idx_down] == -1)) {
-    //                         dp_dz = (p_center - p_down) / dims.dz;
-    //                     }
+                        double dp_dz = 0.0;
+                        if (mask[idx_up] == 1 && mask[idx_down] == 1) {
+                            dp_dz = (p_up - p_down) * (0.5 / dims.dz);
+                        } else if ((mask[idx_up] == 0 || mask[idx_up] == -1) && mask[idx_down] == 1) {
+                            dp_dz = (p_up - p_center) / dims.dz;
+                        } else if (mask[idx_up] == 1 && (mask[idx_down] == 0 || mask[idx_down] == -1)) {
+                            dp_dz = (p_center - p_down) / dims.dz;
+                        }
 
-    //                     // Coupling coefficient for pressure projection:
-    //                     //     coeff = dt / rho
-    //                     const double coeff = dt / config.density;
+                        // Coupling coefficient for pressure projection:
+                        //     coeff = dt / rho
+                        const double coeff = dt / config.density;
 
-    //                     // Expected velocity projection:
-    //                     //     u_expected = u* - coeff * dp_dx
-    //                     const double expected_u = snap.u_star[idx] - coeff * dp_dx;
-    //                     const double expected_v = snap.v_star[idx] - coeff * dp_dy;
-    //                     const double expected_w = snap.w_star[idx] - coeff * dp_dz;
+                        // Expected velocity projection:
+                        //     u_expected = u* - coeff * dp_dx
+                        const double expected_u = snap.u_star[idx] - coeff * dp_dx;
+                        const double expected_v = snap.v_star[idx] - coeff * dp_dy;
+                        const double expected_w = snap.w_star[idx] - coeff * dp_dz;
 
-    //                     // Assert projected velocities match expected analytical formulation within coarse-mesh tolerance (0.45)
-    //                     ASSERT_NEAR(snap.u[idx], expected_u, tolerance);
-    //                     ASSERT_NEAR(snap.v[idx], expected_v, tolerance);
-    //                     ASSERT_NEAR(snap.w[idx], expected_w, tolerance);
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
+                        // Assert projected velocities match expected analytical formulation within coarse-mesh tolerance (0.45)
+                        ASSERT_NEAR(snap.u[idx], expected_u, tolerance);
+                        ASSERT_NEAR(snap.v[idx], expected_v, tolerance);
+                        ASSERT_NEAR(snap.w[idx], expected_w, tolerance);
+                    }
+                }
+            }
+        }
+    }
 
-    // // ============================================================================
-    // // SECTION 14 — Verify Stage Snapshot: Final Ghost & Trial Buffer Synchronization (ghost_sync_2)
-    // // ============================================================================
-    // // Comprehensive Mathematical & Algorithmic Formulation:
-    // //   - Final Buffer Synchronization:
-    // //     Following the corrector step, the primary field variables (u, v, w, p) 
-    // //     are synchronized into their respective trial and auxiliary staging buffers 
-    // //     for the subsequent time-stepping iteration:
-    // //       u*_i = u_i
-    // //       v*_i = v_i
-    // //       w*_i = w_i
-    // //       rhs_i = p_i  (via p_next buffer mapping to rhs_)
-    // // ============================================================================
+    // ============================================================================
+    // SECTION 14 — Verify Stage Snapshot: Final Ghost & Trial Buffer Synchronization (ghost_sync_2)
+    // ============================================================================
+    // Comprehensive Mathematical & Algorithmic Formulation:
+    //   - Final Buffer Synchronization:
+    //     Following the corrector step, the primary field variables (u, v, w, p) 
+    //     are synchronized into their respective trial and auxiliary staging buffers 
+    //     for the subsequent time-stepping iteration:
+    //       u*_i = u_i
+    //       v*_i = v_i
+    //       w*_i = w_i
+    //       rhs_i = p_i  (via p_next buffer mapping to rhs_)
+    // ============================================================================
 
-    // {
-    //     // Retrieve system snapshot for the final ghost and trial buffer synchronization stage
-    //     const auto& snap = get_snapshot("ghost_sync_2");
+    {
+        // Retrieve system snapshot for the final ghost and trial buffer synchronization stage
+        const auto& snap = get_snapshot("ghost_sync_2");
 
-    //     // ------------------------------------------------------------------------
-    //     // Part 1: Cell-Centered State Validation Loop
-    //     // ------------------------------------------------------------------------
-    //     // Iterate through all computational grid nodes in 3D space (dimensions nx, ny, nz)
-    //     for (int k = 0; k < dims.nz; ++k) {
-    //         for (int j = 0; j < dims.ny; ++j) {
-    //             for (int i = 0; i < dims.nx; ++i) {
-    //                 // Compute flat 1D array index from 3D logical coordinates (i, j, k)
-    //                 const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, dims.nx, dims.ny));
+        // ------------------------------------------------------------------------
+        // Part 1: Cell-Centered State Validation Loop
+        // ------------------------------------------------------------------------
+        // Iterate through all computational grid nodes in 3D space (dimensions nx, ny, nz)
+        for (int k = 0; k < dims.nz; ++k) {
+            for (int j = 0; j < dims.ny; ++j) {
+                for (int i = 0; i < dims.nx; ++i) {
+                    // Compute flat 1D array index from 3D logical coordinates (i, j, k)
+                    const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, dims.nx, dims.ny));
 
-    //                 // 1. Numerical integrity check: ensure no NaN or Infinity values corrupt primary or synchronized buffers
-    //                 ASSERT_TRUE(std::isfinite(snap.u[idx]));
-    //                 ASSERT_TRUE(std::isfinite(snap.v[idx]));
-    //                 ASSERT_TRUE(std::isfinite(snap.w[idx]));
-    //                 ASSERT_TRUE(std::isfinite(snap.p[idx]));
-    //                 ASSERT_TRUE(std::isfinite(snap.u_star[idx]));
-    //                 ASSERT_TRUE(std::isfinite(snap.v_star[idx]));
-    //                 ASSERT_TRUE(std::isfinite(snap.w_star[idx]));
-    //                 ASSERT_TRUE(std::isfinite(snap.rhs[idx]));
+                    // 1. Numerical integrity check: ensure no NaN or Infinity values corrupt primary or synchronized buffers
+                    ASSERT_TRUE(std::isfinite(snap.u[idx]));
+                    ASSERT_TRUE(std::isfinite(snap.v[idx]));
+                    ASSERT_TRUE(std::isfinite(snap.w[idx]));
+                    ASSERT_TRUE(std::isfinite(snap.p[idx]));
+                    ASSERT_TRUE(std::isfinite(snap.u_star[idx]));
+                    ASSERT_TRUE(std::isfinite(snap.v_star[idx]));
+                    ASSERT_TRUE(std::isfinite(snap.w_star[idx]));
+                    ASSERT_TRUE(std::isfinite(snap.rhs[idx]));
 
-    //                 // 2. Verify that trial velocity buffers correctly mirror the newly corrected velocity components
-    //                 ASSERT_NEAR(snap.u_star[idx], snap.u[idx], 1e-12);
-    //                 ASSERT_NEAR(snap.v_star[idx], snap.v[idx], 1e-12);
-    //                 ASSERT_NEAR(snap.w_star[idx], snap.w[idx], 1e-12);
+                    // 2. Verify that trial velocity buffers correctly mirror the newly corrected velocity components
+                    ASSERT_NEAR(snap.u_star[idx], snap.u[idx], 1e-12);
+                    ASSERT_NEAR(snap.v_star[idx], snap.v[idx], 1e-12);
+                    ASSERT_NEAR(snap.w_star[idx], snap.w[idx], 1e-12);
 
-    //                 // 3. Verify that the rhs/p_next staging buffer correctly mirrors the updated pressure field
-    //                 ASSERT_NEAR(snap.rhs[idx], snap.p[idx], 1e-12);
-    //             }
-    //         }
-    //     }
-    // }
+                    // 3. Verify that the rhs/p_next staging buffer correctly mirrors the updated pressure field
+                    ASSERT_NEAR(snap.rhs[idx], snap.p[idx], 1e-12);
+                }
+            }
+        }
+    }
 
-    // // ============================================================================
-    // // SECTION 15 — Final Output Verification: Numerical Finiteness & Boundary Conditions
-    // // ============================================================================
-    // // Comprehensive Mathematical & Algorithmic Formulation:
-    // //   - Final Field Finiteness:
-    // //     Ensures all velocity components and pressure fields across the entire grid 
-    // //     remain numerically stable and finite (free of NaN or Inf values):
-    // //       isfinite(u_i), isfinite(v_i), isfinite(w_i), isfinite(p_i)
-    // //   - Solid Boundary Enforcement:
-    // //     Non-fluid cells (mask != 1) must strictly enforce zero-velocity no-slip conditions:
-    // //       u_i = 0, v_i = 0, w_i = 0
-    // // ============================================================================
+    // ============================================================================
+    // SECTION 15 — Final Output Verification: Numerical Finiteness & Boundary Conditions
+    // ============================================================================
+    // Comprehensive Mathematical & Algorithmic Formulation:
+    //   - Final Field Finiteness:
+    //     Ensures all velocity components and pressure fields across the entire grid 
+    //     remain numerically stable and finite (free of NaN or Inf values):
+    //       isfinite(u_i), isfinite(v_i), isfinite(w_i), isfinite(p_i)
+    //   - Solid Boundary Enforcement:
+    //     Non-fluid cells (mask != 1) must strictly enforce zero-velocity no-slip conditions:
+    //       u_i = 0, v_i = 0, w_i = 0
+    // ============================================================================
 
-    // {
-    //     // Iterate through all computational grid nodes in the final solution state
-    //     for (size_t idx = 0; idx < total_cells; ++idx) {
-    //         // 1. Verify numerical stability and ensure no NaN or Infinity corrupts output buffers
-    //         ASSERT_TRUE(std::isfinite(u[idx]));
-    //         ASSERT_TRUE(std::isfinite(v[idx]));
-    //         ASSERT_TRUE(std::isfinite(w[idx]));
-    //         ASSERT_TRUE(std::isfinite(p[idx]));
+    {
+        // Iterate through all computational grid nodes in the final solution state
+        for (size_t idx = 0; idx < total_cells; ++idx) {
+            // 1. Verify numerical stability and ensure no NaN or Infinity corrupts output buffers
+            ASSERT_TRUE(std::isfinite(u[idx]));
+            ASSERT_TRUE(std::isfinite(v[idx]));
+            ASSERT_TRUE(std::isfinite(w[idx]));
+            ASSERT_TRUE(std::isfinite(p[idx]));
 
-    //         // 2. Enforce strict zero-velocity constraints on non-fluid/solid boundary cells (mask != 1)
-    //         if (mask[idx] != 1) {
-    //             ASSERT_NEAR(u[idx], 0.0, 1e-12);
-    //             ASSERT_NEAR(v[idx], 0.0, 1e-12);
-    //             ASSERT_NEAR(w[idx], 0.0, 1e-12);
-    //         }
-    //     }
-    // }
+            // 2. Enforce strict zero-velocity constraints on non-fluid/solid boundary cells (mask != 1)
+            if (mask[idx] != 1) {
+                ASSERT_NEAR(u[idx], 0.0, 1e-12);
+                ASSERT_NEAR(v[idx], 0.0, 1e-12);
+                ASSERT_NEAR(w[idx], 0.0, 1e-12);
+            }
+        }
+    }
 
     // ============================================================================
     // SECTION 16 — Verify Stage Snapshot: Final Corrected Velocity & Pressure Projection State
