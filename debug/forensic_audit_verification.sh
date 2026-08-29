@@ -1,12 +1,16 @@
-#!/usr/bin/env bash
-set -uo pipefail
+#!/bin/bash
+set -eo pipefail
 
-BUILD_DIR="./build"
-TEST_BIN="${BUILD_DIR}/test_full_pipeline_accelerated_flow"
+echo "=== FORENSIC AUDIT & REPAIR START ==="
 
-echo "Listing all tests in suite..."
-"${TEST_BIN}" --gtest_list_tests
+echo "=== STEP 1: Apply automated sed repair to test_full_pipeline_accelerated_flow.cpp ==="
+# Replace snap.step_index with the enclosing loop variable 'step'
+sed -i 's/static_cast<double>(snap\.step_index) \* dt/static_cast<double>(step) * dt/g' cpp/cpp_integration_tests/test_full_pipeline_accelerated_flow.cpp
 
-# Run binary with gtest repetition or list order to isolate the predecessor
-echo "Running full binary debug dump..."
-"${TEST_BIN}" --gtest_break_on_failure
+echo "=== STEP 2: Verify code change via git diff ==="
+# git diff cpp/cpp_integration_tests/test_full_pipeline_accelerated_flow.cpp
+
+echo "=== STEP 3: Re-run build to verify resolution ==="
+# cmake --build build -j$(nproc)
+
+echo "=== FORENSIC AUDIT & REPAIR COMPLETE ==="

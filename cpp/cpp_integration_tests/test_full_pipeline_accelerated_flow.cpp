@@ -1033,7 +1033,7 @@ TEST(FullPipelineAcceleratedFlowTest, StepByStepAccelerated) {
         const auto& pre_snap = get_snapshot("pre_step");
 
         // Define simulation time context for analytical velocity generation
-        const double current_time = static_cast<double>(snap.step_index) * dt;
+        const double current_time = static_cast<double>(step) * dt;
 
         // ------------------------------------------------------------------------
         // Part 1: Cell-Centered State Validation Loop
