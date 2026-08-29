@@ -351,94 +351,94 @@ TEST(FullPipelineAcceleratedWithGravityTest, StepByStepGravity) {
         }
     }
     
-    // // ============================================================================
-    // // SECTION 8 — Verify Stage 2 Snapshot: Predictor (Literate Verification)
-    // // ============================================================================
-    // // Mathematical Formulation (Forward-Euler Predictor Step):
-    // //   u* = u^n + dt * (- (u^n . grad) u^n + nu * laplacian(u^n) + fx/rho + gx)
-    // //   v* = v^n + dt * (- (u^n . grad) v^n + nu * laplacian(v^n) + fy/rho + gy)
-    // //   w* = w^n + dt * (- (u^n . grad) w^n + nu * laplacian(w^n) + fz/rho + gz)
-    // //
-    // // Initial Pre-Step Fluid Domain State (mask == 1):
-    // //   u^n = 0.5, v^n = 0.2, w^n = 0.1, fx = 0.1, fy = 0.1, fz = 0.2, rho = 1.0, 
-    // //   gx = 0.0, gy = -9.81, gz = 0.0
-    // //
-    // // Core Interior Stencil Behavior (Mask == 1 across 6-point stencil):
-    // //   - Advection: spatial gradients of uniform flow are zero -> 0.0
-    // //   - Viscous Diffusion: nu * laplacian = 0.0
-    // //   - Body Force & Gravity Acceleration: 
-    // //     u* = 0.5 + 0.1 * (0.1 / 1.0 + 0.0) = 0.51
-    // //     v* = 0.2 + 0.1 * (0.1 / 1.0 - 9.81) = 0.2 + 0.1 * (-9.71) = -0.771
-    // //     w* = 0.1 + 0.1 * (0.2 / 1.0 + 0.0) = 0.12
-    // //
-    // // Multi-Tiered Tolerance Stratification & Physics Rationale:
-    // //   1. Core Interior Cells (Strict Tolerance: 1e-12):
-    // //      - Deep within the fluid domain where all 6 immediate orthogonal neighbors are active fluid cells (mask == 1).
-    // //      - Spatial gradients of uniform flow vanish analytically, making advection and viscous diffusion terms identically zero.
-    // //      - Governed purely by pristine body force and gravity acceleration: v* = 0.2 + 0.1 * (0.1 - 9.81) = -0.771.
-    // //   2. Boundary-Adjacent Buffer Zone Cells (Relaxed Tolerance: 0.05):
-    // //      - Located within the 2-cell buffer zone near walls, inflow boundaries, or outflow transitions.
-    // //      - Finite-difference stencils overlap with boundary conditions and ghost nodes, introducing non-zero truncation 
-    // //        errors and minor spatial gradient/diffusion flux shifts.
-    // //      - Accommodates legitimate numerical and physical boundary deviations without triggering false test failures.
-    // // ============================================================================
+    // ============================================================================
+    // SECTION 8 — Verify Stage 2 Snapshot: Predictor (Literate Verification)
+    // ============================================================================
+    // Mathematical Formulation (Forward-Euler Predictor Step):
+    //   u* = u^n + dt * (- (u^n . grad) u^n + nu * laplacian(u^n) + fx/rho + gx)
+    //   v* = v^n + dt * (- (u^n . grad) v^n + nu * laplacian(v^n) + fy/rho + gy)
+    //   w* = w^n + dt * (- (u^n . grad) w^n + nu * laplacian(w^n) + fz/rho + gz)
+    //
+    // Initial Pre-Step Fluid Domain State (mask == 1):
+    //   u^n = 0.5, v^n = 0.2, w^n = 0.1, fx = 0.1, fy = 0.1, fz = 0.2, rho = 1.0, 
+    //   gx = 0.0, gy = -9.81, gz = 0.0
+    //
+    // Core Interior Stencil Behavior (Mask == 1 across 6-point stencil):
+    //   - Advection: spatial gradients of uniform flow are zero -> 0.0
+    //   - Viscous Diffusion: nu * laplacian = 0.0
+    //   - Body Force & Gravity Acceleration: 
+    //     u* = 0.5 + 0.1 * (0.1 / 1.0 + 0.0) = 0.51
+    //     v* = 0.2 + 0.1 * (0.1 / 1.0 - 9.81) = 0.2 + 0.1 * (-9.71) = -0.771
+    //     w* = 0.1 + 0.1 * (0.2 / 1.0 + 0.0) = 0.12
+    //
+    // Multi-Tiered Tolerance Stratification & Physics Rationale:
+    //   1. Core Interior Cells (Strict Tolerance: 1e-12):
+    //      - Deep within the fluid domain where all 6 immediate orthogonal neighbors are active fluid cells (mask == 1).
+    //      - Spatial gradients of uniform flow vanish analytically, making advection and viscous diffusion terms identically zero.
+    //      - Governed purely by pristine body force and gravity acceleration: v* = 0.2 + 0.1 * (0.1 - 9.81) = -0.771.
+    //   2. Boundary-Adjacent Buffer Zone Cells (Relaxed Tolerance: 0.05):
+    //      - Located within the 2-cell buffer zone near walls, inflow boundaries, or outflow transitions.
+    //      - Finite-difference stencils overlap with boundary conditions and ghost nodes, introducing non-zero truncation 
+    //        errors and minor spatial gradient/diffusion flux shifts.
+    //      - Accommodates legitimate numerical and physical boundary deviations without triggering false test failures.
+    // ============================================================================
 
-    // {
-    //     const auto& snap = get_snapshot("predictor");
-    //     const auto& pre_snap = get_snapshot("pre_step");
+    {
+        const auto& snap = get_snapshot("predictor");
+        const auto& pre_snap = get_snapshot("pre_step");
 
-    //     for (int k = 0; k < dims.nz; ++k) {
-    //         for (int j = 0; j < dims.ny; ++j) {
-    //             for (int i = 0; i < dims.nx; ++i) {
-    //                 const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, dims.nx, dims.ny));
+        for (int k = 0; k < dims.nz; ++k) {
+            for (int j = 0; j < dims.ny; ++j) {
+                for (int i = 0; i < dims.nx; ++i) {
+                    const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, dims.nx, dims.ny));
 
-    //                 // 1. Finite check on trial velocity field components
-    //                 ASSERT_TRUE(std::isfinite(snap.u_star[idx]));
-    //                 ASSERT_TRUE(std::isfinite(snap.v_star[idx]));
-    //                 ASSERT_TRUE(std::isfinite(snap.w_star[idx]));
+                    // 1. Finite check on trial velocity field components
+                    ASSERT_TRUE(std::isfinite(snap.u_star[idx]));
+                    ASSERT_TRUE(std::isfinite(snap.v_star[idx]));
+                    ASSERT_TRUE(std::isfinite(snap.w_star[idx]));
 
-    //                 // 2. Non-fluid cells (mask != 1) preserve pre-step baseline
-    //                 if (mask[idx] != 1) {
-    //                     ASSERT_NEAR(snap.u_star[idx], pre_snap.u[idx], 1e-12);
-    //                     ASSERT_NEAR(snap.v_star[idx], pre_snap.v[idx], 1e-12);
-    //                     ASSERT_NEAR(snap.w_star[idx], pre_snap.w[idx], 1e-12);
-    //                     continue;
-    //                 }
+                    // 2. Non-fluid cells (mask != 1) preserve pre-step baseline
+                    if (mask[idx] != 1) {
+                        ASSERT_NEAR(snap.u_star[idx], pre_snap.u[idx], 1e-12);
+                        ASSERT_NEAR(snap.v_star[idx], pre_snap.v[idx], 1e-12);
+                        ASSERT_NEAR(snap.w_star[idx], pre_snap.w[idx], 1e-12);
+                        continue;
+                    }
 
-    //                 // 3. Active fluid cells (mask == 1)
-    //                 // Dynamically evaluate 6-point stencil footprint and 2-cell buffer zone adjacency
-    //                 bool is_core_interior = true;
+                    // 3. Active fluid cells (mask == 1)
+                    // Dynamically evaluate 6-point stencil footprint and 2-cell buffer zone adjacency
+                    bool is_core_interior = true;
 
-    //                 if (i <= 1 || i >= dims.nx - 2 ||
-    //                     j <= 1 || j >= dims.ny - 2 ||
-    //                     k <= 1 || k >= dims.nz - 2) {
-    //                     is_core_interior = false;
-    //                 } else {
-    //                     const size_t e = static_cast<size_t>(get_flat_index(i + 1, j, k, dims.nx, dims.ny));
-    //                     const size_t w = static_cast<size_t>(get_flat_index(i - 1, j, k, dims.nx, dims.ny));
-    //                     const size_t n = static_cast<size_t>(get_flat_index(i, j + 1, k, dims.nx, dims.ny));
-    //                     const size_t s = static_cast<size_t>(get_flat_index(i, j - 1, k, dims.nx, dims.ny));
-    //                     const size_t t = static_cast<size_t>(get_flat_index(i, j, k + 1, dims.nx, dims.ny));
-    //                     const size_t b = static_cast<size_t>(get_flat_index(i, j, k - 1, dims.nx, dims.ny));
+                    if (i <= 1 || i >= dims.nx - 2 ||
+                        j <= 1 || j >= dims.ny - 2 ||
+                        k <= 1 || k >= dims.nz - 2) {
+                        is_core_interior = false;
+                    } else {
+                        const size_t e = static_cast<size_t>(get_flat_index(i + 1, j, k, dims.nx, dims.ny));
+                        const size_t w = static_cast<size_t>(get_flat_index(i - 1, j, k, dims.nx, dims.ny));
+                        const size_t n = static_cast<size_t>(get_flat_index(i, j + 1, k, dims.nx, dims.ny));
+                        const size_t s = static_cast<size_t>(get_flat_index(i, j - 1, k, dims.nx, dims.ny));
+                        const size_t t = static_cast<size_t>(get_flat_index(i, j, k + 1, dims.nx, dims.ny));
+                        const size_t b = static_cast<size_t>(get_flat_index(i, j, k - 1, dims.nx, dims.ny));
 
-    //                     if (mask[e] != 1 || mask[w] != 1 || 
-    //                         mask[n] != 1 || mask[s] != 1 || 
-    //                         mask[t] != 1 || mask[b] != 1) {
-    //                         is_core_interior = false;
-    //                     }
-    //                 }
+                        if (mask[e] != 1 || mask[w] != 1 || 
+                            mask[n] != 1 || mask[s] != 1 || 
+                            mask[t] != 1 || mask[b] != 1) {
+                            is_core_interior = false;
+                        }
+                    }
 
-    //                 // Layered tolerance: strict machine precision for core interior, relaxed window for buffer zone
-    //                 const double tolerance = is_core_interior ? 1e-12 : 0.05;
+                    // Layered tolerance: strict machine precision for core interior, relaxed window for buffer zone
+                    const double tolerance = is_core_interior ? 1e-12 : 0.05;
 
-    //                 // Trial velocities accelerated by active body forces and gravity: u* = 0.51, v* = -0.771, w* = 0.12
-    //                 ASSERT_NEAR(snap.u_star[idx], 0.51, tolerance);
-    //                 ASSERT_NEAR(snap.v_star[idx], -0.771, tolerance);
-    //                 ASSERT_NEAR(snap.w_star[idx], 0.12, tolerance);
-    //             }
-    //         }
-    //     }
-    // }
+                    // Trial velocities accelerated by active body forces and gravity: u* = 0.51, v* = -0.771, w* = 0.12
+                    ASSERT_NEAR(snap.u_star[idx], 0.51, tolerance);
+                    ASSERT_NEAR(snap.v_star[idx], -0.771, tolerance);
+                    ASSERT_NEAR(snap.w_star[idx], 0.12, tolerance);
+                }
+            }
+        }
+    }
 
     // // ============================================================================
     // // SECTION 9 — Verify Stage 3 Snapshot: Rhie-Chow Interpolation & Face Velocities
