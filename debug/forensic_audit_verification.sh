@@ -1,26 +1,31 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-TARGET_TEST="cpp/cpp_integration_tests/test_full_pipeline_accelerated_flow.cpp"
-ORCHESTRATOR_SRC="cpp/src/orchestrator.cpp"
+echo "=== 1. Diagnostic: Locating assertion in integration test ==="
+TEST_FILE="cpp/cpp_integration_tests/test_full_pipeline_accelerated_flow.cpp"
+if [ -f "$TEST_FILE" ]; then
+    echo "Found $TEST_FILE. Inspecting lines 260-295:"
+    cat -n "$TEST_FILE" | sed -n '260,295p'
+else
+    echo "Searching for test_full_pipeline_accelerated_flow.cpp across workspace:"
+    find . -name "test_full_pipeline_accelerated_flow.cpp" -exec cat -n {} + | sed -n '260,295p' || true
+fi
 
-echo "=== 1. Diagnostic grep/cat for pre_step initialization and mask handling ==="
-grep -n -C 5 "execute_pre_step" "$ORCHESTRATOR_SRC" || true
-grep -n -C 5 "mask" "$TARGET_TEST" || true
+echo "=== 2. Grep Audit: Tracing snap.u and prestep references ==="
+git grep -n "snap.u" || true
+git grep -n "FullPipelineAcceleratedFlowTest" || true
+git grep -n "simulation_prestep" || true
 
-echo "=== 2. Smoking-gun source audit with cat -n for vector allocation and fluid assertions ==="
-echo "Inspecting initial vector allocations (lines 75 to 90):"
-cat -n "$TARGET_TEST" | sed -n '75,90p'
+echo "=== 3. Smoking-Gun Source Audit: Pipeline, Prestep, and Solver Logic ==="
+CANDIDATE_FILES=$(git ls-files | grep -E "cpp/src|cpp/include" || true)
+for file in $CANDIDATE_FILES; do
+    if grep -qE "u|prestep|velocity" "$file" 2>/dev/null; then
+        echo "Inspecting file: $file"
+        cat -n "$file" | head -n 80
+    fi
+done
 
-echo "Inspecting fluid domain assertions (lines 265 to 285):"
-cat -n "$TARGET_TEST" | sed -n '265,285p'
-
-echo "=== 3. Automated repair templates (commented out sed injections) ==="
-# Option A: Fix the expected value in the assertion if interior fluid cells default to 0.0
-# sed -i '277s/0.5/0.0/' "$TARGET_TEST"
-
-# Option B: Modify the mask condition to verify only boundary-adjacent inflow nodes against 0.5
-# sed -i '265s/mask\[idx\] == 1/mask[idx] == 1 \&\& is_inflow_node(i, j, k)/' "$TARGET_TEST"
-
-# Option C: Ensure orchestrator pre-step retains initial field values instead of resetting interior fluid cells
-# sed -i '/execute_pre_step/s/.*/\/\/ &/' "$TARGET_TEST"
+echo "=== 4. Automated Repair Candidates (Commented Sed) ==="
+# sed -i 's/snap\.u\[idx\] = 0;/snap.u[idx] = 0.5;/g' cpp/src/simulation_prestep.cpp
+# sed -i 's/initializeVelocityField(0\.0)/initializeVelocityField(0.5)/g' cpp/src/orchestrator.cpp
+# sed -i 's/expected_val = 0\.0;/expected_val = 0.5;/g' cpp/cpp_integration_tests/test_full_pipeline_accelerated_flow.cpp
