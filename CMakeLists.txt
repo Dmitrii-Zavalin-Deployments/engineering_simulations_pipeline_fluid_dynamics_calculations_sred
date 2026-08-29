@@ -72,6 +72,20 @@ add_test(NAME UnitTests COMMAND unit_tests)
 # ---------------------------------------------------------------------------
 # Copy input data required by integration tests into the build tree
 
+# Acceleration with Gravity Integration Test
+add_executable(test_full_pipeline_accelerated_with_gravity
+    cpp/cpp_integration_tests/test_full_pipeline_accelerated_with_gravity.cpp
+)
+target_link_libraries(test_full_pipeline_accelerated_with_gravity
+    PRIVATE
+        GTest::gtest_main
+        navier_stokes_core
+        nlohmann_json::nlohmann_json
+        OpenMP::OpenMP_CXX
+        Threads::Threads
+)
+add_test(NAME FullPipelineAcceleratedWithGravityTest COMMAND test_full_pipeline_accelerated_with_gravity)
+
 # Accelerated Flow Integration Test
 add_executable(test_full_pipeline_accelerated_flow
     cpp/cpp_integration_tests/test_full_pipeline_accelerated_flow.cpp

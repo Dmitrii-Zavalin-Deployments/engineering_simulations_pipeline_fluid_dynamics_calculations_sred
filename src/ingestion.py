@@ -27,7 +27,7 @@ def load_and_validate_inputs(
     
     Args:
         input_path: Path to navier_stokes_input.json (mandatory, no defaults)
-        config_path: Path to config.json (mandatory, no defaults)[cite: 2]
+        config_path: Path to config.json (mandatory, no defaults)
         
     Returns:
         Tuple containing (input_data_dict, config_data_dict)
