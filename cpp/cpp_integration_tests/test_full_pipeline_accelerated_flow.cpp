@@ -189,24 +189,6 @@ TEST(FullPipelineAcceleratedFlowTest, StepByStepAccelerated) {
 
     std::vector<double> gravity = {0.0, 0.0, 0.0};
 
-    NavierStokesOrchestrator orchestrator(dims, config);
-    orchestrator.set_mask(mask);
-    orchestrator.set_body_forces(fx, fy, fz);
-    orchestrator.set_boundary_conditions(bc_list);
-
-    bool converged = orchestrator.solve(u, v, w, p);
-
-    EXPECT_TRUE(converged);
-
-    // Verify that positive body forces and multi-axis inflow successfully drive the flow field
-    for (size_t i = 0; i < total_cells; ++i) {
-        if (mask[i] == 1) { // Fluid cells only
-            EXPECT_GE(u[i], 0.0);
-            EXPECT_GE(v[i], 0.0);
-            EXPECT_GE(w[i], 0.0);
-        }
-    }
-
     // ============================================================================
     // SECTION 5 — Execute Pipeline via Orchestrator
     // ============================================================================
