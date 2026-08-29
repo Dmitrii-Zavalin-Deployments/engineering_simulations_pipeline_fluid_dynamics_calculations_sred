@@ -44,6 +44,8 @@
 #include "divergence.hpp"
 #include "forces.hpp"
 
+using namespace navier_stokes_solver;
+
 TEST(LidDrivenCavityTest, CavityFlowRe400) {
     // We define a 3D rectangular domain Omega = [0, L] x [0, H] x [0, W]
     // discretized using a staggered finite-volume grid of dimensions 32 x 32 x 3 cells.
