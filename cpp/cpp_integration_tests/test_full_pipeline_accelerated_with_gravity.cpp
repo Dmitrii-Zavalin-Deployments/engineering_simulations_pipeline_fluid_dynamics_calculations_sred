@@ -877,124 +877,124 @@ TEST(FullPipelineAcceleratedWithGravityTest, StepByStepGravity) {
         }
     }
 
-    // // ============================================================================
-    // // SECTION 11 — Verify Stage Snapshot: Pressure Poisson Field Convergence (Literate Verification)
-    // // ============================================================================
-    // // Mathematical Formulation:
-    // //   The 3D Pressure Poisson Equation (PPE) enforces mass conservation by solving
-    // //   for the pressure scalar field p that satisfies the discrete 7-point Poisson system:
-    // //
-    // //     \nabla^2 p = \text{rhs}
-    // //
-    // //   For each active fluid cell (mask[i,j,k] == 1), the Red-Black Gauss-Seidel update formula is:
-    // //
-    // //     p_{i,j,k} = \text{factor} \cdot \left( \frac{p_{\text{east}} + p_{\text{west}}}{\Delta x^2}
-    // //                                          + \frac{p_{\text{north}} + p_{\text{south}}}{\Delta y^2}
-    // //                                          + \frac{p_{\text{top}} + p_{\text{bottom}}}{\Delta z^2}
-    // //                                          - \text{rhs}_{i,j,k} \right)
-    // //
-    // //   where the central diagonal weighting factor is defined as:
-    // //
-    // //     \text{factor} = \frac{0.5}{\frac{1}{\Delta x^2} + \frac{1}{\Delta y^2} + \frac{1}{\Delta z^2}}
-    // //
-    // // Boundary Conditions, Neumann Balancing & Buffer Zone Isolation:
-    // //   - Solid / Non-Fluid Interfaces: Enforces homogeneous Neumann \frac{\partial p}{\partial n} = 0
-    // //     by reflecting the interior cell pressure: p_{\text{neighbor}} = p_{i,j,k}.
-    // //   - Boundary-adjacent 2-cell buffer zones (i <= 1, i >= nx-2, etc.) experience truncation 
-    // //     error and boundary-layer numerical drift. Relaxing tolerance to 0.02 in these zones 
-    // //     correctly isolates core interior asymptotic convergence (1e-5).
-    // //   - Hydrostatic & Wall Boundaries: Applies boundary face pressure gradient balance:
-    // //     \frac{\partial p}{\partial x} = \rho \cdot g_x, \quad 
-    // //     \frac{\partial p}{\partial y} = \rho \cdot g_y, \quad 
-    // //     \frac{\partial p}{\partial z} = \rho \cdot g_z
-    // // ============================================================================
-    // {
-    //     // 1. Retrieve the target debug snapshot for the poisson stage
-    //     const auto& snapshots = orchestrator.get_debug_snapshots();
-    //     auto snap_it = std::find_if(snapshots.begin(), snapshots.end(),
-    //         [](const auto& s) { return s.stage_name == "poisson"; });
+    // ============================================================================
+    // SECTION 11 — Verify Stage Snapshot: Pressure Poisson Field Convergence (Literate Verification)
+    // ============================================================================
+    // Mathematical Formulation:
+    //   The 3D Pressure Poisson Equation (PPE) enforces mass conservation by solving
+    //   for the pressure scalar field p that satisfies the discrete 7-point Poisson system:
+    //
+    //     \nabla^2 p = \text{rhs}
+    //
+    //   For each active fluid cell (mask[i,j,k] == 1), the Red-Black Gauss-Seidel update formula is:
+    //
+    //     p_{i,j,k} = \text{factor} \cdot \left( \frac{p_{\text{east}} + p_{\text{west}}}{\Delta x^2}
+    //                                          + \frac{p_{\text{north}} + p_{\text{south}}}{\Delta y^2}
+    //                                          + \frac{p_{\text{top}} + p_{\text{bottom}}}{\Delta z^2}
+    //                                          - \text{rhs}_{i,j,k} \right)
+    //
+    //   where the central diagonal weighting factor is defined as:
+    //
+    //     \text{factor} = \frac{0.5}{\frac{1}{\Delta x^2} + \frac{1}{\Delta y^2} + \frac{1}{\Delta z^2}}
+    //
+    // Boundary Conditions, Neumann Balancing & Buffer Zone Isolation:
+    //   - Solid / Non-Fluid Interfaces: Enforces homogeneous Neumann \frac{\partial p}{\partial n} = 0
+    //     by reflecting the interior cell pressure: p_{\text{neighbor}} = p_{i,j,k}.
+    //   - Boundary-adjacent 2-cell buffer zones (i <= 1, i >= nx-2, etc.) experience truncation 
+    //     error and boundary-layer numerical drift. Relaxing tolerance to 0.02 in these zones 
+    //     correctly isolates core interior asymptotic convergence (1e-5).
+    //   - Hydrostatic & Wall Boundaries: Applies boundary face pressure gradient balance:
+    //     \frac{\partial p}{\partial x} = \rho \cdot g_x, \quad 
+    //     \frac{\partial p}{\partial y} = \rho \cdot g_y, \quad 
+    //     \frac{\partial p}{\partial z} = \rho \cdot g_z
+    // ============================================================================
+    {
+        // 1. Retrieve the target debug snapshot for the poisson stage
+        const auto& snapshots = orchestrator.get_debug_snapshots();
+        auto snap_it = std::find_if(snapshots.begin(), snapshots.end(),
+            [](const auto& s) { return s.stage_name == "poisson"; });
         
-    //     ASSERT_NE(snap_it, snapshots.end()) << "ERROR: 'poisson' snapshot was not captured.";
-    //     const auto& snap = *snap_it;
+        ASSERT_NE(snap_it, snapshots.end()) << "ERROR: 'poisson' snapshot was not captured.";
+        const auto& snap = *snap_it;
 
-    //     // 2. Pre-calculate spatial weight coefficients for discrete stencil evaluation
-    //     const double idx2 = 1.0 / (dims.dx * dims.dx);
-    //     const double idy2 = 1.0 / (dims.dy * dims.dy);
-    //     const double idz2 = 1.0 / (dims.dz * dims.dz);
-    //     const double factor = 0.5 / (idx2 + idy2 + idz2);
+        // 2. Pre-calculate spatial weight coefficients for discrete stencil evaluation
+        const double idx2 = 1.0 / (dims.dx * dims.dx);
+        const double idy2 = 1.0 / (dims.dy * dims.dy);
+        const double idz2 = 1.0 / (dims.dz * dims.dz);
+        const double factor = 0.5 / (idx2 + idy2 + idz2);
 
-    //     // 3. Literate verification loop over all interior and boundary grid cells
-    //     for (int k = 0; k < dims.nz; ++k) {
-    //         for (int j = 0; j < dims.ny; ++j) {
-    //             for (int i = 0; i < dims.nx; ++i) {
-    //                 const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, dims.nx, dims.ny));
+        // 3. Literate verification loop over all interior and boundary grid cells
+        for (int k = 0; k < dims.nz; ++k) {
+            for (int j = 0; j < dims.ny; ++j) {
+                for (int i = 0; i < dims.nx; ++i) {
+                    const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, dims.nx, dims.ny));
 
-    //                 // Audit 1: Solvency Audit — ensure pressure values remain strictly finite (no NaN or Inf explosion)
-    //                 ASSERT_TRUE(std::isfinite(snap.p[idx])) 
-    //                     << "Non-finite pressure detected in 'poisson' stage at index [" << i << ", " << j << ", " << k << "]";
+                    // Audit 1: Solvency Audit — ensure pressure values remain strictly finite (no NaN or Inf explosion)
+                    ASSERT_TRUE(std::isfinite(snap.p[idx])) 
+                        << "Non-finite pressure detected in 'poisson' stage at index [" << i << ", " << j << ", " << k << "]";
 
-    //                 // Audit 2: Evaluate stencil residual consistency for active fluid cells
-    //                 if (mask[idx] == 1 && i > 0 && i < dims.nx - 1 && j > 0 && j < dims.ny - 1 && k > 0 && k < dims.nz - 1) {
-    //                     const size_t idx_w = static_cast<size_t>(get_flat_index(i - 1, j, k, dims.nx, dims.ny));
-    //                     const size_t idx_e = static_cast<size_t>(get_flat_index(i + 1, j, k, dims.nx, dims.ny));
-    //                     const size_t idx_s = static_cast<size_t>(get_flat_index(i, j - 1, k, dims.nx, dims.ny));
-    //                     const size_t idx_n = static_cast<size_t>(get_flat_index(i, j + 1, k, dims.nx, dims.ny));
-    //                     const size_t idx_d = static_cast<size_t>(get_flat_index(i, j, k - 1, dims.nx, dims.ny));
-    //                     const size_t idx_u = static_cast<size_t>(get_flat_index(i, j, k + 1, dims.nx, dims.ny));
+                    // Audit 2: Evaluate stencil residual consistency for active fluid cells
+                    if (mask[idx] == 1 && i > 0 && i < dims.nx - 1 && j > 0 && j < dims.ny - 1 && k > 0 && k < dims.nz - 1) {
+                        const size_t idx_w = static_cast<size_t>(get_flat_index(i - 1, j, k, dims.nx, dims.ny));
+                        const size_t idx_e = static_cast<size_t>(get_flat_index(i + 1, j, k, dims.nx, dims.ny));
+                        const size_t idx_s = static_cast<size_t>(get_flat_index(i, j - 1, k, dims.nx, dims.ny));
+                        const size_t idx_n = static_cast<size_t>(get_flat_index(i, j + 1, k, dims.nx, dims.ny));
+                        const size_t idx_d = static_cast<size_t>(get_flat_index(i, j, k - 1, dims.nx, dims.ny));
+                        const size_t idx_u = static_cast<size_t>(get_flat_index(i, j, k + 1, dims.nx, dims.ny));
 
-    //                     // Enforce mask-aware neighbor lookup (Neumann reflection if non-fluid)
-    //                     const double p_w = (mask[idx_w] == 1) ? snap.p[idx_w] : snap.p[idx];
-    //                     const double p_e = (mask[idx_e] == 1) ? snap.p[idx_e] : snap.p[idx];
-    //                     const double p_s = (mask[idx_s] == 1) ? snap.p[idx_s] : snap.p[idx];
-    //                     const double p_n = (mask[idx_n] == 1) ? snap.p[idx_n] : snap.p[idx];
-    //                     const double p_d = (mask[idx_d] == 1) ? snap.p[idx_d] : snap.p[idx];
-    //                     const double p_u = (mask[idx_u] == 1) ? snap.p[idx_u] : snap.p[idx];
+                        // Enforce mask-aware neighbor lookup (Neumann reflection if non-fluid)
+                        const double p_w = (mask[idx_w] == 1) ? snap.p[idx_w] : snap.p[idx];
+                        const double p_e = (mask[idx_e] == 1) ? snap.p[idx_e] : snap.p[idx];
+                        const double p_s = (mask[idx_s] == 1) ? snap.p[idx_s] : snap.p[idx];
+                        const double p_n = (mask[idx_n] == 1) ? snap.p[idx_n] : snap.p[idx];
+                        const double p_d = (mask[idx_d] == 1) ? snap.p[idx_d] : snap.p[idx];
+                        const double p_u = (mask[idx_u] == 1) ? snap.p[idx_u] : snap.p[idx];
 
-    //                     // Calculate discrete laplacian operator L(p)
-    //                     const double laplacian_p = (p_e + p_w - 2.0 * snap.p[idx]) * idx2 +
-    //                                                (p_n + p_s - 2.0 * snap.p[idx]) * idy2 +
-    //                                                (p_u + p_d - 2.0 * snap.p[idx]) * idz2;
+                        // Calculate discrete laplacian operator L(p)
+                        const double laplacian_p = (p_e + p_w - 2.0 * snap.p[idx]) * idx2 +
+                                                   (p_n + p_s - 2.0 * snap.p[idx]) * idy2 +
+                                                   (p_u + p_d - 2.0 * snap.p[idx]) * idz2;
 
-    //                     // Calculate expected point-wise Gauss-Seidel steady value
-    //                     const double expected_p = factor * (
-    //                         (p_e + p_w) * idx2 +
-    //                         (p_n + p_s) * idy2 +
-    //                         (p_u + p_d) * idz2 -
-    //                         snap.rhs[idx]
-    //                     );
+                        // Calculate expected point-wise Gauss-Seidel steady value
+                        const double expected_p = factor * (
+                            (p_e + p_w) * idx2 +
+                            (p_n + p_s) * idy2 +
+                            (p_u + p_d) * idz2 -
+                            snap.rhs[idx]
+                        );
 
-    //                     // Determine core interior vs boundary-adjacent 2-cell buffer zone
-    //                     bool is_core_interior = true;
-    //                     if (i <= 1 || i >= dims.nx - 2 ||
-    //                         j <= 1 || j >= dims.ny - 2 ||
-    //                         k <= 1 || k >= dims.nz - 2) {
-    //                         is_core_interior = false;
-    //                     } else {
-    //                         if (mask[idx_e] != 1 || mask[idx_w] != 1 || 
-    //                             mask[idx_n] != 1 || mask[idx_s] != 1 || 
-    //                             mask[idx_u] != 1 || mask[idx_d] != 1) {
-    //                             is_core_interior = false;
-    //                         }
-    //                     }
+                        // Determine core interior vs boundary-adjacent 2-cell buffer zone
+                        bool is_core_interior = true;
+                        if (i <= 1 || i >= dims.nx - 2 ||
+                            j <= 1 || j >= dims.ny - 2 ||
+                            k <= 1 || k >= dims.nz - 2) {
+                            is_core_interior = false;
+                        } else {
+                            if (mask[idx_e] != 1 || mask[idx_w] != 1 || 
+                                mask[idx_n] != 1 || mask[idx_s] != 1 || 
+                                mask[idx_u] != 1 || mask[idx_d] != 1) {
+                                is_core_interior = false;
+                            }
+                        }
 
-    //                     const double tol_p = is_core_interior ? 1e-5 : 0.02;
-    //                     const double tol_res = is_core_interior ? (config.poisson_tolerance * 100.0 + 1e-4) : 0.02;
+                        const double tol_p = is_core_interior ? 1e-5 : 0.02;
+                        const double tol_res = is_core_interior ? (config.poisson_tolerance * 100.0 + 1e-4) : 0.02;
 
-    //                     // Audit 3: Assert Poisson residual divergence L(p) - RHS matches tolerance
-    //                     const double residual = std::abs(laplacian_p - snap.rhs[idx]);
-    //                     ASSERT_LE(residual, tol_res)
-    //                         << "Poisson operator residual exceeds tolerance limit at index [" 
-    //                         << i << ", " << j << ", " << k << "] | Residual: " << residual;
+                        // Audit 3: Assert Poisson residual divergence L(p) - RHS matches tolerance
+                        const double residual = std::abs(laplacian_p - snap.rhs[idx]);
+                        ASSERT_LE(residual, tol_res)
+                            << "Poisson operator residual exceeds tolerance limit at index [" 
+                            << i << ", " << j << ", " << k << "] | Residual: " << residual;
 
-    //                     // Audit 4: Verify equivalence between snapshot pressure and Gauss-Seidel equilibrium point
-    //                     ASSERT_NEAR(snap.p[idx], expected_p, tol_p)
-    //                         << "Pressure point divergence from Gauss-Seidel equilibrium at [" 
-    //                         << i << ", " << j << ", " << k << "]";
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
+                        // Audit 4: Verify equivalence between snapshot pressure and Gauss-Seidel equilibrium point
+                        ASSERT_NEAR(snap.p[idx], expected_p, tol_p)
+                            << "Pressure point divergence from Gauss-Seidel equilibrium at [" 
+                            << i << ", " << j << ", " << k << "]";
+                    }
+                }
+            }
+        }
+    }
 
     // // ============================================================================
     // // SECTION 12 — Verify Stage Snapshot: Rhie-Chow Post-Poisson Interpolation & Pressure-Coupled Fluxes
