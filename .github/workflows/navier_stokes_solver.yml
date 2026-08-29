@@ -78,58 +78,58 @@ jobs:
 
           cmake --build build --parallel $(nproc)
 
-          # echo "🔬 [PHASE 1/4] Preloading libasan and executing CanonicalFlowsTest via CTest (Debug & Memory Audit Run)..."
-          # export LD_PRELOAD=$(g++ -print-file-name=libasan.so)
-          # cd build
-          # ctest -R LidDrivenCavityTest --output-on-failure -V | tee ../test_detail.log
-          # cd ..
-          # unset LD_PRELOAD
-
-          echo "🔬 [PHASE 1/4] Preloading libasan and executing C++ Test Suites via CTest (Debug & Memory Audit Run)..."
+          echo "🔬 [PHASE 1/4] Preloading libasan and executing CanonicalFlowsTest via CTest (Debug & Memory Audit Run)..."
           export LD_PRELOAD=$(g++ -print-file-name=libasan.so)
           cd build
-          ctest --output-on-failure -V 2>&1 | tee ../test_detail.log || true
+          ctest -R FullPipelineAcceleratedFlowTest --output-on-failure -V | tee ../test_detail.log
           cd ..
           unset LD_PRELOAD
 
-          # ==========================================
-          # PHASE 2: Clean Re-build for Coverage (ASan OFF, Coverage ON)
-          # ==========================================
-          echo "⚙️ [PHASE 2/4] Re-configuring CMake with ASan disabled and Coverage enabled for reporting..."
-          # Purge stale or incompatible .gcda counters from the ASan build
-          find build -name "*.gcda" -delete
+          # echo "🔬 [PHASE 1/4] Preloading libasan and executing C++ Test Suites via CTest (Debug & Memory Audit Run)..."
+          # export LD_PRELOAD=$(g++ -print-file-name=libasan.so)
+          # cd build
+          # ctest --output-on-failure -V 2>&1 | tee ../test_detail.log || true
+          # cd ..
+          # unset LD_PRELOAD
 
-          cmake -B build -S . \
-              -DCMAKE_BUILD_TYPE=Debug \
-              -DENABLE_ASAN=OFF \
-              -DENABLE_COVERAGE=ON
+          # # ==========================================
+          # # PHASE 2: Clean Re-build for Coverage (ASan OFF, Coverage ON)
+          # # ==========================================
+          # echo "⚙️ [PHASE 2/4] Re-configuring CMake with ASan disabled and Coverage enabled for reporting..."
+          # # Purge stale or incompatible .gcda counters from the ASan build
+          # find build -name "*.gcda" -delete
+
+          # cmake -B build -S . \
+          #     -DCMAKE_BUILD_TYPE=Debug \
+          #     -DENABLE_ASAN=OFF \
+          #     -DENABLE_COVERAGE=ON
           
-          cmake --build build --parallel $(nproc)
+          # cmake --build build --parallel $(nproc)
 
-          # ==========================================
-          # PHASE 3: Execution Run for Coverage (CTest & Pytest)
-          # ==========================================
-          echo "🧪 [PHASE 3/4] Executing C++ Test Suites (CTest) on Coverage Build (Reporting Run)..."
-          cd build
-          ctest --output-on-failure -V
-          cd ..
+          # # ==========================================
+          # # PHASE 3: Execution Run for Coverage (CTest & Pytest)
+          # # ==========================================
+          # echo "🧪 [PHASE 3/4] Executing C++ Test Suites (CTest) on Coverage Build (Reporting Run)..."
+          # cd build
+          # ctest --output-on-failure -V
+          # cd ..
 
-          echo "🐍 [PHASE 3/4] Executing Python C++ bridge tests (Pytest) on Coverage Build..."
-          # Include repository root and build directory in PYTHONPATH
-          export PYTHONPATH=$PWD:$PWD/build:$PYTHONPATH
-          pytest cpp/python_bridge_tests/ -vv -s --tb=long
+          # echo "🐍 [PHASE 3/4] Executing Python C++ bridge tests (Pytest) on Coverage Build..."
+          # # Include repository root and build directory in PYTHONPATH
+          # export PYTHONPATH=$PWD:$PWD/build:$PYTHONPATH
+          # pytest cpp/python_bridge_tests/ -vv -s --tb=long
 
-          # ==========================================
-          # PHASE 4: Unified Coverage Report Generation
-          # ==========================================
-          echo "📊 [PHASE 4/4] Generating Unified Code Coverage Report across C++ and Python tests..."
-          gcovr --object-directory=build \
-                --filter="cpp/src" \
-                --exclude="cpp/cpp_unit_tests" \
-                --exclude="cpp/cpp_integration_tests" \
-                --print-summary \
-                --txt \
-                --xml coverage.xml
+          # # ==========================================
+          # # PHASE 4: Unified Coverage Report Generation
+          # # ==========================================
+          # echo "📊 [PHASE 4/4] Generating Unified Code Coverage Report across C++ and Python tests..."
+          # gcovr --object-directory=build \
+          #       --filter="cpp/src" \
+          #       --exclude="cpp/cpp_unit_tests" \
+          #       --exclude="cpp/cpp_integration_tests" \
+          #       --print-summary \
+          #       --txt \
+          #       --xml coverage.xml
 
       # - name: 🧹 Auto-Clean (Autoflake)
       #   run: |

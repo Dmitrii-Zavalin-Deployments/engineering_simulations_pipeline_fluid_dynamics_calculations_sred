@@ -72,6 +72,20 @@ add_test(NAME UnitTests COMMAND unit_tests)
 # ---------------------------------------------------------------------------
 # Copy input data required by integration tests into the build tree
 
+# Accelerated Flow Integration Test
+add_executable(test_full_pipeline_accelerated_flow
+    cpp/cpp_integration_tests/test_full_pipeline_accelerated_flow.cpp
+)
+target_link_libraries(test_full_pipeline_accelerated_flow
+    PRIVATE
+        GTest::gtest_main
+        navier_stokes_core
+        nlohmann_json::nlohmann_json
+        OpenMP::OpenMP_CXX
+        Threads::Threads
+)
+add_test(NAME FullPipelineAcceleratedFlowTest COMMAND test_full_pipeline_accelerated_flow)
+
 # Full Pipeline Literate Test
 add_executable(test_full_pipeline_constant_flow
     cpp/cpp_integration_tests/test_full_pipeline_constant_flow.cpp
