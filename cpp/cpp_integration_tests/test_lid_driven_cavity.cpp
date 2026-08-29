@@ -140,9 +140,7 @@ TEST(LidDrivenCavityTest, CavityFlowRe400) {
         bc_list.push_back(bc_z);
     }
 
-    // We instantiate the orchestrator solver with spatial discretization metadata
-    // and configure fixed explicit time integration parameters dt = 0.001 s, max_steps = 100.
-    Orchestrator orchestrator(nx, ny, nz, dx, dy, dz);
+    NavierStokesOrchestrator orchestrator(nx, ny, nz, dx, dy, dz);
     const double dt = 0.001;
     const int max_steps = 100;
 
