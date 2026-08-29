@@ -732,150 +732,150 @@ TEST(FullPipelineAcceleratedWithGravityTest, StepByStepGravity) {
         }
     }
 
-    // // ============================================================================
-    // // SECTION 10 — Verify Stage Snapshot: RHS Assembly Divergence (Literate Verification)
-    // // ============================================================================
-    // // Mathematical Formulation:
-    // //   The discrete Rhie-Chow face-divergence assembly computes the right-hand side 
-    // //   source vector b = rhs_ for the 3D Pressure Poisson Equation:
-    // //
-    // //     \nabla^2 p = \frac{\rho}{\Delta t} \nabla \cdot \vec{u}^*
-    // //
-    // //   For each active fluid cell (mask[i,j,k] == 1), the cell-centered source term is:
-    // //
-    // //     rhs[i,j,k] = \frac{\rho}{\Delta t} \left( \frac{u_{\text{east}} - u_{\text{west}}}{\Delta x} 
-    // //                                            + \frac{v_{\text{north}} - v_{\text{south}}}{\Delta y} 
-    // //                                            + \frac{w_{\text{top}} - w_{\text{bottom}}}{\Delta z} \right)
-    // //
-    // // Boundary Face Indexing & Fallback Stencils:
-    // //   To prevent stencil truncation errors at domain boundaries, boundary face velocities 
-    // //   default directly to cell-centered trial velocities (u*, v*, w*) when adjacent faces 
-    // //   fall outside the face buffer boundaries:
-    // //
-    // //   X-Direction:
-    // //     u_east  = (i == nx - 1) ? u*[idx] : u_face[i + (nx - 1) * (j + ny * k)]
-    // //     u_west  = (i == 0)      ? u*[idx] : u_face[(i - 1) + (nx - 1) * (j + ny * k)]
-    // //
-    // //   Y-Direction:
-    // //     v_north = (j == ny - 1) ? v*[idx] : v_face[i + nx * (j + (ny - 1) * k)]
-    // //     v_south = (j == 0)      ? v*[idx] : v_face[i + nx * ((j - 1) + (ny - 1) * k)]
-    // //
-    // //   Z-Direction:
-    // //     w_top   = (k == nz - 1) ? w*[idx] : w_face[i + nx * (j + ny * k)]
-    // //     w_bottom= (k == 0)      ? w*[idx] : w_face[i + nx * (j + ny * (k - 1))]
-    // //
-    // // Non-Fluid Masking & Buffer Zone Tolerance:
-    // //   - Solid or wall obstacle cells (mask[idx] != 1) strictly enforce rhs[idx] = 0.0.
-    // //   - Boundary-adjacent 2-cell buffer zones apply a relaxed tolerance (0.05) to isolate 
-    // //     near-wall truncation errors and interpolation artifacts from core interior asymptotic behavior (1e-12).
-    // // ============================================================================
-    // {
-    //     // 1. Trigger the step up to snapshot population under accelerated flow with gravity
-    //     orchestrator.step(dt, mu, gravity, fx, fy, fz, mask, bc_list, u, v, w, p);
+    // ============================================================================
+    // SECTION 10 — Verify Stage Snapshot: RHS Assembly Divergence (Literate Verification)
+    // ============================================================================
+    // Mathematical Formulation:
+    //   The discrete Rhie-Chow face-divergence assembly computes the right-hand side 
+    //   source vector b = rhs_ for the 3D Pressure Poisson Equation:
+    //
+    //     \nabla^2 p = \frac{\rho}{\Delta t} \nabla \cdot \vec{u}^*
+    //
+    //   For each active fluid cell (mask[i,j,k] == 1), the cell-centered source term is:
+    //
+    //     rhs[i,j,k] = \frac{\rho}{\Delta t} \left( \frac{u_{\text{east}} - u_{\text{west}}}{\Delta x} 
+    //                                            + \frac{v_{\text{north}} - v_{\text{south}}}{\Delta y} 
+    //                                            + \frac{w_{\text{top}} - w_{\text{bottom}}}{\Delta z} \right)
+    //
+    // Boundary Face Indexing & Fallback Stencils:
+    //   To prevent stencil truncation errors at domain boundaries, boundary face velocities 
+    //   default directly to cell-centered trial velocities (u*, v*, w*) when adjacent faces 
+    //   fall outside the face buffer boundaries:
+    //
+    //   X-Direction:
+    //     u_east  = (i == nx - 1) ? u*[idx] : u_face[i + (nx - 1) * (j + ny * k)]
+    //     u_west  = (i == 0)      ? u*[idx] : u_face[(i - 1) + (nx - 1) * (j + ny * k)]
+    //
+    //   Y-Direction:
+    //     v_north = (j == ny - 1) ? v*[idx] : v_face[i + nx * (j + (ny - 1) * k)]
+    //     v_south = (j == 0)      ? v*[idx] : v_face[i + nx * ((j - 1) + (ny - 1) * k)]
+    //
+    //   Z-Direction:
+    //     w_top   = (k == nz - 1) ? w*[idx] : w_face[i + nx * (j + ny * k)]
+    //     w_bottom= (k == 0)      ? w*[idx] : w_face[i + nx * (j + ny * (k - 1))]
+    //
+    // Non-Fluid Masking & Buffer Zone Tolerance:
+    //   - Solid or wall obstacle cells (mask[idx] != 1) strictly enforce rhs[idx] = 0.0.
+    //   - Boundary-adjacent 2-cell buffer zones apply a relaxed tolerance (0.05) to isolate 
+    //     near-wall truncation errors and interpolation artifacts from core interior asymptotic behavior (1e-12).
+    // ============================================================================
+    {
+        // 1. Trigger the step up to snapshot population under accelerated flow with gravity
+        orchestrator.step(dt, mu, gravity, fx, fy, fz, mask, bc_list, u, v, w, p);
 
-    //     // 2. Retrieve the target debug snapshot for the rhs_assembly stage
-    //     const auto& snapshots = orchestrator.get_debug_snapshots();
-    //     auto snap_it = std::find_if(snapshots.begin(), snapshots.end(),
-    //         [](const auto& s) { return s.stage_name == "rhs_assembly"; });
+        // 2. Retrieve the target debug snapshot for the rhs_assembly stage
+        const auto& snapshots = orchestrator.get_debug_snapshots();
+        auto snap_it = std::find_if(snapshots.begin(), snapshots.end(),
+            [](const auto& s) { return s.stage_name == "rhs_assembly"; });
         
-    //     ASSERT_NE(snap_it, snapshots.end()) << "ERROR: 'rhs_assembly' snapshot was not captured.";
-    //     const auto& snap = *snap_it;
+        ASSERT_NE(snap_it, snapshots.end()) << "ERROR: 'rhs_assembly' snapshot was not captured.";
+        const auto& snap = *snap_it;
 
-    //     // 3. Define local constant scale factor: scale = density / dt
-    //     const double scale = config.density / dt;
+        // 3. Define local constant scale factor: scale = density / dt
+        const double scale = config.density / dt;
 
-    //     // 4. Independently reconstruct the Rhie-Chow face velocity fields (u_face, v_face, w_face)
-    //     std::vector<double> a_p(total_cells, config.density / dt);
-    //     navier_stokes_solver::RhieChowInterpolator::GridConfig rc_config{
-    //         dims.nx, dims.ny, dims.nz, dims.dx, dims.dy, dims.dz, dt
-    //     };
+        // 4. Independently reconstruct the Rhie-Chow face velocity fields (u_face, v_face, w_face)
+        std::vector<double> a_p(total_cells, config.density / dt);
+        navier_stokes_solver::RhieChowInterpolator::GridConfig rc_config{
+            dims.nx, dims.ny, dims.nz, dims.dx, dims.dy, dims.dz, dt
+        };
         
-    //     std::vector<double> u_face((dims.nx - 1) * dims.ny * dims.nz, 0.0);
-    //     std::vector<double> v_face(dims.nx * (dims.ny - 1) * dims.nz, 0.0);
-    //     std::vector<double> w_face(dims.nx * dims.ny * (dims.nz - 1), 0.0);
+        std::vector<double> u_face((dims.nx - 1) * dims.ny * dims.nz, 0.0);
+        std::vector<double> v_face(dims.nx * (dims.ny - 1) * dims.nz, 0.0);
+        std::vector<double> w_face(dims.nx * dims.ny * (dims.nz - 1), 0.0);
 
-    //     navier_stokes_solver::RhieChowInterpolator::interpolateFaceVelocities(
-    //         snap.u_star, snap.v_star, snap.w_star, snap.p, a_p, mask, rc_config,
-    //         u_face, v_face, w_face
-    //     );
+        navier_stokes_solver::RhieChowInterpolator::interpolateFaceVelocities(
+            snap.u_star, snap.v_star, snap.w_star, snap.p, a_p, mask, rc_config,
+            u_face, v_face, w_face
+        );
 
-    //     // 5. Literate verification loop over all grid cells (k, j, i)
-    //     for (int k = 0; k < dims.nz; ++k) {
-    //         for (int j = 0; j < dims.ny; ++j) {
-    //             for (int i = 0; i < dims.nx; ++i) {
-    //                 const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, dims.nx, dims.ny));
+        // 5. Literate verification loop over all grid cells (k, j, i)
+        for (int k = 0; k < dims.nz; ++k) {
+            for (int j = 0; j < dims.ny; ++j) {
+                for (int i = 0; i < dims.nx; ++i) {
+                    const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, dims.nx, dims.ny));
 
-    //                 // Audit 1: Safety validation — verify RHS value is strictly finite (not NaN/Inf)
-    //                 ASSERT_TRUE(std::isfinite(snap.rhs[idx])) 
-    //                     << "Non-finite RHS source term detected at grid index [" << i << ", " << j << ", " << k << "]";
+                    // Audit 1: Safety validation — verify RHS value is strictly finite (not NaN/Inf)
+                    ASSERT_TRUE(std::isfinite(snap.rhs[idx])) 
+                        << "Non-finite RHS source term detected at grid index [" << i << ", " << j << ", " << k << "]";
 
-    //                 // Audit 2: Solid / non-fluid cells must maintain zero RHS source term
-    //                 if (mask[idx] != 1) {
-    //                     ASSERT_NEAR(snap.rhs[idx], 0.0, 1e-12) 
-    //                         << "Non-zero RHS detected in non-fluid cell at index [" << i << ", " << j << ", " << k << "]";
-    //                     continue;
-    //                 }
+                    // Audit 2: Solid / non-fluid cells must maintain zero RHS source term
+                    if (mask[idx] != 1) {
+                        ASSERT_NEAR(snap.rhs[idx], 0.0, 1e-12) 
+                            << "Non-zero RHS detected in non-fluid cell at index [" << i << ", " << j << ", " << k << "]";
+                        continue;
+                    }
 
-    //                 // Audit 3: Evaluate boundary-aware face fluxes using domain fallback logic
-    //                 const double u_east = (i == dims.nx - 1)
-    //                     ? snap.u_star[idx]
-    //                     : u_face[static_cast<size_t>(i) + (dims.nx - 1) * (j + dims.ny * k)];
-    //                 const double u_west = (i == 0)
-    //                     ? snap.u_star[idx]
-    //                     : u_face[static_cast<size_t>(i - 1) + (dims.nx - 1) * (j + dims.ny * k)];
+                    // Audit 3: Evaluate boundary-aware face fluxes using domain fallback logic
+                    const double u_east = (i == dims.nx - 1)
+                        ? snap.u_star[idx]
+                        : u_face[static_cast<size_t>(i) + (dims.nx - 1) * (j + dims.ny * k)];
+                    const double u_west = (i == 0)
+                        ? snap.u_star[idx]
+                        : u_face[static_cast<size_t>(i - 1) + (dims.nx - 1) * (j + dims.ny * k)];
 
-    //                 const double v_north = (j == dims.ny - 1)
-    //                     ? snap.v_star[idx]
-    //                     : v_face[static_cast<size_t>(i) + dims.nx * (j + (dims.ny - 1) * k)];
-    //                 const double v_south = (j == 0)
-    //                     ? snap.v_star[idx]
-    //                     : v_face[static_cast<size_t>(i) + dims.nx * ((j - 1) + (dims.ny - 1) * k)];
+                    const double v_north = (j == dims.ny - 1)
+                        ? snap.v_star[idx]
+                        : v_face[static_cast<size_t>(i) + dims.nx * (j + (dims.ny - 1) * k)];
+                    const double v_south = (j == 0)
+                        ? snap.v_star[idx]
+                        : v_face[static_cast<size_t>(i) + dims.nx * ((j - 1) + (dims.ny - 1) * k)];
 
-    //                 const double w_top = (k == dims.nz - 1)
-    //                     ? snap.w_star[idx]
-    //                     : w_face[static_cast<size_t>(i) + dims.nx * (j + dims.ny * k)];
-    //                 const double w_bottom = (k == 0)
-    //                     ? snap.w_star[idx]
-    //                     : w_face[static_cast<size_t>(i) + dims.nx * (j + dims.ny * (k - 1))];
+                    const double w_top = (k == dims.nz - 1)
+                        ? snap.w_star[idx]
+                        : w_face[static_cast<size_t>(i) + dims.nx * (j + dims.ny * k)];
+                    const double w_bottom = (k == 0)
+                        ? snap.w_star[idx]
+                        : w_face[static_cast<size_t>(i) + dims.nx * (j + dims.ny * (k - 1))];
 
-    //                 // Audit 4: Compute spatial derivative finite differences
-    //                 const double dudx = (u_east - u_west) / dims.dx;
-    //                 const double dvdy = (v_north - v_south) / dims.dy;
-    //                 const double dwdz = (w_top - w_bottom) / dims.dz;
+                    // Audit 4: Compute spatial derivative finite differences
+                    const double dudx = (u_east - u_west) / dims.dx;
+                    const double dvdy = (v_north - v_south) / dims.dy;
+                    const double dwdz = (w_top - w_bottom) / dims.dz;
 
-    //                 // Audit 5: Calculate expected mathematical source term: RHS = (rho / dt) * div(u*)
-    //                 const double expected_rhs = scale * (dudx + dvdy + dwdz);
+                    // Audit 5: Calculate expected mathematical source term: RHS = (rho / dt) * div(u*)
+                    const double expected_rhs = scale * (dudx + dvdy + dwdz);
 
-    //                 // Audit 6: Determine tolerance based on core interior vs 2-cell buffer zone adjacency
-    //                 bool is_core_interior = true;
-    //                 if (i <= 1 || i >= dims.nx - 2 ||
-    //                     j <= 1 || j >= dims.ny - 2 ||
-    //                     k <= 1 || k >= dims.nz - 2) {
-    //                     is_core_interior = false;
-    //                 } else {
-    //                     const size_t e = static_cast<size_t>(get_flat_index(i + 1, j, k, dims.nx, dims.ny));
-    //                     const size_t w = static_cast<size_t>(get_flat_index(i - 1, j, k, dims.nx, dims.ny));
-    //                     const size_t n = static_cast<size_t>(get_flat_index(i, j + 1, k, dims.nx, dims.ny));
-    //                     const size_t s = static_cast<size_t>(get_flat_index(i, j - 1, k, dims.nx, dims.ny));
-    //                     const size_t t = static_cast<size_t>(get_flat_index(i, j, k + 1, dims.nx, dims.ny));
-    //                     const size_t b = static_cast<size_t>(get_flat_index(i, j, k - 1, dims.nx, dims.ny));
+                    // Audit 6: Determine tolerance based on core interior vs 2-cell buffer zone adjacency
+                    bool is_core_interior = true;
+                    if (i <= 1 || i >= dims.nx - 2 ||
+                        j <= 1 || j >= dims.ny - 2 ||
+                        k <= 1 || k >= dims.nz - 2) {
+                        is_core_interior = false;
+                    } else {
+                        const size_t e = static_cast<size_t>(get_flat_index(i + 1, j, k, dims.nx, dims.ny));
+                        const size_t w = static_cast<size_t>(get_flat_index(i - 1, j, k, dims.nx, dims.ny));
+                        const size_t n = static_cast<size_t>(get_flat_index(i, j + 1, k, dims.nx, dims.ny));
+                        const size_t s = static_cast<size_t>(get_flat_index(i, j - 1, k, dims.nx, dims.ny));
+                        const size_t t = static_cast<size_t>(get_flat_index(i, j, k + 1, dims.nx, dims.ny));
+                        const size_t b = static_cast<size_t>(get_flat_index(i, j, k - 1, dims.nx, dims.ny));
 
-    //                     if (mask[e] != 1 || mask[w] != 1 || 
-    //                         mask[n] != 1 || mask[s] != 1 || 
-    //                         mask[t] != 1 || mask[b] != 1) {
-    //                         is_core_interior = false;
-    //                     }
-    //                 }
+                        if (mask[e] != 1 || mask[w] != 1 || 
+                            mask[n] != 1 || mask[s] != 1 || 
+                            mask[t] != 1 || mask[b] != 1) {
+                            is_core_interior = false;
+                        }
+                    }
 
-    //                 const double tolerance = is_core_interior ? 1e-12 : 0.05;
+                    const double tolerance = is_core_interior ? 1e-12 : 0.05;
 
-    //                 // Audit 7: Assert equality between snapshot RHS and calculated RHS with appropriate tolerance
-    //                 ASSERT_NEAR(snap.rhs[idx], expected_rhs, tolerance)
-    //                     << "RHS assembly divergence discrepancy at index [" << i << ", " << j << ", " << k << "]";
-    //             }
-    //         }
-    //     }
-    // }
+                    // Audit 7: Assert equality between snapshot RHS and calculated RHS with appropriate tolerance
+                    ASSERT_NEAR(snap.rhs[idx], expected_rhs, tolerance)
+                        << "RHS assembly divergence discrepancy at index [" << i << ", " << j << ", " << k << "]";
+                }
+            }
+        }
+    }
 
     // // ============================================================================
     // // SECTION 11 — Verify Stage Snapshot: Pressure Poisson Field Convergence (Literate Verification)
