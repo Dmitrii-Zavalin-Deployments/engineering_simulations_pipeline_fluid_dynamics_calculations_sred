@@ -1108,9 +1108,9 @@ TEST(FullPipelineAcceleratedWithGravityTest, StepByStepGravity) {
                     const double tolerance = 0.15;
 
                     // Dynamically calculate expected velocities from the defined body forces, gravity components, and initial state
-                    const double expected_u_star = pre_snap.u[idx] + ((fx[idx] / config.density) + config.gravity_x) * current_time;
-                    const double expected_v_star = pre_snap.v[idx] + ((fy[idx] / config.density) + config.gravity_y) * current_time;
-                    const double expected_w_star = pre_snap.w[idx] + ((fz[idx] / config.density) + config.gravity_z) * current_time;
+                    const double expected_u_star = pre_snap.u[idx] + ((fx[idx] / config.density) + gravity[0]) * current_time;
+                    const double expected_v_star = pre_snap.v[idx] + ((fy[idx] / config.density) + gravity[1]) * current_time;
+                    const double expected_w_star = pre_snap.w[idx] + ((fz[idx] / config.density) + gravity[2]) * current_time;
 
                     // Validate trial velocity field distributions against force-derived accelerated flow states
                     ASSERT_NEAR(snap.u_star[idx], expected_u_star, tolerance);
