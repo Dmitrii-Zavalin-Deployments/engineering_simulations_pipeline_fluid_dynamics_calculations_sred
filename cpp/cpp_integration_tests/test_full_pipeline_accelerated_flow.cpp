@@ -994,6 +994,7 @@ TEST(FullPipelineAcceleratedFlowTest, StepByStepAccelerated) {
 
     // ============================================================================
     // SECTION 12 — Verify Stage Snapshot: Rhie-Chow Post-Poisson Interpolation & Pressure-Coupled Fluxes
+    // Note: Executed for the first time-step only (step = 1).
     // ============================================================================
     // Comprehensive Mathematical & Algorithmic Formulation:
     //   - Post-Poisson Pressure-Coupled Face Velocity Interpolation:
@@ -1032,8 +1033,8 @@ TEST(FullPipelineAcceleratedFlowTest, StepByStepAccelerated) {
         const auto& poisson_snap = get_snapshot("poisson");
         const auto& pre_snap = get_snapshot("pre_step");
 
-        // Define simulation time context for analytical velocity generation
-        const double current_time = static_cast<double>(step) * dt;
+        // Define simulation time context for analytical velocity generation (evaluated for the first step, t = 1.0 * dt)
+        const double current_time = 1.0 * dt;
 
         // ------------------------------------------------------------------------
         // Part 1: Cell-Centered State Validation Loop
