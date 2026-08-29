@@ -1033,7 +1033,7 @@ TEST(FullPipelineAcceleratedFlowTest, StepByStepAccelerated) {
         const auto& poisson_snap = get_snapshot("poisson");
         const auto& pre_snap = get_snapshot("pre_step");
 
-        // Define simulation time context for analytical velocity generation (evaluated for the first step, t = 1.0 * dt)
+        // Define simulation time context for analytical velocity generation (evaluated for the first step after the cold-start, t = 1.0 * dt)
         const double current_time = 1.0 * dt;
 
         // ------------------------------------------------------------------------
