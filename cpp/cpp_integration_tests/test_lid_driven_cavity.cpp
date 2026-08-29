@@ -41,8 +41,8 @@
 #include <string>
 
 #include "orchestrator.hpp"
-#include "ops/divergence.h"
-#include "ops/forces.h"
+#include "divergence.hpp"
+#include "forces.hpp"
 
 TEST(LidDrivenCavityTest, CavityFlowRe400) {
     // We define a 3D rectangular domain Omega = [0, L] x [0, H] x [0, W]
