@@ -284,69 +284,69 @@ TEST(FullPipelineAcceleratedFlowTest, StepByStepAccelerated) {
         }
     }
 
-    // // ============================================================================
-    // // SECTION 7 — Verify Stage 1.5 Snapshot: Ghost & Boundary Synchronization (Literate Verification)
-    // // ============================================================================
-    // // Algorithmic Formulation:
-    // //   u*  = u_pre
-    // //   v*  = v_pre
-    // //   w*  = w_pre
-    // //   rhs = p_pre  (rhs_ serves as target p_next destination buffer during sync)
-    // //
-    // // Initial Pre-Step Fluid Domain Alignment:
-    // //   u_pre = pre_step.u, v_pre = pre_step.v, w_pre = pre_step.w, p_pre = pre_step.p
-    // //
-    // // Synchronization Mechanics:
-    // //   - sync_ghost_trial_buffers executes a direct memory alignment pass from 
-    // //     primary state vectors (u, v, w, p) into trial workspace buffers 
-    // //     (u_star_, v_star_, w_star_, rhs_).
-    // //   - Operates across all grid nodes (mask independent) without heap reallocation.
-    // //
-    // // Expected Workspace Values:
-    // //   u*  = u_pre
-    // //   v*  = v_pre
-    // //   w*  = w_pre
-    // //   rhs = p_pre
-    // // ============================================================================
+    // ============================================================================
+    // SECTION 7 — Verify Stage 1.5 Snapshot: Ghost & Boundary Synchronization (Literate Verification)
+    // ============================================================================
+    // Algorithmic Formulation:
+    //   u*  = u_pre
+    //   v*  = v_pre
+    //   w*  = w_pre
+    //   rhs = p_pre  (rhs_ serves as target p_next destination buffer during sync)
+    //
+    // Initial Pre-Step Fluid Domain Alignment:
+    //   u_pre = pre_step.u, v_pre = pre_step.v, w_pre = pre_step.w, p_pre = pre_step.p
+    //
+    // Synchronization Mechanics:
+    //   - sync_ghost_trial_buffers executes a direct memory alignment pass from 
+    //     primary state vectors (u, v, w, p) into trial workspace buffers 
+    //     (u_star_, v_star_, w_star_, rhs_).
+    //   - Operates across all grid nodes (mask independent) without heap reallocation.
+    //
+    // Expected Workspace Values:
+    //   u*  = u_pre
+    //   v*  = v_pre
+    //   w*  = w_pre
+    //   rhs = p_pre
+    // ============================================================================
 
-    // {
-    //     const auto& snap = get_snapshot("ghost_sync_1");
-    //     const auto& pre_snap = get_snapshot("pre_step");
+    {
+        const auto& snap = get_snapshot("ghost_sync_1");
+        const auto& pre_snap = get_snapshot("pre_step");
 
-    //     for (int k = 0; k < dims.nz; ++k) {
-    //         for (int j = 0; j < dims.ny; ++j) {
-    //             for (int i = 0; i < dims.nx; ++i) {
-    //                 const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, dims.nx, dims.ny));
+        for (int k = 0; k < dims.nz; ++k) {
+            for (int j = 0; j < dims.ny; ++j) {
+                for (int i = 0; i < dims.nx; ++i) {
+                    const size_t idx = static_cast<size_t>(get_flat_index(i, j, k, dims.nx, dims.ny));
 
-    //                 // 1. Finite check on trial velocity workspace and RHS pressure buffer
-    //                 ASSERT_TRUE(std::isfinite(snap.u_star[idx]));
-    //                 ASSERT_TRUE(std::isfinite(snap.v_star[idx]));
-    //                 ASSERT_TRUE(std::isfinite(snap.w_star[idx]));
-    //                 ASSERT_TRUE(std::isfinite(snap.rhs[idx]));
+                    // 1. Finite check on trial velocity workspace and RHS pressure buffer
+                    ASSERT_TRUE(std::isfinite(snap.u_star[idx]));
+                    ASSERT_TRUE(std::isfinite(snap.v_star[idx]));
+                    ASSERT_TRUE(std::isfinite(snap.w_star[idx]));
+                    ASSERT_TRUE(std::isfinite(snap.rhs[idx]));
 
-    //                 // 2. Direct buffer synchronization verification against pre-step state
-    //                 // ====================================================================
-    //                 // RATIONALE FOR STRICT MACHINE PRECISION (1e-12) TOLERANCE:
-    //                 // 
-    //                 // sync_ghost_trial_buffers performs a direct pass-through copy from 
-    //                 // state vectors into workspace memory buffers. Because no spatial 
-    //                 // derivatives, finite-difference stencils, or numerical solvers are 
-    //                 // computed during this stage, values across all active and masked 
-    //                 // cells must mirror the pre-step boundary state exactly down to 
-    //                 // machine double precision.
-    //                 // ====================================================================
+                    // 2. Direct buffer synchronization verification against pre-step state
+                    // ====================================================================
+                    // RATIONALE FOR STRICT MACHINE PRECISION (1e-12) TOLERANCE:
+                    // 
+                    // sync_ghost_trial_buffers performs a direct pass-through copy from 
+                    // state vectors into workspace memory buffers. Because no spatial 
+                    // derivatives, finite-difference stencils, or numerical solvers are 
+                    // computed during this stage, values across all active and masked 
+                    // cells must mirror the pre-step boundary state exactly down to 
+                    // machine double precision.
+                    // ====================================================================
 
-    //                 // Trial velocities match pre-step boundary-enforced state
-    //                 ASSERT_NEAR(snap.u_star[idx], pre_snap.u[idx], 1e-12);
-    //                 ASSERT_NEAR(snap.v_star[idx], pre_snap.v[idx], 1e-12);
-    //                 ASSERT_NEAR(snap.w_star[idx], pre_snap.w[idx], 1e-12);
+                    // Trial velocities match pre-step boundary-enforced state
+                    ASSERT_NEAR(snap.u_star[idx], pre_snap.u[idx], 1e-12);
+                    ASSERT_NEAR(snap.v_star[idx], pre_snap.v[idx], 1e-12);
+                    ASSERT_NEAR(snap.w_star[idx], pre_snap.w[idx], 1e-12);
 
-    //                 // RHS workspace buffer matches pre-step pressure field state
-    //                 ASSERT_NEAR(snap.rhs[idx], pre_snap.p[idx], 1e-12);
-    //             }
-    //         }
-    //     }
-    // }
+                    // RHS workspace buffer matches pre-step pressure field state
+                    ASSERT_NEAR(snap.rhs[idx], pre_snap.p[idx], 1e-12);
+                }
+            }
+        }
+    }
 
     // // ============================================================================
     // // SECTION 8 — Verify Stage 2 Snapshot: Predictor (Literate Verification)
