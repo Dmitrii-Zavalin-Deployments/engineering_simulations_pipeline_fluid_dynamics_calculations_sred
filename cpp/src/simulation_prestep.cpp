@@ -157,30 +157,9 @@ void execute_pre_step(
             w[idx] = bc.values.w;
         }
         else if (bc.type == "outflow") {
-            bool is_x_face = (bc.location == "x_min" || bc.location == "x_max" || (bc.location == "wall" && (i == 0 || i == nx - 1)));
-            bool is_y_face = (bc.location == "y_min" || bc.location == "y_max" || (bc.location == "wall" && (j == 0 || j == ny - 1)));
-            bool is_z_face = (bc.location == "z_min" || bc.location == "z_max" || (bc.location == "wall" && (k == 0 || k == nz - 1)));
-
-            if (is_x_face) {
-                u[idx] = (bc.values.u != 0.0) ? bc.values.u : u[int_idx];
-                v[idx] = 0.0;
-                w[idx] = 0.0;
-            } 
-            else if (is_y_face) {
-                u[idx] = 0.0;
-                v[idx] = (bc.values.v != 0.0) ? bc.values.v : v[int_idx];
-                w[idx] = 0.0;
-            } 
-            else if (is_z_face) {
-                u[idx] = 0.0;
-                v[idx] = 0.0;
-                w[idx] = (bc.values.w != 0.0) ? bc.values.w : w[int_idx];
-            } 
-            else {
-                u[idx] = (bc.values.u != 0.0) ? bc.values.u : u[int_idx];
-                v[idx] = (bc.values.v != 0.0) ? bc.values.v : v[int_idx];
-                w[idx] = (bc.values.w != 0.0) ? bc.values.w : w[int_idx];
-            }
+            u[idx] = (bc.values.u != 0.0) ? bc.values.u : u[int_idx];
+            v[idx] = (bc.values.v != 0.0) ? bc.values.v : v[int_idx];
+            w[idx] = (bc.values.w != 0.0) ? bc.values.w : w[int_idx];
             p[idx] = bc.values.p;
         }
         else if (bc.type == "pressure") {
