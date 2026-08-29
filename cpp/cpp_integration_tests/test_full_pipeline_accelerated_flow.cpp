@@ -1523,6 +1523,9 @@ TEST(FullPipelineAcceleratedFlowTest, StepByStepAccelerated) {
     // ============================================================================
 
     {
+        // Retrieve pre-step baseline snapshot to establish initial velocity conditions
+        const auto& pre_snap = get_snapshot("pre_step");
+
         // Define simulation time context for dynamic expected velocity evaluation (t = 1.0 * dt)
         const double current_time = 1.0 * dt;
         const double tolerance = 0.15;
