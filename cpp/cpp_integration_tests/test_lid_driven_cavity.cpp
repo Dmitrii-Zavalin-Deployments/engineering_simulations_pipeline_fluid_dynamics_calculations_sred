@@ -40,7 +40,7 @@
 #include <algorithm>
 #include <string>
 
-#include "orchestrator.h"
+#include "orchestrator.hpp"
 #include "ops/divergence.h"
 #include "ops/forces.h"
 
@@ -72,13 +72,11 @@ TEST(LidDrivenCavityTest, CavityFlowRe400) {
     const double mu = (u_lid * L) / Re;
     const double gravity[3] = {0.0, 0.0, 0.0};
 
-    // We allocate flat 1D state vectors representing cell-centered and face-staggered
-    // field variables (u, v, w, p) along with domain cell masks and external body force vectors.
     std::vector<double> u(total_cells, 0.0);
     std::vector<double> v(total_cells, 0.0);
     std::vector<double> w(total_cells, 0.0);
     std::vector<double> p(total_cells, 0.0);
-    std::vector<int> mask(total_cells, 0); // 0 indicates fluid domain
+    std::vector<int> mask(total_cells, 1); // 1 indicates fluid domain
 
     std::vector<double> fx(total_cells, 0.0);
     std::vector<double> fy(total_cells, 0.0);
