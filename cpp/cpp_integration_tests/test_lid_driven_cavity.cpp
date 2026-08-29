@@ -22,7 +22,7 @@
  * - The fluid dynamic viscosity is set to mu = 0.0025 Pa·s to maintain Re = 400 given 
  *   rho = 1.0 kg/m^3 and L = 1.0 m.
  * - The fractional-step solver advances the state over 100 time steps (dt = 0.001 s).
- * - In-flight assertions verify velocity boundedness and divergence limits.
+ * - In-flight assertions verify velocity boundedness and divergence limits using `compute_divergence`.
  * - Final physical verification checks that the top shear layer drives positive x-momentum 
  *   near the lid while generating a negative return-flow core at the cavity mid-height.
  *
@@ -146,17 +146,18 @@ TEST(LidDrivenCavityTest, CavityFlowRe400) {
     const double dt = 0.001;
     const int max_steps = 100;
 
-    // We execute the fractional-step time integration loop. For each step:
-    //     1. Compute intermediate velocity prediction (predictor.cpp)
-    //     2. Solve pressure Poisson system (pressure_poisson_solver.cpp)
-    //     3. Correct velocity field to enforce incompressibility (corrector.cpp)
+    std::vector<double> div_field(total_cells, 0.0);
+
     for (int step = 0; step < max_steps; ++step) {
         orchestrator.step(dt, mu, gravity, fx, fy, fz, mask, bc_list, u, v, w, p);
 
-        // We compute the maximum residual velocity divergence across the domain:
-        //     div_max = max | (u_{i+1/2} - u_{i-1/2})/dx + (v_{j+1/2} - v_{j-1/2})/dy + (w_{k+1/2} - w_{k-1/2})/dz |
-        // We assert that the velocity divergence remains finite and strictly bounded by 5.0 s^-1.
-        double current_div = ComputeMaxDivergence(u, v, w, nx, ny, nz, dx, dy, dz);
+        compute_divergence(u.data(), v.data(), w.data(), div_field.data(), nx, ny, nz, dx, dy, dz);
+        double current_div = 0.0;
+        for (size_t i = 0; i < total_cells; ++i) {
+            ASSERT_TRUE(std::isfinite(div_field[i]));
+            current_div = std::max(current_div, std::abs(div_field[i]));
+        }
+
         ASSERT_TRUE(std::isfinite(current_div));
         ASSERT_LT(current_div, 5.0);
 
