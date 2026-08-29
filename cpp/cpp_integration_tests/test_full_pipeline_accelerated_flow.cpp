@@ -79,9 +79,9 @@ TEST(FullPipelineAcceleratedFlowTest, StepByStepAccelerated) {
     // SECTION 2 — Allocate Fields & Accelerated Body Forces
     // ============================================================================
 
-    std::vector<double> u(total_cells, 0.0);
-    std::vector<double> v(total_cells, 0.0);
-    std::vector<double> w(total_cells, 0.0);
+    std::vector<double> u(total_cells, 0.5);
+    std::vector<double> v(total_cells, 0.2);
+    std::vector<double> w(total_cells, 0.1);
     std::vector<double> p(total_cells, 0.0);
 
     std::vector<int> mask = {
