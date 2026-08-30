@@ -21,17 +21,19 @@ protected:
     navier_stokes_solver::GridDimensions dims{3, 3, 3, 1.0, 1.0, 1.0};
     navier_stokes_solver::FluidProperties fluid{1.0, 0.01}; // density = 1.0, nu = 0.01
     double dt = 0.01;
-    std::vector<double> u{27, 0.0};
-    std::vector<double> v{27, 0.0};
-    std::vector<double> w{27, 0.0};
-    std::vector<double> fx{27, 0.0};
-    std::vector<double> fy{27, 0.0};
-    std::vector<double> fz{27, 0.0};
+    
+    // Explicit constructor calls ensure 27 elements are allocated instead of std::initializer_list
+    std::vector<double> u = std::vector<double>(27, 0.0);
+    std::vector<double> v = std::vector<double>(27, 0.0);
+    std::vector<double> w = std::vector<double>(27, 0.0);
+    std::vector<double> fx = std::vector<double>(27, 0.0);
+    std::vector<double> fy = std::vector<double>(27, 0.0);
+    std::vector<double> fz = std::vector<double>(27, 0.0);
     std::vector<double> gravity{0.0, 0.0, -9.81};
-    std::vector<int> mask{27, 1};
-    std::vector<double> u_star{27, 0.0};
-    std::vector<double> v_star{27, 0.0};
-    std::vector<double> w_star{27, 0.0};
+    std::vector<int> mask = std::vector<int>(27, 1);
+    std::vector<double> u_star = std::vector<double>(27, 0.0);
+    std::vector<double> v_star = std::vector<double>(27, 0.0);
+    std::vector<double> w_star = std::vector<double>(27, 0.0);
 };
 
 // ============================================================================
