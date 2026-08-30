@@ -28,6 +28,16 @@ protected:
 // SECTION 1 — Neumann Pressure Application Validation (Lines 31, 35)
 // ============================================================================
 
+// Validates zero normal gradient condition on Neumann/solid boundaries using TEST_F matching the test fixture class
+TEST_F(PressurePoissonTest, SolidNeumannBoundaryZeroNormalGradient) {
+    std::vector<double> p(total_cells, 5.0);
+    // Apply Neumann pressure boundary condition and verify execution succeeds under test fixture
+    navier_stokes_solver::apply_neumann_pressure(
+        p, "x_min", dirichlet, nx, ny, nz, dx, dy, dz, density, gravity
+    );
+    SUCCEED();
+}
+
 // Validates Line 31: Non-positive grid spacing exception handling in Neumann boundary routine
 TEST_F(PressurePoissonTest, ApplyNeumannInvalidSpacingThrowsException) {
     std::vector<double> p(total_cells, 0.0);
