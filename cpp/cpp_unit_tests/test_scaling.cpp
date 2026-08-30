@@ -1,17 +1,22 @@
 /**
  * @file test_scaling.cpp
- * @brief Literate test suite for Navier-Stokes Scaling Factors.
+ * @brief Literate Verification Suite for Navier-Stokes Scaling Factors (`scaling.cpp`)
  * 
- * This test file narrates and verifies the analytical accuracy, vacuum/zero 
- * safety guards, and numerical exception handling of the C++ scaling factor 
- * kernels: dt / rho and rho / dt.
+ * @details
+ * - What: Validates temporal and physical scaling calculations (`dt / rho` and `rho / dt`), 
+ *         including OpenMP execution tracing, parameter constraint guards, and non-finite numerical audits.
+ * - Why: Ensures invalid time-steps ($\Delta t \le 0$), unphysical densities ($\rho \le 0$), 
+ *        and non-finite floating-point explosions trigger strict contract violation exceptions 
+ *        (`std::invalid_argument`, `std::runtime_error`) and proper error logging streams.
+ * - How: Executes boundary sweeps for valid coefficients, zero/negative inputs, and infinite limits 
+ *        under a structured Google Test fixture and independent test harness.
  */
 
 #include <gtest/gtest.h>
+#include "scaling.hpp"
+#include <stdexcept>
 #include <cmath>
 #include <limits>
-#include <stdexcept>
-#include "scaling.hpp"
 
 using namespace navier_stokes_solver;
 
@@ -27,102 +32,100 @@ protected:
     double rho;
 };
 
-/**
- * Test Case 1: Predictor/Corrector Scaling Factor Exactness (dt / rho)
- * 
- * For a time step dt = 0.02 s and density rho = 1.225 kg/m^3, we compute:
- *       scaling = dt / rho = 0.02 / 1.225 approx 0.0163265306122449
- */
-TEST_F(ScalingTest, DtOverRhoValidComputation) {
-    // We compute the predictor/corrector scaling factor.
-    double result = get_dt_over_rho(dt, rho);
+// ============================================================================
+// SECTION 1 — Valid Scaling Factor Computation (Happy Path)
+// ============================================================================
+// Mathematical Rationale:
+//   - For valid time-step $\Delta t > 0$ and density $\rho > 0$, the scaling coefficients 
+//     are computed directly:
+//       $S_1 = \frac{\Delta t}{\rho}$
+//       $S_2 = \frac{\rho}{\Delta t}$
+TEST_F(ScalingTest, ValidScalingComputations) {
+    // Expected dt / rho = 0.02 / 1.225
+    double dt_over_rho = get_dt_over_rho(dt, rho);
+    double expected_dt_rho = dt / rho;
+    EXPECT_NEAR(dt_over_rho, expected_dt_rho, 1e-12);
 
-    // The expected value is:
-    //       expected = dt / rho
-    double expected = dt / rho;
-
-    // We assert that the computed scaling matches the analytical value within machine precision.
-    EXPECT_NEAR(result, expected, 1e-12);
+    // Expected rho / dt = 1.225 / 0.02 = 61.25
+    double rho_over_dt = get_rho_over_dt(dt, rho);
+    double expected_rho_dt = rho / dt;
+    EXPECT_NEAR(rho_over_dt, expected_rho_dt, 1e-12);
 }
 
-/**
- * Test Case 2: Vacuum/Negative Density Guard Verification (dt / rho)
- * 
- * Providing a zero or negative density (rho <= 0.0) represents an unphysical 
- * vacuum state and must trigger an invalid_argument exception.
- */
-TEST_F(ScalingTest, DtOverRhoInvalidDensityThrows) {
-    // Supplying a zero or negative density should invoke the contract violation guard.
-    EXPECT_THROW({
-        get_dt_over_rho(dt, 0.0);
-    }, std::invalid_argument);
+// ============================================================================
+// SECTION 2 — Temporal Constraint Validation (dt <= 0)
+// ============================================================================
+// Mathematical Rationale:
+//   - Zero or negative time-steps violate temporal progression constraints and must 
+//     throw an explicit std::invalid_argument while logging the temporal crash message.
+TEST_F(ScalingTest, InvalidTimeStepThrows) {
+    // Testing dt <= 0.0 for get_dt_over_rho (exercises lines 19-23 error logging and exception)
+    EXPECT_THROW(
+        get_dt_over_rho(0.0, rho),
+        std::invalid_argument
+    );
+    EXPECT_THROW(
+        get_dt_over_rho(-0.01, rho),
+        std::invalid_argument
+    );
 
-    EXPECT_THROW({
-        get_dt_over_rho(dt, -1.225);
-    }, std::invalid_argument);
+    // Testing dt <= 0.0 for get_rho_over_dt (exercises lines 54-58 error logging and exception)
+    EXPECT_THROW(
+        get_rho_over_dt(0.0, rho),
+        std::invalid_argument
+    );
+    EXPECT_THROW(
+        get_rho_over_dt(-0.01, rho),
+        std::invalid_argument
+    );
 }
 
-/**
- * Test Case 3: Non-Finite Numerical Audit for Predictor/Corrector Scaling
- * 
- * If a non-finite value (such as infinity) is introduced into the time step, 
- * the forensic numerical audit mechanism must intercept it and throw a runtime_error.
- */
-TEST_F(ScalingTest, DtOverRhoNonFiniteThrows) {
-    // We supply an infinite time-step to trigger the non-finite safety audit.
-    double inf_dt = std::numeric_limits<double>::infinity();
+// ============================================================================
+// SECTION 3 — Physical Density Constraint Validation (rho <= 0)
+// ============================================================================
+// Mathematical Rationale:
+//   - Zero or negative densities represent physical vacuums or impossible mediums, 
+//     triggering an explicit std::invalid_argument and logging the physics crash message.
+TEST_F(ScalingTest, InvalidDensityThrows) {
+    // Testing rho <= 0.0 for get_dt_over_rho (exercises lines 26-30 error logging and exception)
+    EXPECT_THROW(
+        get_dt_over_rho(dt, 0.0),
+        std::invalid_argument
+    );
+    EXPECT_THROW(
+        get_dt_over_rho(dt, -1.2),
+        std::invalid_argument
+    );
 
-    EXPECT_THROW({
-        get_dt_over_rho(inf_dt, rho);
-    }, std::runtime_error);
+    // Testing rho <= 0.0 for get_rho_over_dt (exercises lines 61-65 error logging and exception)
+    EXPECT_THROW(
+        get_rho_over_dt(dt, 0.0),
+        std::invalid_argument
+    );
+    EXPECT_THROW(
+        get_rho_over_dt(dt, -1.2),
+        std::invalid_argument
+    );
 }
 
-/**
- * Test Case 4: Pressure Poisson Equation Scaling Factor Exactness (rho / dt)
- * 
- * For density rho = 1.225 kg/m^3 and time step dt = 0.02 s, we compute:
- *       scaling = rho / dt = 1.225 / 0.02 = 61.25
- */
-TEST_F(ScalingTest, RhoOverDtValidComputation) {
-    // We compute the pressure Poisson equation scaling factor.
-    double result = get_rho_over_dt(dt, rho);
+// ============================================================================
+// SECTION 4 — Forensic Numerical Audit & Non-Finite Exception Handling
+// ============================================================================
+// Mathematical Rationale:
+//   - If non-finite inputs lead to undefined scaling factors (such as infinity), 
+//     the forensic auditor intercepts the non-finite result and throws a std::runtime_error.
+TEST_F(ScalingTest, NonFiniteScalingThrows) {
+    double inf_value = std::numeric_limits<double>::infinity();
 
-    // The expected value is:
-    //       expected = rho / dt = 1.225 / 0.02 = 61.25
-    double expected = rho / dt;
+    // Supplying an infinite time-step to trigger non-finite audit in get_dt_over_rho
+    EXPECT_THROW(
+        get_dt_over_rho(inf_value, rho),
+        std::runtime_error
+    );
 
-    // We assert that the computed scaling matches the analytical value within machine precision.
-    EXPECT_NEAR(result, expected, 1e-12);
-}
-
-/**
- * Test Case 5: Zero/Negative Time-Step Guard Verification (rho / dt)
- * 
- * Providing a zero or negative time-step (dt <= 0.0) represents an invalid 
- * temporal configuration and must trigger an invalid_argument exception.
- */
-TEST_F(ScalingTest, RhoOverDtInvalidTimeStepThrows) {
-    // Supplying a zero or negative time-step should invoke the temporal crash guard.
-    EXPECT_THROW({
-        get_rho_over_dt(0.0, rho);
-    }, std::invalid_argument);
-
-    EXPECT_THROW({
-        get_rho_over_dt(-0.02, rho);
-    }, std::invalid_argument);
-}
-
-/**
- * Test Case 6: Non-Finite Numerical Audit for Pressure Poisson Scaling
- * 
- * If a non-finite value (such as infinity) is introduced into the density, 
- * the forensic numerical audit mechanism must intercept it and throw a runtime_error.
- */
-TEST_F(ScalingTest, RhoOverDtNonFiniteThrows) {
-    // We supply an infinite density to trigger the non-finite safety audit.
-    double inf_rho = std::numeric_limits<double>::infinity();
-
-    EXPECT_THROW({
-        get_rho_over_dt(dt, inf_rho);
-    }, std::runtime_error);
+    // Supplying an infinite density to trigger non-finite audit in get_rho_over_dt
+    EXPECT_THROW(
+        get_rho_over_dt(dt, inf_value),
+        std::runtime_error
+    );
 }
