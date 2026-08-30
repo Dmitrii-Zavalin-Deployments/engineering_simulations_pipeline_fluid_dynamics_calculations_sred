@@ -88,8 +88,8 @@ public:
             throw py::type_error("TYPE ERROR: Attribute casting failed due to invalid type.");
         } catch (const py::error_already_set& e) {
             std::string what = e.what();
-            // If it's already a ValueError or TypeError we threw deliberately, re-throw it as-is
-            if (what.find("ValueError") != std::string::npos || what.find("TypeError") != std::string::npos) {
+            // If it's already a ValueError we threw deliberately, re-throw it as-is
+            if (what.find("ValueError") != std::string::npos) {
                 throw;
             }
             // Otherwise, wrap missing/invalid attribute errors into standard ValueError for test contract compliance
