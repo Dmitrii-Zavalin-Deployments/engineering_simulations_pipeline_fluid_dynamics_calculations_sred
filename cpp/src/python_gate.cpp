@@ -86,13 +86,8 @@ public:
             orchestrator_ = std::make_unique<navier_stokes_solver::NavierStokesOrchestrator>(dims_, config_);
         } catch (const py::cast_error&) {
             throw py::type_error("TYPE ERROR: Attribute casting failed due to invalid type.");
-        } catch (const py::error_already_set& e) {
-            std::string what = e.what();
-            // If it's already a ValueError we threw deliberately, re-throw it as-is
-            if (what.find("ValueError") != std::string::npos) {
-                throw;
-            }
-            // Otherwise, wrap missing/invalid attribute errors into standard ValueError for test contract compliance
+        } catch (const py::error_already_set&) {
+            // Wrap missing/invalid attribute errors into standard ValueError for test contract compliance
             throw py::value_error("STATE CONTRACT ERROR: Missing or invalid attributes in state container.");
         }
     }
