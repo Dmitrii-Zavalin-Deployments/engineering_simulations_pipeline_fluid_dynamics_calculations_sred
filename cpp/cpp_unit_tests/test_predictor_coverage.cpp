@@ -71,7 +71,7 @@ TEST(PredictorCoverageTest, NegativeViscosityThrows) {
 }
 
 // We define a test case to catch numerical instabilities and floating-point explosions 
-// during the forward-Euler temporal integration step.
+// during the forward-Euler temporal integration step via poisoned velocity fields.
 TEST(PredictorCoverageTest, NonFiniteVelocityThrows) {
     navier_stokes_solver::GridDimensions dims{3, 3, 3, 0.1, 0.1, 0.1};
     navier_stokes_solver::FluidProperties fluid{1.0e-3, 1.0};
@@ -80,9 +80,9 @@ TEST(PredictorCoverageTest, NonFiniteVelocityThrows) {
     const size_t total_cells = 27;
     std::vector<double> u(total_cells, 0.0);
     
-    // If an advection or diffusion term diverges to NaN at cell index 13 (center of the 3x3x3 domain),
-    // the parallel reduction flag `has_non_finite` will capture it:
-    //     u_t = u + dt * (-adv + nu * lap + f/rho + g) == NaN => Trigger Panic
+    // Injecting a non-finite value (NAN) at the central cell index 13 ensures 
+    // that the temporal update equation produces a non-finite result:
+    //     u_t = u[idx] + dt * (...) == NaN => Triggers reduction flag and throws std::runtime_error
     u[13] = NAN; 
     
     std::vector<double> v(total_cells, 0.0);
@@ -96,7 +96,44 @@ TEST(PredictorCoverageTest, NonFiniteVelocityThrows) {
     std::vector<double> v_star(total_cells, 0.0);
     std::vector<double> w_star(total_cells, 0.0);
 
-    // Computing trial velocities with a NaN-poisoned field must trigger a runtime panic.
+    // Computing trial velocities with a NaN-poisoned field must trigger the runtime exception guard.
+    EXPECT_THROW(
+        navier_stokes_solver::compute_trial_velocities(
+            dims, fluid, dt,
+            u.data(), v.data(), w.data(),
+            fx.data(), fy.data(), fz.data(),
+            gravity, mask,
+            u_star.data(), v_star.data(), w_star.data()
+        ),
+        std::runtime_error
+    );
+}
+
+// We define an additional test case to ensure that non-finite external body forces 
+// also trigger the runtime exception guard, ensuring full code-path coverage of the non-finite exception block.
+TEST(PredictorCoverageTest, NonFiniteForceThrows) {
+    navier_stokes_solver::GridDimensions dims{3, 3, 3, 0.1, 0.1, 0.1};
+    navier_stokes_solver::FluidProperties fluid{1.0e-3, 1.0};
+    double dt = 0.01;
+
+    const size_t total_cells = 27;
+    std::vector<double> u(total_cells, 0.0);
+    std::vector<double> v(total_cells, 0.0);
+    std::vector<double> w(total_cells, 0.0);
+    std::vector<double> fx(total_cells, 0.0);
+    std::vector<double> fy(total_cells, 0.0);
+    std::vector<double> fz(total_cells, 0.0);
+    
+    // Injecting INFINITY into the body force vector at cell 13
+    fx[13] = INFINITY;
+
+    std::vector<double> gravity = {0.0, 0.0, 0.0};
+    std::vector<int> mask(total_cells, 1);
+    std::vector<double> u_star(total_cells, 0.0);
+    std::vector<double> v_star(total_cells, 0.0);
+    std::vector<double> w_star(total_cells, 0.0);
+
+    // Computing trial velocities with an infinite body force must trigger the runtime exception guard.
     EXPECT_THROW(
         navier_stokes_solver::compute_trial_velocities(
             dims, fluid, dt,
