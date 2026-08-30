@@ -28,7 +28,9 @@
 
 namespace navier_stokes_solver {
 
-TEST(PressurePoissonTest, SolidNeumannBoundaryZeroNormalGradient) {
+// Changed test suite name from PressurePoissonTest to SolidNeumannPressureTest 
+// and test name to ZeroNormalGradient to avoid test name collisions and fixture mismatches.
+TEST(SolidNeumannPressureTest, ZeroNormalGradient) {
     // We define a small 3x3x3 Cartesian grid domain to test local solid Neumann handling.
     const int nx = 3;
     const int ny = 3;

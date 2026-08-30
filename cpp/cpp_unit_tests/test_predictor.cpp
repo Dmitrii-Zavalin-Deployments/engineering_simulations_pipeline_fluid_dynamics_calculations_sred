@@ -133,7 +133,9 @@ TEST_F(PredictorTest, NegativeViscosityThrowsException) {
 
 // Validates Line 55: Strictly positive fluid density exception handling
 TEST_F(PredictorTest, NonPositiveDensityThrowsException) {
-    navier_stokes_solver::FluidProperties bad_fluid{0.0, 0.01};
+    navier_stokes_solver::FluidProperties bad_fluid;
+    bad_fluid.density = 0.0;
+    bad_fluid.nu = 0.01;
     EXPECT_THROW(
         navier_stokes_solver::compute_trial_velocities(
             dims, bad_fluid, dt, u.data(), v.data(), w.data(),
