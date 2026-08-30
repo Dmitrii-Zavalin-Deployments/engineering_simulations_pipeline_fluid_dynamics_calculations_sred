@@ -70,17 +70,17 @@ TEST_F(SimulationPreStepTest, ColdStartAndLocationMatchingCovered) {
     navier_stokes_solver::BoundaryCondition inflow_bc;
     inflow_bc.type = "inflow";
     inflow_bc.location = "x_min";
-    inflow_bc.values = {1.0, 0.5, 0.2, 10.0};
+    inflow_bc.values = {true, 1.0, 0.5, 0.2, 10.0};
 
     navier_stokes_solver::BoundaryCondition wall_bc;
     wall_bc.type = "no-slip";
     wall_bc.location = "wall"; // Triggers lines 19-20 and 30 (is_boundary_cell & matches_location)
-    wall_bc.values = {0.0, 0.0, 0.0, 0.0};
+    wall_bc.values = {true, 0.0, 0.0, 0.0, 0.0};
 
     navier_stokes_solver::BoundaryCondition unknown_bc;
     unknown_bc.type = "pressure";
     unknown_bc.location = "unknown_zone"; // Triggers line 31 (return false in matches_location)
-    unknown_bc.values = {0.0, 0.0, 0.0, 101325.0};
+    unknown_bc.values = {true, 0.0, 0.0, 0.0, 101325.0};
 
     std::vector<navier_stokes_solver::BoundaryCondition> bc_list = {inflow_bc, wall_bc, unknown_bc};
 
@@ -105,13 +105,13 @@ TEST_F(SimulationPreStepTest, FreeSlipInteriorAndPressureBCCovered) {
     navier_stokes_solver::BoundaryCondition free_slip_bc;
     free_slip_bc.type = "free-slip";
     free_slip_bc.location = "x_min";
-    free_slip_bc.values = {0.0, 1.5, 0.0, 0.0};
+    free_slip_bc.values = {true, 0.0, 1.5, 0.0, 0.0};
 
     // Pressure BC to hit line 166
     navier_stokes_solver::BoundaryCondition pressure_bc;
     pressure_bc.type = "pressure";
     pressure_bc.location = "z_max";
-    pressure_bc.values = {0.0, 0.0, 0.0, 101325.0};
+    pressure_bc.values = {true, 0.0, 0.0, 0.0, 101325.0};
 
     std::vector<navier_stokes_solver::BoundaryCondition> bc_list = {free_slip_bc, pressure_bc};
 
