@@ -27,7 +27,7 @@ protected:
 // Validates mask size mismatch contract violation exception (Lines 44-46)
 TEST_F(RhieChowTest, MaskSizeMismatchThrowsException) {
     navier_stokes_solver::RhieChowInterpolator interpolator;
-    navier_stokes_solver::GridConfig config{3, 3, 3, 1.0, 1.0, 1.0};
+    navier_stokes_solver::RhieChowInterpolator::GridConfig config{3, 3, 3, 1.0, 1.0, 1.0};
     
     size_t total_cells = 27;
     std::vector<double> u(total_cells, 0.0);
@@ -57,7 +57,7 @@ TEST_F(RhieChowTest, MaskSizeMismatchThrowsException) {
 TEST_F(RhieChowTest, XFaceInterpolationBranchesCovered) {
     navier_stokes_solver::RhieChowInterpolator interpolator;
     int nx = 5, ny = 5, nz = 5;
-    navier_stokes_solver::GridConfig config{nx, ny, nz, 1.0, 1.0, 1.0};
+    navier_stokes_solver::RhieChowInterpolator::GridConfig config{nx, ny, nz, 1.0, 1.0, 1.0};
     
     size_t total_cells = static_cast<size_t>(nx * ny * nz);
     std::vector<double> u(total_cells, 1.0);
@@ -105,7 +105,7 @@ TEST_F(RhieChowTest, XFaceInterpolationBranchesCovered) {
 TEST_F(RhieChowTest, YAndZFaceInterpolationBranchesCovered) {
     navier_stokes_solver::RhieChowInterpolator interpolator;
     int nx = 4, ny = 4, nz = 4;
-    navier_stokes_solver::GridConfig config{nx, ny, nz, 1.0, 1.0, 1.0};
+    navier_stokes_solver::RhieChowInterpolator::GridConfig config{nx, ny, nz, 1.0, 1.0, 1.0};
     
     size_t total_cells = static_cast<size_t>(nx * ny * nz);
     std::vector<double> u(total_cells, 0.5);
