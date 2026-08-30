@@ -16,10 +16,6 @@
 
 namespace navier_stokes_solver {
 
-inline bool is_boundary_cell(int i, int j, int k, int nx, int ny, int nz) {
-    return (i == 0 || i == nx - 1 || j == 0 || j == ny - 1 || k == 0 || k == nz - 1);
-}
-
 inline bool matches_location(int i, int j, int k, int nx, int ny, int nz, const std::string& location) {
     if (location == "x_min") return i == 0;
     if (location == "x_max") return i == nx - 1;
@@ -27,7 +23,6 @@ inline bool matches_location(int i, int j, int k, int nx, int ny, int nz, const 
     if (location == "y_max") return j == ny - 1;
     if (location == "z_min") return k == 0;
     if (location == "z_max") return k == nz - 1;
-    if (location == "wall")  return is_boundary_cell(i, j, k, nx, ny, nz);
     return false;
 }
 
