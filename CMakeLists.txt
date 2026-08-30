@@ -66,3 +66,24 @@ target_link_libraries(unit_tests
 )
 
 add_test(NAME UnitTests COMMAND unit_tests)
+
+# ---------------------------------------------------------------------------
+# 4. Python Pybind11 Extension Module Target (`navier_stokes_cpp`)
+# ---------------------------------------------------------------------------
+file(GLOB ALL_CPP_SOURCES "cpp/src/*.cpp") # Includes python_gate.cpp
+
+pybind11_add_module(navier_stokes_cpp MODULE ${ALL_CPP_SOURCES})
+
+# Force the compiled module output directly into the repository root directory
+# so that Python's sys.path can discover and import it natively.
+set_target_properties(navier_stokes_cpp PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    LIBRARY_OUTPUT_DIRECTORY_DEBUG "${CMAKE_CURRENT_SOURCE_DIR}"
+    LIBRARY_OUTPUT_DIRECTORY_RELEASE "${CMAKE_CURRENT_SOURCE_DIR}"
+)
+
+target_link_libraries(navier_stokes_cpp 
+    PRIVATE 
+        navier_stokes_core 
+        OpenMP::OpenMP_CXX
+)
