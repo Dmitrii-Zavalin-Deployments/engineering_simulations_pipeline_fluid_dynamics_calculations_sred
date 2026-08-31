@@ -11,10 +11,9 @@ import zipfile
 from pathlib import Path
 
 import numpy as np
-import pytest
 
 # Module under test
-from src.main import main, run_simulation
+from src.main import main
 
 
 def test_integration_constant_flow_pipeline(workspace_folder, monkeypatch):
