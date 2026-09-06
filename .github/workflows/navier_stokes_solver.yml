@@ -62,49 +62,49 @@ jobs:
           # libgl1 replaces the deprecated libgl1-mesa-glx on Ubuntu 24.04+
           sudo apt-get install -y libgl1 xvfb libglu1-mesa
 
-      # - name: 🧪 Execute C++, Python Bridge Tests, and Coverage
-      #   run: |
-      #     echo "🧪 Configuring OpenMP stack size for multi-threaded stability..."
-      #     export OMP_STACKSIZE=64M
+      - name: 🧪 Execute C++, Python Bridge Tests, and Coverage
+        run: |
+          echo "🧪 Configuring OpenMP stack size for multi-threaded stability..."
+          export OMP_STACKSIZE=64M
 
-      #     # ==========================================
-      #     # PHASE 1: ASan Debugging Run (Memory Audit)
-      #     # ==========================================
-      #     echo "⚙️ [PHASE 1/4] Configuring CMake with AddressSanitizer (ASan) enabled for rigorous memory debugging..."
-      #     cmake -B build -S . \
-      #         -DCMAKE_BUILD_TYPE=Debug \
-      #         -DENABLE_ASAN=ON \
-      #         -DENABLE_COVERAGE=OFF
+          # ==========================================
+          # PHASE 1: ASan Debugging Run (Memory Audit)
+          # ==========================================
+          echo "⚙️ [PHASE 1/4] Configuring CMake with AddressSanitizer (ASan) enabled for rigorous memory debugging..."
+          cmake -B build -S . \
+              -DCMAKE_BUILD_TYPE=Debug \
+              -DENABLE_ASAN=ON \
+              -DENABLE_COVERAGE=OFF
 
-      #     cmake --build build --parallel $(nproc)
+          cmake --build build --parallel $(nproc)
 
-      #     # echo "🔬 [PHASE 1/4] Preloading libasan and executing CanonicalFlowsTest via CTest (Debug & Memory Audit Run)..."
-      #     # export LD_PRELOAD=$(g++ -print-file-name=libasan.so)
-      #     # cd build
-      #     # ctest -R PredictorTest --output-on-failure -V
-      #     # cd ..
-      #     # unset LD_PRELOAD
+          # echo "🔬 [PHASE 1/4] Preloading libasan and executing CanonicalFlowsTest via CTest (Debug & Memory Audit Run)..."
+          # export LD_PRELOAD=$(g++ -print-file-name=libasan.so)
+          # cd build
+          # ctest -R PredictorTest --output-on-failure -V
+          # cd ..
+          # unset LD_PRELOAD
 
-      #     echo "🔬 [PHASE 1/4] Preloading libasan and executing C++ Test Suites via CTest (Debug & Memory Audit Run)..."
-      #     export LD_PRELOAD=$(g++ -print-file-name=libasan.so)
-      #     cd build
-      #     ctest --output-on-failure -V 2>&1 | tee ../test_detail.log || true
-      #     cd ..
-      #     unset LD_PRELOAD
+          echo "🔬 [PHASE 1/4] Preloading libasan and executing C++ Test Suites via CTest (Debug & Memory Audit Run)..."
+          export LD_PRELOAD=$(g++ -print-file-name=libasan.so)
+          cd build
+          ctest --output-on-failure -V 2>&1 | tee ../test_detail.log || true
+          cd ..
+          unset LD_PRELOAD
 
-      #     # ==========================================
-      #     # PHASE 2: Clean Re-build for Coverage (ASan OFF, Coverage ON)
-      #     # ==========================================
-      #     echo "⚙️ [PHASE 2/4] Re-configuring CMake with ASan disabled and Coverage enabled for reporting..."
-      #     # Purge stale or incompatible .gcda counters from the ASan build
-      #     find build -name "*.gcda" -delete
+          # ==========================================
+          # PHASE 2: Clean Re-build for Coverage (ASan OFF, Coverage ON)
+          # ==========================================
+          echo "⚙️ [PHASE 2/4] Re-configuring CMake with ASan disabled and Coverage enabled for reporting..."
+          # Purge stale or incompatible .gcda counters from the ASan build
+          find build -name "*.gcda" -delete
 
-      #     cmake -B build -S . \
-      #         -DCMAKE_BUILD_TYPE=Debug \
-      #         -DENABLE_ASAN=OFF \
-      #         -DENABLE_COVERAGE=ON
+          cmake -B build -S . \
+              -DCMAKE_BUILD_TYPE=Debug \
+              -DENABLE_ASAN=OFF \
+              -DENABLE_COVERAGE=ON
           
-      #     cmake --build build --parallel $(nproc)
+          cmake --build build --parallel $(nproc)
 
       #     # ==========================================
       #     # PHASE 3: Execution Run for Coverage (CTest & Pytest)
