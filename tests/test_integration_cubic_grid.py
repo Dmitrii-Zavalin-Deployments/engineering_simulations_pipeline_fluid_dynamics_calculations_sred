@@ -1,8 +1,10 @@
 """
-tests/test_integration_cubic_grid.py
 Unified End-to-End Integration Test for Navier-Stokes Execution Engine (Cubic Grid).
-Executes unmocked CLI main entrypoint and validates ingestion configuration,
-solver execution, state integrity, field drift/parity, archivist output artifacts,
+
+This test module serves as a narrative document and verification suite for the full 
+unmocked pipeline, executing ingestion, C++ core solvers, and archivist artifact packaging.
+Explanatory text and physical equations are written as commented prose, while executable
+Python assertions verify ingestion configuration, solver execution, state integrity, field drift/parity,
 and Pybind11 C++/Python memory bridge pointer preservation on a 4x4x4 cubic grid.
 """
 
@@ -13,6 +15,18 @@ import zipfile
 from pathlib import Path
 
 import numpy as np
+
+
+# ============================================================================
+# NARRATIVE SECTION 1: Full Pipeline CLI End-to-End Execution
+# ============================================================================
+# The Navier-Stokes system ingests spatial grid bounds and boundary condition parameters,
+# allocating a 4x4x4 discrete Cartesian volume:
+#     V = nx * ny * nz = 4 * 4 * 4 = 64 cells
+# 
+# External forces and initial velocity vectors drive momentum evolution equations through
+# the C++ core engine prior to packaging binary NumPy array snapshots into an output ZIP archive.
+# ============================================================================
 
 
 def test_main_full_pipeline_cubic_4x4x4(workspace_folder, monkeypatch):
@@ -105,6 +119,14 @@ def test_main_full_pipeline_cubic_4x4x4(workspace_folder, monkeypatch):
             assert np.max(np.abs(array_data)) > 0.0, f"CRITICAL ERROR: {snapshot} is identically zero."
 
 
+# ============================================================================
+# NARRATIVE SECTION 2: Python-C++ State Parity Verification
+# ============================================================================
+# Zero-drift validation checks that the in-memory numpy array buffers bound via
+# Pybind11 match the serialized binary snapshots archived on disk.
+# ============================================================================
+
+
 def test_python_cpp_field_state_parity_cubic(workspace_folder):
     """
     Verifies zero-drift parity between Python SolverState in-memory numpy fields
@@ -153,6 +175,15 @@ def test_python_cpp_field_state_parity_cubic(workspace_folder):
                 archived_array,
                 err_msg=f"Memory/Disk drift detected for field {name}!",
             )
+
+
+# ============================================================================
+# NARRATIVE SECTION 3: Pybind11 Memory Bridge Pointer Preservation
+# ============================================================================
+# C++ integration relies on zero-copy memory views where field memory pointers 
+# remain invariant across simulation time-stepping steps:
+#     ptr_pre == ptr_post
+# ============================================================================
 
 
 def test_pybind11_memory_bridge_cubic(workspace_folder):
