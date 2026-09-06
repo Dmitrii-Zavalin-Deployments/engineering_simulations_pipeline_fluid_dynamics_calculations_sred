@@ -12,8 +12,14 @@ import pytest
 
 @pytest.fixture
 def valid_input_data():
-    """Returns a valid 3x3x3 domain input configuration dictionary for manual inspection."""
-    nx, ny, nz = 3, 3, 3
+    """
+    We define the grid dimensions for a 3D computational fluid dynamics domain.
+    To satisfy schema constraints requiring a minimum of 4 cells along each grid axis,
+    we set nx, ny, and nz to 4.
+    """
+    nx, ny, nz = 4, 4, 4
+    
+    # We construct and return the baseline input configuration dictionary.
     return {
         "physical_constraints": {
             "min_velocity": -10.0,
@@ -67,8 +73,8 @@ def valid_input_data():
 @pytest.fixture
 def workspace_folder(tmp_path, valid_input_data):
     """
-    Creates an input/output workspace folder containing input JSON files
-    and mirrors the production config/config.json to satisfy CLI requirements.
+    We create an isolated temporary input/output workspace folder containing input JSON files
+    and mirror the production configuration to satisfy CLI requirements.
     """
     io_folder = tmp_path / "io_workspace"
     io_folder.mkdir(parents=True, exist_ok=True)
@@ -79,11 +85,11 @@ def workspace_folder(tmp_path, valid_input_data):
     input_path = io_folder / input_file_name
     config_path = io_folder / config_file_name
 
-    # Write valid input data
+    # We write the valid simulation input configuration to disk.
     with open(input_path, "w", encoding="utf-8") as f:
         json.dump(valid_input_data, f)
 
-    # Dynamically load and mirror the production configuration file
+    # We locate and mirror the production configuration file from candidate paths.
     prod_config_candidates = [
         os.path.join(os.path.dirname(__file__), "..", "config", "config.json"),
         "config/config.json",
@@ -99,6 +105,7 @@ def workspace_folder(tmp_path, valid_input_data):
     if prod_config is None:
         raise FileNotFoundError("Critical: Production config/config.json not found for test workspace synchronization.")
 
+    # We output the mirrored configuration file into the test workspace.
     with open(config_path, "w", encoding="utf-8") as f:
         json.dump(prod_config, f)
 
