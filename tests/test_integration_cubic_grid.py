@@ -45,7 +45,7 @@ def test_main_full_pipeline_cubic_4x4x4(workspace_folder, monkeypatch):
         input_json_data = json.load(f)
 
     input_json_data["grid"].update({"nx": 4, "ny": 4, "nz": 4})
-    input_json_data["mask"] = [0] * 64  # 4 x 4 x 4 = 64 cells
+    input_json_data["mask"] = [1] * 64  # 4 x 4 x 4 = 64 cells
     input_json_data["external_forces"]["force_vector"] = [1.0, 1.0, 1.0]
     input_json_data["initial_conditions"]["velocity"] = [0.1, 0.1, 0.1]
     input_json_data["boundary_conditions"] = [{"location": "x_min", "type": "pressure", "values": {"p": 10.0}}]
@@ -143,7 +143,7 @@ def test_python_cpp_field_state_parity_cubic(workspace_folder):
 
     input_data, config_data = load_and_validate_inputs(input_path, Path(folder) / "config.json")
     input_data["grid"].update({"nx": 4, "ny": 4, "nz": 4})
-    input_data["mask"] = [0] * 64
+    input_data["mask"] = [1] * 64
     input_data["external_forces"]["force_vector"] = [1.0, 1.0, 1.0]
     input_data["initial_conditions"]["velocity"] = [0.1, 0.1, 0.1]
     input_data["boundary_conditions"] = [{"location": "x_min", "type": "pressure", "values": {"p": 10.0}}]
@@ -200,7 +200,7 @@ def test_pybind11_memory_bridge_cubic(workspace_folder):
 
     input_data, config_data = load_and_validate_inputs(input_path, Path(folder) / "config.json")
     input_data["grid"].update({"nx": 4, "ny": 4, "nz": 4})
-    input_data["mask"] = [0] * 64
+    input_data["mask"] = [1] * 64
     input_data["external_forces"]["force_vector"] = [1.0, 2.0, 1.5]
     input_data["initial_conditions"]["velocity"] = [0.2, -0.1, 0.3]
     input_data["boundary_conditions"] = [{"location": "x_min", "type": "pressure", "values": {"p": 5.0}}]
