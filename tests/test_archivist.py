@@ -1,6 +1,6 @@
 """
-@file test_archivist.py
-@brief Literate Test Suite for the Archivist Module
+test_archivist.py
+Literate Test Suite for the Archivist Module
 
 This test file serves as a narrative document and verification suite for src/archivist.py.
 Explanatory text and physical/structural formulas are written as commented prose, while

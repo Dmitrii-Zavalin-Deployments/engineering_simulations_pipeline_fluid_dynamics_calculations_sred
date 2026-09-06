@@ -1,6 +1,6 @@
 """
-@file test_state.py
-@brief Literate Test Suite for Core State Container Module (src/state.py)
+test_state.py
+Literate Test Suite for Core State Container Module (src/state.py)
 
 This test module serves as a narrative document and verification suite for src/state.py.
 Explanatory text and physical discretization formulas are written as commented prose,

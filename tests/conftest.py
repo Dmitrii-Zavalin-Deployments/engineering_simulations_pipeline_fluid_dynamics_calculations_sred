@@ -1,5 +1,5 @@
 """
-tests/conftest.py
+conftest.py
 Pytest fixtures providing test data and workspace directories for CLI-driven integration tests,
 dynamically syncing configuration data directly from production config/config.json.
 """
