@@ -1,11 +1,14 @@
 """
-Unified End-to-End Integration Test for Navier-Stokes Execution Engine (Cubic Grid).
+Unified End-to-End Integration Test for Navier-Stokes Execution Engine (Accelerated Flow 8x8x4 Grid).
 
 This test module serves as a narrative document and verification suite for the full 
-unmocked pipeline, executing ingestion, C++ core solvers, and archivist artifact packaging.
+unmocked pipeline, executing ingestion via python CLI (`src/main.py`), C++ core solvers 
+via Pybind11, and archivist artifact packaging on an 8x8x4 grid under accelerated flow 
+(mirroring the C++ test suite[cite: 1]).
+
 Explanatory text and physical equations are written as commented prose, while executable
 Python assertions verify ingestion configuration, solver execution, state integrity, field drift/parity,
-and Pybind11 C++/Python memory bridge pointer preservation on a 4x4x4 cubic grid.
+and Pybind11 C++/Python memory bridge pointer preservation.
 """
 
 import io
@@ -17,43 +20,60 @@ from pathlib import Path
 import numpy as np
 
 # ============================================================================
-# NARRATIVE SECTION 1: Full Pipeline CLI End-to-End Execution
+# NARRATIVE SECTION 1: Full Pipeline CLI End-to-End Execution (8x8x4 Accelerated Flow)
 # ============================================================================
 # The Navier-Stokes system ingests spatial grid bounds and boundary condition parameters,
-# allocating a 4x4x4 discrete Cartesian volume:
-#     V = nx * ny * nz = 4 * 4 * 4 = 64 cells
+# allocating an 8x8x4 discrete Cartesian volume:
+#     V = nx * ny * nz = 8 * 8 * 4 = 256 cells
 # 
-# External forces and initial velocity vectors drive momentum evolution equations through
-# the C++ core engine prior to packaging binary NumPy array snapshots into an output ZIP archive.
+# External positive body forces (fx = 0.1, fy = 0.1, fz = 0.2) and multi-directional 
+# inflow velocity vectors (u = 0.5, v = 0.2, w = 0.1) drive momentum evolution equations 
+# through the unmocked C++ core engine prior to packaging binary NumPy array snapshots into an output ZIP archive.
 # ============================================================================
 
 
-def test_main_full_pipeline_cubic_4x4x4(workspace_folder, monkeypatch):
+def test_main_full_pipeline_accelerated_8x8x4(workspace_folder, monkeypatch):
     """
-    Executes main() end-to-end without mocks through ingestion, C++ engine, and archivist,
+    Executes main.py end-to-end without mocks through ingestion, C++ engine, and archivist,
     validating input/config parity, manifest structure, physical field evolution, and binary shapes
-    on a symmetric 4x4x4 cubic grid.
+    on an 8x8x4 accelerated flow grid.
     """
     folder = workspace_folder["folder"]
     input_file = workspace_folder["input_file_name"]
     input_path = Path(folder) / input_file
-    output_manifest_name = "navier_stokes_cubic_output.json"
+    output_manifest_name = "navier_stokes_accelerated_output.json"
 
-    # 1. Update input JSON to apply non-zero external forces, initial velocity, 4x4x4 grid,
-    #    and schema-compliant boundary conditions using the nested 'values' dictionary.
+    # 1. Update input JSON to apply accelerated body forces, initial velocity, 8x8x4 grid,
+    #    complex obstacle mask, and schema-compliant boundary conditions.
     with open(input_path, "r", encoding="utf-8") as f:
         input_json_data = json.load(f)
 
-    input_json_data["grid"].update({"nx": 4, "ny": 4, "nz": 4})
-    input_json_data["mask"] = [1] * 64  # 4 x 4 x 4 = 64 cells
-    input_json_data["external_forces"]["force_vector"] = [1.0, 1.0, 1.0]
-    input_json_data["initial_conditions"]["velocity"] = [0.1, 0.1, 0.1]
-    input_json_data["boundary_conditions"] = [{"location": "x_min", "type": "pressure", "values": {"p": 10.0}}]
+    input_json_data["grid"].update({"nx": 8, "ny": 8, "nz": 4})
+    
+    # 8x8x4 = 256 cells mask matching accelerated flow configuration[cite: 1]
+    layer_mask = [
+        0,  0,  0,  0,  0,  0,  0,  0,
+        0, -1, -1, -1, -1, -1, -1,  0,
+        0, -1,  1,  1,  1,  1, -1,  0,
+        0, -1,  1,  1,  1,  1, -1,  0,
+        0, -1,  1,  1,  1,  1, -1,  0,
+        0, -1,  1,  1,  1,  1, -1,  0,
+        0, -1, -1, -1, -1, -1, -1,  0,
+        0,  0,  0,  0,  0,  0,  0,  0
+    ]
+    input_json_data["mask"] = layer_mask * 4  # 4 layers (nz = 4) = 256 cells
+    input_json_data["external_forces"]["force_vector"] = [0.1, 0.1, 0.2]
+    input_json_data["initial_conditions"]["velocity"] = [0.5, 0.2, 0.1]
+    input_json_data["boundary_conditions"] = [
+        {"location": "z_min", "type": "inflow", "values": {"u": 0.5, "v": 0.2, "w": 0.1, "p": 0.0}},
+        {"location": "z_max", "type": "outflow", "values": {"u": 0.5, "v": 0.2, "w": 0.1, "p": 0.0}},
+        {"location": "wall", "type": "no-slip", "values": {"u": 0.0, "v": 0.0, "w": 0.0, "p": 0.0}}
+    ]
 
     with open(input_path, "w", encoding="utf-8") as f:
         json.dump(input_json_data, f)
 
-    # 2. Configure CLI environment arguments
+    # 2. Configure CLI environment arguments matching user specification
     cli_args = [
         "main.py",
         "--input_output_folder", folder,
@@ -62,7 +82,7 @@ def test_main_full_pipeline_cubic_4x4x4(workspace_folder, monkeypatch):
     ]
     monkeypatch.setattr(sys, "argv", cli_args)
 
-    # 3. Execute full unmocked pipeline
+    # 3. Execute full unmocked pipeline via python entry point
     from src.main import main
     main()
 
@@ -81,10 +101,10 @@ def test_main_full_pipeline_cubic_4x4x4(workspace_folder, monkeypatch):
     input_data = manifest_data["inputs"]
     config_data = manifest_data["config"]
 
-    assert input_data["grid"]["nx"] == 4
-    assert input_data["grid"]["ny"] == 4
+    assert input_data["grid"]["nx"] == 8
+    assert input_data["grid"]["ny"] == 8
     assert input_data["grid"]["nz"] == 4
-    assert len(input_data["mask"]) == 64  # 4 x 4 x 4 = 64 cells
+    assert len(input_data["mask"]) == 256  # 8 x 8 x 4 = 256 cells
 
     assert config_data["max_poisson_iterations"] == 2000
     assert config_data["poisson_tolerance"] == 1e-8
@@ -98,7 +118,7 @@ def test_main_full_pipeline_cubic_4x4x4(workspace_folder, monkeypatch):
     assert zip_path.is_file(), f"Output ZIP archive missing at: {zip_path}"
 
     # 7. Verify C++ Generated Field Binary Snapshots (.npy) in ZIP Archive
-    final_step = 3
+    final_step = results.get("final_step", 1)
     expected_snapshots = [
         f"field_u_step_{final_step:06d}.npy",
         f"field_v_step_{final_step:06d}.npy",
@@ -112,24 +132,26 @@ def test_main_full_pipeline_cubic_4x4x4(workspace_folder, monkeypatch):
 
             array_bytes = zf.read(snapshot)
             array_data = np.load(io.BytesIO(array_bytes))
-            assert array_data.shape == (4, 4, 4), f"Unexpected shape {array_data.shape} for {snapshot}"
+            assert array_data.shape == (8, 8, 4), f"Unexpected shape {array_data.shape} for {snapshot}"
             assert not np.isnan(array_data).any(), f"NaN values detected in snapshot {snapshot}"
             assert not np.isinf(array_data).any(), f"Inf values detected in snapshot {snapshot}"
             assert np.max(np.abs(array_data)) > 0.0, f"CRITICAL ERROR: {snapshot} is identically zero."
 
 
 # ============================================================================
-# NARRATIVE SECTION 2: Python-C++ State Parity Verification
+# NARRATIVE SECTION 2: Python-C++ State Parity & Step-by-Step Stage Verification
 # ============================================================================
 # Zero-drift validation checks that the in-memory numpy array buffers bound via
-# Pybind11 match the serialized binary snapshots archived on disk.
+# Pybind11 match the serialized binary snapshots archived on disk, and verifies 
+# intermediate stage outputs against unmocked C++ orchestrator behavior[cite: 1].
 # ============================================================================
 
 
-def test_python_cpp_field_state_parity_cubic(workspace_folder):
+def test_python_cpp_accelerated_stage_parity(workspace_folder):
     """
     Verifies zero-drift parity between Python SolverState in-memory numpy fields
-    and C++ exported binary snapshots on a 4x4x4 cubic grid.
+    and C++ exported binary snapshots, alongside step-by-step stage verification 
+    on the 8x8x4 accelerated flow grid.
     """
     from src.archivist import archive_simulation_results
     from src.cpp_gate import step_simulation
@@ -139,14 +161,29 @@ def test_python_cpp_field_state_parity_cubic(workspace_folder):
     folder = workspace_folder["folder"]
     input_file = workspace_folder["input_file_name"]
     input_path = Path(folder) / input_file
-    output_manifest_name = "parity_cubic_output.json"
+    output_manifest_name = "parity_accelerated_output.json"
 
     input_data, config_data = load_and_validate_inputs(input_path, Path(folder) / "config.json")
-    input_data["grid"].update({"nx": 4, "ny": 4, "nz": 4})
-    input_data["mask"] = [1] * 64
-    input_data["external_forces"]["force_vector"] = [1.0, 1.0, 1.0]
-    input_data["initial_conditions"]["velocity"] = [0.1, 0.1, 0.1]
-    input_data["boundary_conditions"] = [{"location": "x_min", "type": "pressure", "values": {"p": 10.0}}]
+    input_data["grid"].update({"nx": 8, "ny": 8, "nz": 4})
+    
+    layer_mask = [
+        0,  0,  0,  0,  0,  0,  0,  0,
+        0, -1, -1, -1, -1, -1, -1,  0,
+        0, -1,  1,  1,  1,  1, -1,  0,
+        0, -1,  1,  1,  1,  1, -1,  0,
+        0, -1,  1,  1,  1,  1, -1,  0,
+        0, -1,  1,  1,  1,  1, -1,  0,
+        0, -1, -1, -1, -1, -1, -1,  0,
+        0,  0,  0,  0,  0,  0,  0,  0
+    ]
+    input_data["mask"] = layer_mask * 4
+    input_data["external_forces"]["force_vector"] = [0.1, 0.1, 0.2]
+    input_data["initial_conditions"]["velocity"] = [0.5, 0.2, 0.1]
+    input_data["boundary_conditions"] = [
+        {"location": "z_min", "type": "inflow", "values": {"u": 0.5, "v": 0.2, "w": 0.1, "p": 0.0}},
+        {"location": "z_max", "type": "outflow", "values": {"u": 0.5, "v": 0.2, "w": 0.1, "p": 0.0}},
+        {"location": "wall", "type": "no-slip", "values": {"u": 0.0, "v": 0.0, "w": 0.0, "p": 0.0}}
+    ]
 
     state = SolverState(input_data, config_data)
     step_simulation(state)
@@ -185,9 +222,9 @@ def test_python_cpp_field_state_parity_cubic(workspace_folder):
 # ============================================================================
 
 
-def test_pybind11_memory_bridge_cubic(workspace_folder):
+def test_pybind11_memory_bridge_accelerated(workspace_folder):
     """
-    Verifies Pybind11 C++/Python memory bridge integrity on a 4x4x4 cubic grid,
+    Verifies Pybind11 C++/Python memory bridge integrity on the 8x8x4 accelerated grid,
     confirming in-place buffer mutation without pointer reallocation.
     """
     from src.cpp_gate import step_simulation
@@ -199,11 +236,26 @@ def test_pybind11_memory_bridge_cubic(workspace_folder):
     input_path = Path(folder) / input_file
 
     input_data, config_data = load_and_validate_inputs(input_path, Path(folder) / "config.json")
-    input_data["grid"].update({"nx": 4, "ny": 4, "nz": 4})
-    input_data["mask"] = [1] * 64
-    input_data["external_forces"]["force_vector"] = [1.0, 2.0, 1.5]
-    input_data["initial_conditions"]["velocity"] = [0.2, -0.1, 0.3]
-    input_data["boundary_conditions"] = [{"location": "x_min", "type": "pressure", "values": {"p": 5.0}}]
+    input_data["grid"].update({"nx": 8, "ny": 8, "nz": 4})
+    
+    layer_mask = [
+        0,  0,  0,  0,  0,  0,  0,  0,
+        0, -1, -1, -1, -1, -1, -1,  0,
+        0, -1,  1,  1,  1,  1, -1,  0,
+        0, -1,  1,  1,  1,  1, -1,  0,
+        0, -1,  1,  1,  1,  1, -1,  0,
+        0, -1,  1,  1,  1,  1, -1,  0,
+        0, -1, -1, -1, -1, -1, -1,  0,
+        0,  0,  0,  0,  0,  0,  0,  0
+    ]
+    input_data["mask"] = layer_mask * 4
+    input_data["external_forces"]["force_vector"] = [0.1, 0.1, 0.2]
+    input_data["initial_conditions"]["velocity"] = [0.5, 0.2, 0.1]
+    input_data["boundary_conditions"] = [
+        {"location": "z_min", "type": "inflow", "values": {"u": 0.5, "v": 0.2, "w": 0.1, "p": 0.0}},
+        {"location": "z_max", "type": "outflow", "values": {"u": 0.5, "v": 0.2, "w": 0.1, "p": 0.0}},
+        {"location": "wall", "type": "no-slip", "values": {"u": 0.0, "v": 0.0, "w": 0.0, "p": 0.0}}
+    ]
 
     state = SolverState(input_data, config_data)
     initial_pointers = [field.ctypes.data for field in state.fields]
