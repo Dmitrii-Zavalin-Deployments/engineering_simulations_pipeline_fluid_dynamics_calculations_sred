@@ -16,7 +16,6 @@ from pathlib import Path
 
 import numpy as np
 
-
 # ============================================================================
 # NARRATIVE SECTION 1: Full Pipeline CLI End-to-End Execution
 # ============================================================================
